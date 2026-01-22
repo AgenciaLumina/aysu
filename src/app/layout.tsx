@@ -39,7 +39,7 @@ const dancingScript = Dancing_Script({
 // Metadados SEO
 export const metadata: Metadata = {
   title: {
-    default: 'Aysú Beach Lounge | Maior Beach Club do Litoral Norte SP',
+    default: 'Aysú Beach Lounge | O Melhor Beach Club do Litoral Norte SP',
     template: '%s | Aysú Beach Lounge',
   },
   description: 'Day use com consumação, piscina, hidromassagem, lounges premium e gastronomia caiçara. Pé na areia em Massaguaçu, Caraguatatuba-SP.',
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'Aysú Beach Lounge' }],
   openGraph: {
     title: 'Aysú Beach Lounge',
-    description: 'Maior Beach Club do Litoral Norte de São Paulo',
+    description: 'O Melhor Beach Club do Litoral Norte de São Paulo',
     type: 'website',
     locale: 'pt_BR',
     siteName: 'Aysú Beach Lounge',
