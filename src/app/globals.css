@@ -1,26 +1,323 @@
 @import "tailwindcss";
 
+/* AISSU Beach Lounge - Design System */
+/* Identidade Visual baseada em @aysu_beachlounge (Instagram) */
+/* Mood: "Tropical Luxury" - Elegância com casualidade praiana */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cores Primárias - Paleta Refinada (Instagram-aligned) */
+  --aissu-nude-light: #F5E6D3;
+  /* Soft beige para fundos suaves */
+  --aissu-sand: #D4A574;
+  /* Sandy Beige - Primary brand color */
+  --aissu-terra: #BC8E5E;
+  /* Medium terracotta */
+  --aissu-chocolate: #5C3D2E;
+  /* Earthy Brown - Textos principais */
+  --aissu-wood: #8A5C3F;
+  /* Wood tone - secundário */
+
+  /* Cores de Acento - Instagram Highlights */
+  --aissu-sunset: #E8A856;
+  /* Sunset Gold - CTAs, warmth */
+  --aissu-gold: #F4C430;
+  /* Tropical Yellow - highlights */
+  --aissu-coastal: #4A90A4;
+  /* Coastal Blue - contraste, info */
+
+  /* Cores de Fundo */
+  --aissu-cream: #FAF7F2;
+  /* Cream White - fundo principal */
+  --aissu-white: #FFFFFF;
+  /* Pure white */
+
+  /* Cores de Texto */
+  --aissu-text: #2E1E16;
+  /* Chocolate escuro para texto */
+  --aissu-text-muted: #8A5C3F;
+  /* Wood tone para textos secundários */
+  --aissu-text-light: #FFFFFF;
+  /* Texto branco para fundos escuros */
+
+  /* Cores de Borda */
+  --aissu-border: #E0D5C7;
+  /* Border suave */
+  --aissu-border-light: #F0EBE3;
+  /* Border extra leve */
+
+  /* Cores de Status */
+  --aissu-success: #4CAF50;
+  --aissu-error: #D84315;
+  /* Terracotta vermelho */
+  --aissu-warning: #FF9800;
+  --aissu-info: var(--aissu-coastal);
+
+  /* Overlays */
+  --overlay-dark: rgba(46, 30, 22, 0.75);
+  --overlay-light: rgba(250, 247, 242, 0.85);
+
+  /* Variáveis de Layout */
+  --background: var(--aissu-cream);
+  --foreground: var(--aissu-text);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Tipografia Profissional - Instagram-aligned */
+  --font-sans: var(--font-montserrat, 'Montserrat'), ui-sans-serif, system-ui, sans-serif;
+  --font-sans-alt: var(--font-poppins, 'Poppins'), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-crimson, 'Crimson Pro'), ui-serif, Georgia, serif;
+  --font-display: var(--font-crimson, 'Crimson Pro'), ui-serif, Georgia, serif;
+  --font-script: var(--font-dancing, 'Dancing Script'), cursive;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Reset e Base */
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--aissu-chocolate);
+  letter-spacing: -0.02em;
+}
+
+/* Override para headings em fundos escuros */
+.text-white h1,
+.text-white h2,
+.text-white h3,
+.text-white h4,
+.text-white h5,
+.text-white h6,
+h1.text-white,
+h2.text-white,
+h3.text-white,
+h4.text-white,
+h5.text-white,
+h6.text-white,
+[style*="color: #FFFFFF"] {
+  color: #FFFFFF !important;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+h3 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+h4 {
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+}
+
+/* Links */
+a {
+  color: var(--aissu-terra);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--aissu-chocolate);
+}
+
+/* Scrollbar estilizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--aissu-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--aissu-sand);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--aissu-terra);
+}
+
+/* Ocultar scrollbar (para navegação horizontal) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
+/* Seleção de texto */
+::selection {
+  background: var(--aissu-nude-light);
+  color: var(--aissu-chocolate);
+}
+
+/* Focus ring global */
+*:focus-visible {
+  outline: 2px solid var(--aissu-sand);
+  outline-offset: 2px;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Utilitários - Design System Extensions */
+
+/* Gradientes */
+.text-gradient {
+  background: linear-gradient(135deg, var(--aissu-sand) 0%, var(--aissu-chocolate) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-sunset {
+  background: linear-gradient(135deg, var(--aissu-sunset) 0%, var(--aissu-sand) 50%, var(--aissu-chocolate) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-gradient-aissu {
+  background: linear-gradient(135deg, var(--aissu-nude-light) 0%, var(--aissu-sand) 100%);
+}
+
+.bg-gradient-sunset {
+  background: linear-gradient(135deg, var(--aissu-sunset) 0%, var(--aissu-sand) 100%);
+}
+
+.bg-gradient-warm {
+  background: linear-gradient(180deg, var(--aissu-cream) 0%, var(--aissu-nude-light) 100%);
+}
+
+/* Overlays */
+.overlay-dark {
+  background: var(--overlay-dark);
+  backdrop-filter: blur(4px);
+}
+
+.overlay-light {
+  background: var(--overlay-light);
+  backdrop-filter: blur(4px);
+}
+
+/* Tipografia Especial - Instagram-aligned */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.font-impact {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+}
+
+.font-script {
+  font-family: var(--font-script);
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Efeitos de Texto */
+.text-shadow-soft {
+  text-shadow: 0 2px 8px rgba(46, 30, 22, 0.12);
+}
+
+.text-shadow-strong {
+  text-shadow: 0 2px 16px rgba(46, 30, 22, 0.24);
+}
+
+/* Container responsivo */
+.container-aissu {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-aissu {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-aissu {
+    padding: 0 2rem;
+  }
 }

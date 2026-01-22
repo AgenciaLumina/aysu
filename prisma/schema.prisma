@@ -1,0 +1,356 @@
+// AISSU Beach Lounge - Prisma Schema
+// Maior Beach Club do Litoral Norte de SP
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  CASHIER
+  CHEF
+  BARISTA
+  STAFF
+}
+
+enum CabinCategory {
+  CABANA
+  MESA
+  LOUNGE
+  VIP
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReservationSource {
+  ONLINE
+  OFFLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  DECLINED
+  CANCELLED
+  REFUNDED
+}
+
+enum CardBrand {
+  VISA
+  MASTERCARD
+  ELO
+  AMEX
+  HIPERCARD
+  DINERS
+  OTHER
+}
+
+enum EventType {
+  DJ_NIGHT
+  LIVE_MUSIC
+  THEMED_PARTY
+  WEDDING
+  CORPORATE
+  OTHER
+}
+
+enum PDVOrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+}
+
+enum AuditEntity {
+  RESERVATION
+  PAYMENT
+  MENU_ITEM
+  EVENT
+  USER
+  CABIN
+  PDV_ORDER
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+// Usuários (Admin/Staff)
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  role         UserRole  @default(STAFF)
+  passwordHash String
+  phone        String?
+  avatar       String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  reservations Reservation[]
+  pdvOrders    PDVOrder[]
+  auditLogs    AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// Bangalôs/Mesas/Lounges
+model Cabin {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  capacity     Int
+  pricePerHour Decimal       @db.Decimal(10, 2)
+  description  String?
+  imageUrl     String?
+  category     CabinCategory @default(CABANA)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  reservations Reservation[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// Reservas (Online + Offline sincronizadas)
+model Reservation {
+  id               String            @id @default(uuid())
+  cabinId          String
+  userId           String?           // Quem registrou (para reservas OFFLINE)
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  customerDocument String?           // CPF
+  checkIn          DateTime
+  checkOut         DateTime
+  hoursBooked      Int
+  totalPrice       Decimal           @db.Decimal(10, 2)
+  status           ReservationStatus @default(PENDING)
+  source           ReservationSource @default(ONLINE)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relations
+  cabin     Cabin      @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payment   Payment?
+  pdvOrders PDVOrder[]
+
+  @@index([cabinId])
+  @@index([checkIn, checkOut])
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+}
+
+// Pagamentos (Rede API)
+model Payment {
+  id                String        @id @default(uuid())
+  reservationId     String        @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("BRL")
+  status            PaymentStatus @default(PENDING)
+  redeTransactionId String?       @unique
+  redeNsu           String?
+  redeAuthCode      String?
+  cardBrand         CardBrand?
+  cardLastFour      String?       // Últimos 4 dígitos APENAS
+  installments      Int           @default(1)
+  webhookReceived   Boolean       @default(false)
+  webhookData       Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([redeTransactionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Categorias do Cardápio
+model MenuCategory {
+  id           String   @id @default(uuid())
+  name         String   // PRATOS ou BEBIDAS
+  slug         String   @unique
+  description  String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  items MenuItem[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+// Itens do Cardápio
+model MenuItem {
+  id              String   @id @default(uuid())
+  categoryId      String
+  name            String
+  description     String?
+  ingredients     String?
+  price           Decimal  @db.Decimal(10, 2)
+  imageUrl        String?
+  isAvailable     Boolean  @default(true)
+  preparationTime Int?     // Em minutos
+  allergyInfo     Json?    // Array: ["glúten", "frutos do mar", etc]
+  displayOrder    Int      @default(0)
+  tags            Json?    // Array: ["peixe", "vegetariano", etc]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  category      MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  pdvOrderItems PDVOrderItem[]
+
+  @@index([categoryId])
+  @@index([isAvailable])
+}
+
+// Eventos & Programação
+model Event {
+  id              String    @id @default(uuid())
+  title           String
+  slug            String    @unique
+  description     String?   // Descrição curta (teaser)
+  fullDescription String?   // Descrição completa
+  eventType       EventType @default(OTHER)
+  startDate       DateTime
+  endDate         DateTime?
+  bannerImageUrl  String?
+  posterImageUrl  String?
+  galleryImages   Json?     // Array de URLs
+  djName          String?
+  bands           Json?     // Array de nomes
+  specialDrinks   Json?     // Array de drinks especiais
+  specialFood     Json?     // Array de comidas especiais
+  themeColor      String?   // Hex color
+  isActive        Boolean   @default(true)
+  isFeatured      Boolean   @default(false) // Destaque na homepage
+  maxCapacity     Int?
+  ticketPrice     Decimal?  @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([slug])
+}
+
+// Pedidos PDV (Consumo no bangalô)
+model PDVOrder {
+  id            String         @id @default(uuid())
+  reservationId String
+  userId        String         // Quem registrou o pedido
+  status        PDVOrderStatus @default(PENDING)
+  totalPrice    Decimal        @db.Decimal(10, 2)
+  discount      Decimal        @default(0) @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  reservation Reservation    @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items       PDVOrderItem[]
+
+  @@index([reservationId])
+  @@index([status])
+}
+
+// Itens do Pedido PDV
+model PDVOrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  menuItemId          String
+  quantity            Int
+  unitPrice           Decimal  @db.Decimal(10, 2)
+  totalPrice          Decimal  @db.Decimal(10, 2)
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+
+  // Relations
+  order    PDVOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+// Logs de Auditoria (Segurança & Compliance)
+model AuditLog {
+  id            String      @id @default(uuid())
+  action        AuditAction
+  entity        AuditEntity
+  entityId      String
+  changedFields Json?
+  userId        String?
+  ipAddress     String?
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Galeria de Imagens (substitui Instagram feed)
+model GalleryImage {
+  id           String   @id @default(uuid())
+  imageUrl     String
+  caption      String?
+  permalink    String?  // Link opcional para Instagram
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
