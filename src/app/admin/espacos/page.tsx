@@ -1,8 +1,9 @@
-// AISSU Beach Lounge - Admin Cabins (Refatorado)
+// AISSU Beach Lounge - Admin Cabins com Upload de Imagem
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Users, DollarSign } from 'lucide-react'
+import Image from 'next/image'
+import { Plus, Pencil, Users, DollarSign, ImageIcon } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
+import { MediaPicker } from '@/components/ui/MediaPicker'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -21,9 +23,10 @@ interface Cabin {
     description: string
     category: string
     isActive: boolean
+    imageUrl?: string
 }
 
-const categories = ['CABANA', 'VIP', 'MESA', 'ESPREGUICADEIRA']
+const categories = ['CABANA', 'LOUNGE', 'VIP', 'MESA', 'ESPREGUICADEIRA']
 
 export default function AdminCabinsPage() {
     const [cabins, setCabins] = useState<Cabin[]>([])
@@ -31,12 +34,14 @@ export default function AdminCabinsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingCabin, setEditingCabin] = useState<Cabin | null>(null)
     const [saving, setSaving] = useState(false)
+    const [showMediaPicker, setShowMediaPicker] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
         capacity: '6',
         pricePerHour: '100',
         description: '',
         category: 'CABANA',
+        imageUrl: '',
     })
 
     useEffect(() => { fetchCabins() }, [])
@@ -63,10 +68,11 @@ export default function AdminCabinsPage() {
                 pricePerHour: cabin.pricePerHour.toString(),
                 description: cabin.description || '',
                 category: cabin.category,
+                imageUrl: cabin.imageUrl || '',
             })
         } else {
             setEditingCabin(null)
-            setFormData({ name: '', capacity: '6', pricePerHour: '100', description: '', category: 'CABANA' })
+            setFormData({ name: '', capacity: '6', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
         }
         setIsModalOpen(true)
     }
@@ -81,6 +87,7 @@ export default function AdminCabinsPage() {
             pricePerHour: parseFloat(formData.pricePerHour),
             description: formData.description,
             category: formData.category,
+            imageUrl: formData.imageUrl || null,
         }
 
         try {
@@ -141,43 +148,93 @@ export default function AdminCabinsPage() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {cabins.map(cabin => (
                         <Card key={cabin.id} className={!cabin.isActive ? 'opacity-60' : ''}>
-                            <CardContent className="p-6">
-                                <div className="flex justify-between items-start mb-4">
-                                    <Badge variant="secondary">{cabin.category}</Badge>
-                                    {!cabin.isActive && <Badge variant="warning">Inativo</Badge>}
-                                </div>
-                                <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
-                                <p className="text-sm text-[#8a5c3f] mb-4 line-clamp-2">{cabin.description}</p>
-
-                                <div className="flex items-center gap-4 text-sm text-[#8a5c3f] mb-4">
-                                    <div className="flex items-center gap-1">
-                                        <Users className="h-4 w-4" />
-                                        <span>{cabin.capacity} pessoas</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <DollarSign className="h-4 w-4" />
-                                        <span>{formatCurrency(cabin.pricePerHour)}/h</span>
-                                    </div>
+                            <CardContent className="p-0">
+                                {/* Imagem */}
+                                <div className="relative h-40 bg-[#f5f0eb]">
+                                    {cabin.imageUrl ? (
+                                        <Image
+                                            src={cabin.imageUrl}
+                                            alt={cabin.name}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <ImageIcon className="h-12 w-12 text-[#e0d5c7]" />
+                                        </div>
+                                    )}
                                 </div>
 
-                                <Button variant="secondary" size="sm" className="w-full" onClick={() => openModal(cabin)}>
-                                    <Pencil className="h-4 w-4" />
-                                    Editar
-                                </Button>
+                                <div className="p-4">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <Badge variant="secondary">{cabin.category}</Badge>
+                                        {!cabin.isActive && <Badge variant="warning">Inativo</Badge>}
+                                    </div>
+                                    <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
+                                    <p className="text-sm text-[#8a5c3f] mb-4 line-clamp-2">{cabin.description}</p>
+
+                                    <div className="flex items-center gap-4 text-sm text-[#8a5c3f] mb-4">
+                                        <div className="flex items-center gap-1">
+                                            <Users className="h-4 w-4" />
+                                            <span>{cabin.capacity} pessoas</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <DollarSign className="h-4 w-4" />
+                                            <span>{formatCurrency(cabin.pricePerHour)}/h</span>
+                                        </div>
+                                    </div>
+
+                                    <Button variant="secondary" size="sm" className="w-full" onClick={() => openModal(cabin)}>
+                                        <Pencil className="h-4 w-4" />
+                                        Editar
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             )}
 
-            {/* Modal */}
+            {/* Modal de Edição */}
             <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <ModalContent>
+                <ModalContent className="max-w-lg">
                     <ModalHeader>
                         <ModalTitle>{editingCabin ? 'Editar Bangalô' : 'Novo Bangalô'}</ModalTitle>
                     </ModalHeader>
 
                     <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                        {/* Imagem */}
+                        <div>
+                            <label className="block text-sm font-medium text-[#2a2a2a] mb-2">Imagem</label>
+                            <div
+                                onClick={() => setShowMediaPicker(true)}
+                                className="relative h-32 bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
+                            >
+                                {formData.imageUrl ? (
+                                    <Image
+                                        src={formData.imageUrl}
+                                        alt="Preview"
+                                        fill
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8a5c3f]">
+                                        <ImageIcon className="h-8 w-8 mb-2" />
+                                        <span className="text-sm">Clique para selecionar</span>
+                                    </div>
+                                )}
+                            </div>
+                            {formData.imageUrl && (
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(p => ({ ...p, imageUrl: '' }))}
+                                    className="text-sm text-red-500 mt-1 hover:underline"
+                                >
+                                    Remover imagem
+                                </button>
+                            )}
+                        </div>
+
                         <Input
                             label="Nome"
                             value={formData.name}
@@ -241,6 +298,17 @@ export default function AdminCabinsPage() {
                     </form>
                 </ModalContent>
             </Modal>
+
+            {/* Media Picker */}
+            <MediaPicker
+                open={showMediaPicker}
+                onClose={() => setShowMediaPicker(false)}
+                onSelect={(url) => {
+                    setFormData(p => ({ ...p, imageUrl: url }))
+                    setShowMediaPicker(false)
+                }}
+                defaultFolder="cabins/"
+            />
         </AdminLayout>
     )
 }

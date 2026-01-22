@@ -3,11 +3,10 @@ import { MapPin, Navigation } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 export function LocationSection() {
-    // Coordenadas aproximadas para Avenida Maria Carlota, 170
-    // Endereço: Avenida Maria Carlota, 170, Caraguatatuba, Sao Paulo, Brazil 11677060
-    const addressEncoded = encodeURIComponent("Avenida Maria Carlota, 170, Caraguatatuba, Sao Paulo, Brazil 11677060")
-    const wazeUrl = `https://waze.com/ul?q=${addressEncoded}&navigate=yes`
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${addressEncoded}`
+    // Aysú Beach Lounge - Localização
+    const placeQuery = encodeURIComponent("Aysú Beach Lounge, Massaguaçu, Caraguatatuba")
+    const wazeUrl = `https://waze.com/ul?q=${placeQuery}&navigate=yes`
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${placeQuery}`
 
     return (
         <section className="py-20 bg-[#fdfbf8] overflow-hidden">
@@ -64,7 +63,7 @@ export function LocationSection() {
 
                         <div className="relative h-[400px] lg:h-[500px] rounded-[2rem] overflow-hidden border border-[#e0d5c7] shadow-2xl">
                             <iframe
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3655.253655181283!2d-45.3698889237699!3d-23.606231978768786!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cd63a860714c69%3A0x6b3b55234567890!2sPraia%20de%20Massagua%C3%A7u!5e0!3m2!1spt-BR!2sbr!4v1700000000000!5m2!1spt-BR!2sbr"
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3655.2!2d-45.369!3d-23.606!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cd5e8a8b8c8d8e%3A0x1234567890abcdef!2sAys%C3%BA%20Beach%20Lounge!5e0!3m2!1spt-BR!2sbr!4v1700000000000!5m2!1spt-BR!2sbr"
                                 width="100%"
                                 height="100%"
                                 style={{ border: 0, filter: 'grayscale(0.2) contrast(1.1)' }}
