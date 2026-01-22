@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Upload, Trash2, ExternalLink, GripVertical, X, Check, ImageIcon, Loader2 } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
+import { MediaPicker } from '@/components/ui/MediaPicker'
 import toast from 'react-hot-toast'
 
 interface GalleryImage {
@@ -27,6 +28,7 @@ export default function AdminGalleryPage() {
     const [dragOver, setDragOver] = useState(false)
     const [draggedItem, setDraggedItem] = useState<GalleryImage | null>(null)
     const [dragOverItem, setDragOverItem] = useState<string | null>(null)
+    const [showMediaPicker, setShowMediaPicker] = useState(false)
 
     // Fetch images
     const fetchImages = useCallback(async () => {
@@ -226,22 +228,10 @@ export default function AdminGalleryPage() {
                     <h1 className="text-2xl font-serif font-bold text-[#2a2a2a]">Galeria</h1>
                     <p className="text-[#8a5c3f]">Gerencie as imagens exibidas na homepage</p>
                 </div>
-                <div>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        id="gallery-upload"
-                        onChange={(e) => handleUpload(e.target.files)}
-                    />
-                    <label htmlFor="gallery-upload">
-                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer bg-[#2a2a2a] text-white hover:bg-[#1a1a1a]">
-                            <Upload className="h-4 w-4" />
-                            Adicionar Imagem
-                        </span>
-                    </label>
-                </div>
+                <Button onClick={() => setShowMediaPicker(true)}>
+                    <Upload className="h-4 w-4" />
+                    Adicionar Imagem
+                </Button>
             </div>
 
             {/* Drop Zone */}
@@ -307,8 +297,8 @@ export default function AdminGalleryPage() {
                             onDrop={() => handleDropReorder(image)}
                             onDragEnd={handleDragEnd}
                             className={`bg-white rounded-xl border-2 transition-all cursor-move ${dragOverItem === image.id
-                                    ? 'border-[#d4a574] scale-105 shadow-xl'
-                                    : 'border-[#e8e0d5]'
+                                ? 'border-[#d4a574] scale-105 shadow-xl'
+                                : 'border-[#e8e0d5]'
                                 } ${draggedItem?.id === image.id ? 'opacity-50' : 'opacity-100'}`}
                         >
                             {/* Drag Handle + Image */}
@@ -411,6 +401,34 @@ export default function AdminGalleryPage() {
                     ))}
                 </div>
             )}
+
+            {/* Media Picker Modal */}
+            <MediaPicker
+                open={showMediaPicker}
+                onClose={() => setShowMediaPicker(false)}
+                onSelect={async (url) => {
+                    try {
+                        const res = await fetch('/api/admin/gallery', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                imageUrl: url,
+                                caption: '',
+                            }),
+                        })
+                        const data = await res.json()
+                        if (data.success) {
+                            toast.success('Imagem adicionada!')
+                            fetchImages()
+                        } else {
+                            toast.error('Erro ao salvar')
+                        }
+                    } catch (error) {
+                        toast.error('Erro ao adicionar imagem')
+                    }
+                }}
+                folder="gallery/"
+            />
         </AdminLayout>
     )
 }
