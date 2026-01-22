@@ -63,7 +63,7 @@ export function LocationSection() {
 
                         <div className="relative h-[400px] lg:h-[500px] rounded-[2rem] overflow-hidden border border-[#e0d5c7] shadow-2xl">
                             <iframe
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3655.2!2d-45.369!3d-23.606!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cd5e8a8b8c8d8e%3A0x1234567890abcdef!2sAys%C3%BA%20Beach%20Lounge!5e0!3m2!1spt-BR!2sbr!4v1700000000000!5m2!1spt-BR!2sbr"
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3656.61617908396!2d-45.325590399999996!3d-23.582224699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cd61c170165727%3A0x1b4eb17e6d3f5950!2sAys%C3%BA%20Beach%20Lounge!5e0!3m2!1spt-BR!2sbr!4v1769110628553!5m2!1spt-BR!2sbr"
                                 width="100%"
                                 height="100%"
                                 style={{ border: 0, filter: 'grayscale(0.2) contrast(1.1)' }}
