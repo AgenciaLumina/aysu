@@ -20,10 +20,10 @@ interface MediaFile {
 
 const FOLDERS = [
     { value: '', label: 'Todos' },
-    { value: 'menu/', label: 'Cardápio' },
-    { value: 'gallery/', label: 'Galeria' },
-    { value: 'espacos/', label: 'Espaços' },
-    { value: 'eventos/', label: 'Eventos' },
+    { value: 'menu/', label: '🍽️ Cardápio' },
+    { value: 'cabins/', label: '🏖️ Bangalôs' },
+    { value: 'gallery/', label: '📸 Galeria' },
+    { value: 'eventos/', label: '🎉 Eventos' },
 ]
 
 export default function AdminMediaPage() {
@@ -169,8 +169,8 @@ export default function AdminMediaPage() {
                     />
                     <label htmlFor="media-upload">
                         <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${uploading
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-[#2a2a2a] text-white hover:bg-[#1a1a1a]'
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-[#2a2a2a] text-white hover:bg-[#1a1a1a]'
                             }`}>
                             <Upload className="h-4 w-4" />
                             {uploading ? 'Enviando...' : 'Upload'}
