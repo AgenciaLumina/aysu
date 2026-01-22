@@ -53,9 +53,12 @@ export const metadata: Metadata = {
     siteName: 'Aysú Beach Lounge',
   },
   icons: {
-    icon: '/logo_aysu.png',
-    shortcut: '/logo_aysu.png',
-    apple: '/logo_aysu.png',
+    icon: [
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/logo_aysu.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/favicon.png',
+    apple: '/apple-touch-icon.png',
   },
 }
 
