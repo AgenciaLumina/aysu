@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
 // Construir endpoint do R2 a partir do account ID
-const R2_ENDPOINT = process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
+const R2_ENDPOINT = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+const R2_BUCKET = process.env.R2_BUCKET || 'aysu'
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://cdn.aysubeachlounge.com.br'
 
 const client = new S3Client({
     region: 'auto',
@@ -18,21 +21,25 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const folder = searchParams.get('folder') || ''
-        const limit = parseInt(searchParams.get('limit') || '100')
+        const limit = parseInt(searchParams.get('limit') || '200')
+
+        console.log('[R2 List] Bucket:', R2_BUCKET, 'Prefix:', folder, 'Endpoint:', R2_ENDPOINT)
 
         const command = new ListObjectsV2Command({
-            Bucket: process.env.R2_BUCKET || process.env.R2_BUCKET_NAME!,
+            Bucket: R2_BUCKET,
             Prefix: folder,
             MaxKeys: limit,
         })
 
         const response = await client.send(command)
 
+        console.log('[R2 List] Found:', response.Contents?.length || 0, 'items')
+
         const files = (response.Contents || []).map(item => ({
             key: item.Key!,
             size: item.Size!,
             lastModified: item.LastModified!,
-            url: `${process.env.R2_PUBLIC_URL}/${item.Key}`,
+            url: `${R2_PUBLIC_URL}/${item.Key}`,
         }))
 
         return NextResponse.json({
@@ -41,12 +48,26 @@ export async function GET(request: NextRequest) {
                 files,
                 count: files.length,
                 hasMore: response.IsTruncated || false,
+                debug: {
+                    bucket: R2_BUCKET,
+                    prefix: folder,
+                    endpoint: R2_ENDPOINT ? 'configured' : 'missing',
+                }
             },
         })
-    } catch (error) {
-        console.error('[R2 List Error]', error)
+    } catch (error: any) {
+        console.error('[R2 List Error]', error?.message || error)
         return NextResponse.json(
-            { success: false, error: 'Erro ao listar arquivos' },
+            {
+                success: false,
+                error: 'Erro ao listar arquivos: ' + (error?.message || 'desconhecido'),
+                debug: {
+                    bucket: R2_BUCKET,
+                    hasAccountId: !!R2_ACCOUNT_ID,
+                    hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
+                    hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,
+                }
+            },
             { status: 500 }
         )
     }
