@@ -427,7 +427,7 @@ export default function AdminGalleryPage() {
                         toast.error('Erro ao adicionar imagem')
                     }
                 }}
-                folder="gallery/"
+                defaultFolder="gallery/"
             />
         </AdminLayout>
     )
