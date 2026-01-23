@@ -219,7 +219,7 @@ export default function EventosPage() {
             {/* Venue Showcase - Full Width Image */}
             <section className="relative h-[60vh] min-h-[400px] overflow-hidden" >
                 <Image
-                    src="/evento_01.jpg"
+                    src="/evento_01.avif"
                     alt="Espaço Aysú Beach Lounge Noturno - Cenário Único"
                     fill
                     className="object-cover"
