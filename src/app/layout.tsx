@@ -46,9 +46,13 @@ export const metadata: Metadata = {
   description: 'Day use com consumação, piscina, hidromassagem, lounges premium e gastronomia caiçara. Pé na areia em Massaguaçu, Caraguatatuba-SP.',
   keywords: ['beach club', 'litoral norte', 'caraguatatuba', 'massaguaçu', 'day use', 'piscina', 'gastronomia caiçara'],
   authors: [{ name: 'Aysú Beach Lounge' }],
+  alternates: {
+    canonical: 'https://aysubeachlounge.com.br',
+  },
   openGraph: {
     title: 'Aysú Beach Lounge',
     description: 'Existimos para tornar seu dia de praia em um dia de praia perfeito.',
+    url: 'https://aysubeachlounge.com.br',
     type: 'website',
     locale: 'pt_BR',
     siteName: 'Aysú Beach Lounge',
