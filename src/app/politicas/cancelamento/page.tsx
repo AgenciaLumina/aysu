@@ -170,7 +170,7 @@ export default function PoliticaCancelamentoPage() {
                                     className="inline-flex items-center gap-2 text-[#d4a574] hover:text-[#bc8e5e] transition-colors"
                                 >
                                     <Phone className="h-4 w-4" />
-                                    (12) 99123-4567
+                                    (12) 98289-6301
                                 </a>
                                 <a
                                     href="mailto:contato@aysubeachlounge.com.br"

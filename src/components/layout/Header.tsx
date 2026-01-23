@@ -84,7 +84,7 @@ export function Header({ variant = 'solid' }: HeaderProps) {
                             className={`hidden lg:flex items-center gap-2 text-sm transition-colors ${textClasses}`}
                         >
                             <Phone className="h-4 w-4" />
-                            <span>(12) 99123-4567</span>
+                            <span>(12) 98289-6301</span>
                         </a>
 
                         {/* CTA Reservar */}
@@ -170,7 +170,7 @@ export function Header({ variant = 'solid' }: HeaderProps) {
                                     className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#8a5c3f] hover:bg-[#f5f0e8] transition-colors"
                                 >
                                     <Phone className="h-5 w-5" />
-                                    (12) 99123-4567
+                                    (12) 98289-6301
                                 </a>
                             </div>
                         </div>

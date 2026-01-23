@@ -186,7 +186,7 @@ export default function EventosPage() {
                         </Button>
                         <Button variant="outline" size="lg" className="!border-white !text-white hover:!bg-white/10">
                             <Phone className="h-4 w-4" />
-                            (12) 99123-4567
+                            (12) 98289-6301
                         </Button>
                     </div>
                 </div>
@@ -539,7 +539,7 @@ export default function EventosPage() {
                                 className="flex items-center gap-2 text-[#d4a574] hover:text-[#f1c595] transition-colors"
                             >
                                 <Phone className="h-5 w-5" />
-                                (12) 99123-4567
+                                (12) 98289-6301
                             </a>
                             <a
                                 href="mailto:eventos@aysubeachlounge.com.br"
