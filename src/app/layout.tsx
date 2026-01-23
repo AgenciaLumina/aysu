@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     siteName: 'Aysú Beach Lounge',
     images: [
       {
-        url: '/thumb.png',
+        url: '/thumb.avif',
         width: 1200,
         height: 630,
         alt: 'Aysú Beach Lounge - O Lugar Perfeito no Litoral',
