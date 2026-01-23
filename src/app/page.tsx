@@ -12,7 +12,7 @@ import InstagramStories from '@/components/InstagramStories'
 import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
-import { MenuGallery } from '@/components/home/MenuGallery'
+
 
 export default function HomePage() {
   return (
@@ -86,8 +86,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Menu Gallery Section */}
-      <MenuGallery />
+
 
       {/* Instagram Section */}
       <section className="py-16 md:py-20 bg-gradient-warm">
