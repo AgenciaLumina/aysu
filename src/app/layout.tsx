@@ -38,6 +38,7 @@ const dancingScript = Dancing_Script({
 
 // Metadados SEO
 export const metadata: Metadata = {
+  metadataBase: new URL('https://aysubeachlounge.com.br'),
   title: {
     default: 'Aysú Beach Lounge | O Melhor Beach Club do Litoral Norte SP',
     template: '%s | Aysú Beach Lounge',
@@ -53,7 +54,7 @@ export const metadata: Metadata = {
     siteName: 'Aysú Beach Lounge',
     images: [
       {
-        url: 'https://cdn.aysubeachlounge.com.br/thumb.png',
+        url: '/thumb.png',
         width: 1200,
         height: 630,
         alt: 'Aysú Beach Lounge - O Lugar Perfeito no Litoral',
