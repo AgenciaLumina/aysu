@@ -219,10 +219,12 @@ export default function EventosPage() {
             {/* Venue Showcase - Full Width Image */}
             <section className="relative h-[60vh] min-h-[400px] overflow-hidden" >
                 <Image
-                    src="/eventos/espaco-noturno.png"
-                    alt="Espaço exclusivo Aysú Beach Lounge à noite"
+                    src="/evento_01.jpg"
+                    alt="Espaço Aysú Beach Lounge Noturno - Cenário Único"
                     fill
                     className="object-cover"
+                    quality={90}
+                    priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-black/30 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 text-center">
