@@ -47,10 +47,18 @@ export const metadata: Metadata = {
   authors: [{ name: 'Aysú Beach Lounge' }],
   openGraph: {
     title: 'Aysú Beach Lounge',
-    description: 'O Melhor Beach Club do Litoral Norte de São Paulo',
+    description: 'Existimos para tornar seu dia de praia em um dia de praia perfeito.',
     type: 'website',
     locale: 'pt_BR',
     siteName: 'Aysú Beach Lounge',
+    images: [
+      {
+        url: 'https://cdn.aysubeachlounge.com.br/thumb.png',
+        width: 1200,
+        height: 630,
+        alt: 'Aysú Beach Lounge - O Lugar Perfeito no Litoral',
+      }
+    ],
   },
   icons: {
     icon: [
