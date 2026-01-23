@@ -29,7 +29,7 @@ interface SpaceType {
     description: string
     units: number
     category: 'bangalo' | 'sunbed'
-    tier: 'standard' | 'premium' | 'flagship' | 'romantic'
+    tier: 'standard' | 'premium' | 'galera' | 'romantic'
 }
 
 const spaceTypes: SpaceType[] = [
@@ -91,7 +91,7 @@ const spaceTypes: SpaceType[] = [
         description: 'Espaço icônico. Experiência Aysú Raiz',
         units: 1,
         category: 'bangalo',
-        tier: 'flagship',
+        tier: 'galera',
     },
     // SUNBED CASAL
     {
@@ -135,7 +135,7 @@ const getTierLabel = (tier: SpaceType['tier']) => {
     switch (tier) {
         case 'standard': return 'Essencial'
         case 'premium': return 'Premium'
-        case 'flagship': return 'Flagship'
+        case 'galera': return 'Galera'
         case 'romantic': return 'Romântico'
     }
 }
@@ -144,7 +144,7 @@ const getTierColor = (tier: SpaceType['tier']) => {
     switch (tier) {
         case 'standard': return 'bg-[#5a7c65] text-white border-[#4a6c55]'  // Verde sólido elegante
         case 'premium': return 'bg-[#c9a66b] text-white border-[#b8955a]'   // Dourado sólido
-        case 'flagship': return 'bg-[#8b4513] text-white border-[#7a3c0f]'  // Marrom premium (chocolate)
+        case 'galera': return 'bg-[#8b4513] text-white border-[#7a3c0f]'  // Marrom premium (chocolate)
         case 'romantic': return 'bg-[#b87d6c] text-white border-[#a76c5b]'  // Rosa terroso elegante
     }
 }
@@ -158,8 +158,8 @@ export default function ReservasPage() {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
     const [currentMonth, setCurrentMonth] = useState(() => {
-        const now = new Date()
-        return new Date(now.getFullYear(), now.getMonth(), 1)
+        // Default to February 2026 for Carnaval
+        return new Date(2026, 1, 1)
     })
 
     const calendarDays = useMemo(() => {
@@ -272,13 +272,14 @@ export default function ReservasPage() {
                 <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 border border-gray-100">
                     {/* Carnaval Badge */}
                     {currentMonth.getMonth() === 1 && (
-                        <div className="bg-gradient-to-r from-[#8B4513] to-[#d4a574] text-white px-6 py-4 rounded-t-3xl">
+                        <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white px-6 py-4 rounded-t-3xl">
                             <div className="flex items-center justify-center gap-3">
                                 <span className="text-2xl">🎭</span>
-                                <div>
-                                    <p className="font-semibold">Feriadão de Carnaval</p>
-                                    <p className="text-sm text-white/80">14 a 18 de Fevereiro</p>
+                                <div className="text-center">
+                                    <p className="font-bold text-lg">Carnaval 2026</p>
+                                    <p className="text-sm text-white/90">13 a 18 de Fevereiro • Reserve agora!</p>
                                 </div>
+                                <span className="text-2xl">🎉</span>
                             </div>
                         </div>
                     )}
@@ -583,7 +584,7 @@ export default function ReservasPage() {
                                 <Utensils className="h-5 w-5 text-white" />
                             </div>
                             <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Consumação Inclusa</h3>
-                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Valor integral revertido em consumação no nosso menu exclusivo</p>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Parte do Valor é revertido em consumação no nosso menu exclusivo</p>
                         </div>
                         <div className="p-6">
                             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--aissu-chocolate)' }}>
@@ -597,7 +598,7 @@ export default function ReservasPage() {
                                 <MapPin className="h-5 w-5 text-white" />
                             </div>
                             <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Localização Premium</h3>
-                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Na praia mais desejada do litoral norte de São Paulo</p>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Em uma das praias desejadas do litoral norte de São Paulo</p>
                         </div>
                     </div>
                 </div>

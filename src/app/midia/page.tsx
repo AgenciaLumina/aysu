@@ -122,7 +122,7 @@ export default function NaMidiaPage() {
             <section className="py-20">
                 <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
                     <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#2a2a2a] mb-6">
-                        Pronto para viver essa experiência?
+                        Pronto para viver a experiência Aysú?
                     </h2>
                     <p className="text-lg text-[#8a5c3f] mb-8">
                         Reserve seu espaço e venha conhecer o Aysú Beach Lounge pessoalmente.

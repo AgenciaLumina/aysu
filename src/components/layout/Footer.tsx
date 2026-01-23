@@ -73,11 +73,11 @@ export function Footer() {
                             </li>
                             <li>
                                 <a
-                                    href="mailto:contato@aysu.com.br"
+                                    href="mailto:contato@aysubeachlounge.com.br"
                                     className="flex items-center gap-3 text-white/70 hover:text-white transition-colors text-sm"
                                 >
                                     <Mail className="h-4 w-4 text-[#d4a574]" />
-                                    contato@aysu.com.br
+                                    contato@aysubeachlounge.com.br
                                 </a>
                             </li>
                             <li>

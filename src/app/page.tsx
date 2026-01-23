@@ -12,6 +12,7 @@ import InstagramStories from '@/components/InstagramStories'
 import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
+import { MenuGallery } from '@/components/home/MenuGallery'
 
 export default function HomePage() {
   return (
@@ -57,8 +58,7 @@ export default function HomePage() {
 
             {/* Descrição */}
             <p className="text-lg md:text-xl text-white/90 mb-10 max-w-2xl mx-auto drop-shadow font-light leading-relaxed">
-              Gastronomia caiçara autoral, bangalôs exclusivos e a melhor vibe de Massaguaçu.
-              Sua experiência definitiva de verão começa aqui.
+              Existimos para tornar seu dia de praia, em um dia de praia perfeito!
             </p>
 
             {/* CTAs */}
@@ -69,12 +69,12 @@ export default function HomePage() {
                   Reservar Bangalô
                 </Button>
               </Link>
-              <Link href="/cardapio">
+              <a href="#menu">
                 <Button variant="secondary" size="xl" className="w-full sm:w-auto min-w-[200px] bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-transform duration-300">
                   <UtensilsCrossed className="h-5 w-5 mr-2" />
-                  Ver Cardápio
+                  Ver Menu Completo
                 </Button>
-              </Link>
+              </a>
             </div>
 
             {/* Localização */}
@@ -86,6 +86,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Menu Gallery Section */}
+      <MenuGallery />
+
       {/* Instagram Section */}
       <section className="py-16 md:py-20 bg-gradient-warm">
         <div className="container-aissu">
@@ -96,7 +99,7 @@ export default function HomePage() {
               <span className="text-gradient-sunset">@aysu_beachlounge</span>
             </h2>
             <p className="text-aissu-text-muted text-lg max-w-2xl mx-auto">
-              Viva a experiência tropical através dos nossos Stories e Feed
+              Viva a experiência Aysú através dos nossos Stories e Feed
             </p>
           </div>
 
@@ -148,7 +151,7 @@ export default function HomePage() {
                 </div>
                 <CardTitle className="font-serif text-2xl mb-3">Piscina & Hidro</CardTitle>
                 <CardDescription className="text-base leading-relaxed">
-                  Relaxe em nossa piscina com borda infinita e vista para o mar, ou aproveite a hidromassagem exclusiva.
+                  Aproveite nossa piscina com vista para o mar, e relaxe em nossa hidromassagem.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -161,7 +164,7 @@ export default function HomePage() {
                 </div>
                 <CardTitle className="font-serif text-2xl mb-3">Alta Gastronomia</CardTitle>
                 <CardDescription className="text-base leading-relaxed">
-                  Sabores autênticos do litoral combinados com técnicas contemporâneas. Drinks autorais e frutos do mar frescos.
+                  Sabores autênticos do litoral aliados a técnicas contemporâneas, drinks autorais e marcas premium.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -174,7 +177,7 @@ export default function HomePage() {
                 </div>
                 <CardTitle className="font-serif text-2xl mb-3">Vibe & Música</CardTitle>
                 <CardDescription className="text-base leading-relaxed">
-                  A trilha sonora perfeita para o seu dia, com DJ sets curados e música ao vivo nos fins de semana.
+                  A trilha sonora perfeita para o seu dia, seja o som do mar ou em nossas programações especiais djs e um Sunset perfeito.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -196,18 +199,18 @@ export default function HomePage() {
               </div>
 
               <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2a2a2a] mb-6 leading-tight">
-                Day Use com <br /><span className="text-[#d4a574] italic">Consumação Total</span>
+                Day Use com <br /><span className="text-[#d4a574] italic">Consumação</span>
               </h2>
               <p className="text-[#8a5c3f] text-lg mb-8 leading-relaxed">
                 No Aysú, você não paga apenas para entrar.
-                <strong className="text-[#d4a574]"> 100% do valor do seu ingresso</strong> é convertido em crédito para você desfrutar do nosso cardápio premium.
+                <strong className="text-[#d4a574]"> Parte do valor do seu day use</strong> é convertido em crédito para você desfrutar do nosso cardápio premium.
               </p>
 
               <div className="space-y-6">
                 {[
                   "Bangalôs privativos com serviço exclusivo",
-                  "Lounges confortáveis com sombra e ventilação",
-                  "Acesso livre à praia, piscina e duchas"
+                  "Lounges confortáveis e banheiros climatizados",
+                  "Acesso exclusivo à praia, piscina e ducha"
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-4 group">
                     <div className="w-8 h-8 rounded-full bg-[#d4a574]/10 flex items-center justify-center flex-shrink-0 group-hover:bg-[#d4a574] transition-colors duration-300">
@@ -227,11 +230,19 @@ export default function HomePage() {
             </div>
 
             <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-2xl shadow-[#d4a574]/10 border border-[#e0d5c7]/50 relative">
+              {/* Badge Carnaval - Na borda superior */}
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#8B4513] text-white text-xs font-medium shadow-lg">
+                  <span>🎭</span>
+                  <span className="whitespace-nowrap">Valores exclusivos para o Carnaval de 13 a 18 de fevereiro</span>
+                </div>
+              </div>
+
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <Image src="/logo_aysu.png" width={100} height={100} alt="Logo Bg" />
               </div>
 
-              <h3 className="font-serif text-2xl font-bold text-[#2a2a2a] mb-8 flex items-center gap-3">
+              <h3 className="font-serif text-2xl font-bold text-[#2a2a2a] mb-8 flex items-center gap-3 mt-4">
                 <div className="w-1 h-8 bg-[#d4a574] rounded-full" />
                 Tabela de Valores
               </h3>
@@ -260,7 +271,7 @@ export default function HomePage() {
 
               <div className="mt-8 pt-6 border-t border-[#f5f0e8] text-center">
                 <p className="text-xs text-[#a09080] italic">
-                  * Valores sujeitos a alteração em datas especiais e feriados.
+                  * Valores exclusivos para o Carnaval 2026.
                 </p>
               </div>
             </div>

@@ -313,7 +313,7 @@ function CheckoutContent() {
                                         <span className="text-[#8a5c3f]">Total</span>
                                         <span className="text-2xl font-bold text-[#d4a574]">{formatCurrency(price)}</span>
                                     </div>
-                                    <p className="text-xs text-[#8a5c3f]/70 mt-1">Valor revertido em consumação no bar e restaurante</p>
+                                    <p className="text-xs text-[#8a5c3f]/70 mt-1">Parte do valor é revertido em consumação no bar e restaurante</p>
                                 </div>
                             </CardContent>
                         </Card>

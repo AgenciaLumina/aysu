@@ -28,8 +28,8 @@ interface AdminLayoutProps {
 const navItems = [
     { href: '/admin/frente-de-caixa', label: 'Frente de Caixa', icon: CreditCard },
     { href: '/admin/reservas', label: 'Reservas', icon: Calendar },
-    { href: '/admin/cardapio', label: 'Cardápio', icon: UtensilsCrossed },
-    { href: '/admin/galeria', label: 'Galeria', icon: ImageIcon },
+    { href: '/admin/menu-gallery', label: 'Galeria Menu', icon: ImageIcon },
+    { href: '/admin/galeria', label: 'Galeria Site', icon: ImageIcon },
     { href: '/admin/midia', label: 'Mídia R2', icon: FolderOpen },
     { href: '/admin/espacos', label: 'Espaços', icon: Home },
     { href: '/admin/day-use', label: 'Day Use', icon: Umbrella },

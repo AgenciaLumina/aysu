@@ -177,7 +177,7 @@ export default function EventosPage() {
                         Faça seu Evento
                     </h1>
                     <p className="text-white/80 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-                        Casamentos, aniversários, corporativos e celebrações exclusivas
+                        Casamentos, aniversários, Eventos Corporativos e celebrações exclusivas
                         no cenário mais bonito do Litoral Norte
                     </p>
                     <div className="flex flex-wrap justify-center gap-4">
@@ -347,7 +347,7 @@ export default function EventosPage() {
             <section className="py-20 px-6 bg-[#f5f0e8]" >
                 <div className="max-w-6xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
-                        <div className="order-2 lg:order-1 relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
+                        <div className="order-2 lg:order-1 relative aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
                             <Image
                                 src="/eventos/buffet-gourmet.png"
                                 alt="Buffet Finger Food Aysú"
@@ -540,11 +540,11 @@ export default function EventosPage() {
                                 (12) 99123-4567
                             </a>
                             <a
-                                href="mailto:eventos@aysu.com.br"
+                                href="mailto:eventos@aysubeachlounge.com.br"
                                 className="flex items-center gap-2 text-[#d4a574] hover:text-[#f1c595] transition-colors"
                             >
                                 <Mail className="h-5 w-5" />
-                                eventos@aysu.com.br
+                                eventos@aysubeachlounge.com.br
                             </a>
                         </div>
                     </div>

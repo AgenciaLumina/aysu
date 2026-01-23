@@ -173,11 +173,11 @@ export default function PoliticaCancelamentoPage() {
                                     (12) 99123-4567
                                 </a>
                                 <a
-                                    href="mailto:contato@aysu.com.br"
+                                    href="mailto:contato@aysubeachlounge.com.br"
                                     className="inline-flex items-center gap-2 text-[#d4a574] hover:text-[#bc8e5e] transition-colors"
                                 >
                                     <Mail className="h-4 w-4" />
-                                    contato@aysu.com.br
+                                    contato@aysubeachlounge.com.br
                                 </a>
                             </div>
                         </section>
