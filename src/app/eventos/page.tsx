@@ -61,12 +61,6 @@ const spacePricing = [
 ]
 
 // Bar & Coquetelaria
-const barPricing = [
-    { guests: 50, pricePerPerson: 110 },
-    { guests: 70, pricePerPerson: 100 },
-    { guests: 100, pricePerPerson: 90 },
-]
-
 const barIncludes = [
     'Drinks autorais e clássicos (com e sem álcool)',
     'Refrigerantes variados',
@@ -78,11 +72,6 @@ const barIncludes = [
 ]
 
 // Buffet Finger Food
-const buffetPricing = [
-    { guests: 50, pricePerPerson: 180 },
-    { guests: 70, pricePerPerson: 160 },
-    { guests: 100, pricePerPerson: 150 },
-]
 
 const buffetOptions = [
     'Camarões empanados com molho de limão siciliano',
@@ -317,19 +306,17 @@ export default function EventosPage() {
                                 </ul>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                {barPricing.map((tier, i) => (
-                                    <div key={i} className="text-center p-4 bg-white rounded-xl border border-[#e0d5c7]">
-                                        <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
-                                            <Users className="h-4 w-4" />
-                                            <span className="text-sm">{tier.guests}</span>
-                                        </div>
-                                        <div className="text-xl font-bold text-[#2a2a2a]">
-                                            {formatCurrency(tier.pricePerPerson)}
-                                        </div>
-                                        <div className="text-xs text-[#8a5c3f]">por pessoa</div>
+                            <div className="flex justify-center">
+                                <div className="text-center p-6 bg-white rounded-xl border border-[#e0d5c7] shadow-sm max-w-xs w-full">
+                                    <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
+                                        <Users className="h-4 w-4" />
+                                        <span className="text-sm">Por pessoa</span>
                                     </div>
-                                ))}
+                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">A partir de</div>
+                                    <div className="text-3xl font-bold text-[#2a2a2a]">
+                                        R$ 90,00
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -388,19 +375,17 @@ export default function EventosPage() {
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
-                                {buffetPricing.map((tier, i) => (
-                                    <div key={i} className="text-center p-4 bg-white rounded-xl border border-[#e0d5c7]">
-                                        <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
-                                            <Users className="h-4 w-4" />
-                                            <span className="text-sm">{tier.guests}</span>
-                                        </div>
-                                        <div className="text-xl font-bold text-[#2a2a2a]">
-                                            {formatCurrency(tier.pricePerPerson)}
-                                        </div>
-                                        <div className="text-xs text-[#8a5c3f]">por pessoa</div>
+                            <div className="flex justify-center">
+                                <div className="text-center p-6 bg-white rounded-xl border border-[#e0d5c7] shadow-sm max-w-xs w-full">
+                                    <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
+                                        <Users className="h-4 w-4" />
+                                        <span className="text-sm">Por pessoa</span>
                                     </div>
-                                ))}
+                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">A partir de</div>
+                                    <div className="text-3xl font-bold text-[#2a2a2a]">
+                                        R$ 180,00
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
