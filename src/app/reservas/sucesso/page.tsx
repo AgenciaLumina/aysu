@@ -11,18 +11,24 @@ export default function ReservaSucessoPage() {
                     <CheckCircle className="h-10 w-10 text-green-600" />
                 </div>
 
-                <h1 className="font-serif text-3xl font-bold text-[#2a2a2a] mb-4">Reserva Confirmada!</h1>
+                <h1 className="font-serif text-3xl font-bold text-[#2a2a2a] mb-4">Solicitação Recebida!</h1>
 
                 <p className="text-[#8a5c3f] mb-6">
-                    Sua reserva foi confirmada com sucesso. Você receberá um email com
-                    todos os detalhes e QR Code para check-in.
+                    Sua reserva foi pré-agendada com sucesso. <br />
+                    <strong>Para confirmar</strong>, envie o comprovante de pagamento no WhatsApp.
+                    Assim que validado, você receberá a confirmação definitiva.
                 </p>
 
                 <div className="bg-white rounded-xl p-6 border border-[#e0d5c7] mb-6">
-                    <div className="flex items-center justify-center gap-3 text-[#8a5c3f]">
+                    <a
+                        href="https://wa.me/5511992066688"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-3 text-[#25D366] hover:text-[#128C7E] transition-colors font-medium"
+                    >
                         <Mail className="h-5 w-5" />
-                        <span>Verifique seu email</span>
-                    </div>
+                        <span>Enviar comprovante no WhatsApp</span>
+                    </a>
                 </div>
 
                 <div className="flex flex-col gap-3">
