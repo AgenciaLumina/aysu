@@ -33,6 +33,15 @@ const maskPhone = (value: string) => {
         .slice(0, 15)
 }
 
+const maskCPF = (value: string) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        .slice(0, 14)
+}
+
 function CheckoutContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -59,6 +68,10 @@ function CheckoutContent() {
 
         if (name === 'customerPhone') {
             value = maskPhone(value)
+        }
+
+        if (name === 'customerDocument') {
+            value = maskCPF(value)
         }
 
         setFormData(prev => ({ ...prev, [name]: value }))
