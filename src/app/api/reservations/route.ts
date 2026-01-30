@@ -125,10 +125,81 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Verifica se cabin existe e está ativo
-        const cabin = await prisma.cabin.findUnique({
-            where: { id: data.cabinId },
-        })
+        // Lógica de Atribuição Inteligente de Bangalô
+        let cabinId = data.cabinId
+        let cabin
+
+        // Se for UUID, busca direto
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId)
+
+        if (isUuid) {
+            cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
+        } else {
+            // Se for Slug, busca uma unidade disponível do tipo
+            // Mapeamento Slug -> Prefixo do Nome no Banco (ver seed.ts)
+            const slugMap: Record<string, string> = {
+                'bangalo-lateral': 'Bangalô Lateral',
+                'bangalo-piscina': 'Bangalô Piscina',
+                'bangalo-frente-mar': 'Bangalô Frente Mar',
+                'bangalo-central': 'Bangalô Central',
+                'sunbed-casal': 'Sunbed Casal',
+            }
+
+            const namePrefix = slugMap[cabinId]
+
+            if (!namePrefix) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Tipo de acomodação inválido' },
+                    { status: 400 }
+                )
+            }
+
+            // 1. Busca todas as unidades desse tipo
+            const candidates = await prisma.cabin.findMany({
+                where: {
+                    name: { startsWith: namePrefix },
+                    isActive: true
+                }
+            })
+
+            if (candidates.length === 0) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Nenhuma unidade encontrada para este tipo' },
+                    { status: 404 }
+                )
+            }
+
+            // 2. Para cada candidato, verifica se está livre
+            for (const candidate of candidates) {
+                const conflicts = await prisma.reservation.count({
+                    where: {
+                        cabinId: candidate.id,
+                        status: {
+                            in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS']
+                        },
+                        OR: [
+                            { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
+                            { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
+                            { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
+                        ]
+                    }
+                })
+
+                if (conflicts === 0) {
+                    cabin = candidate
+                    cabinId = candidate.id
+                    break // Encontrou um livre!
+                }
+            }
+
+            // Se cabin ainda é null, significa que todos estão ocupados
+            if (!cabin) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Não há disponibilidade para este tipo de acomodação na data selecionada.' },
+                    { status: 409 }
+                )
+            }
+        }
 
         if (!cabin || !cabin.isActive) {
             return NextResponse.json<ApiResponse>(
@@ -178,7 +249,7 @@ export async function POST(request: NextRequest) {
         // Cria reserva
         const reservation = await prisma.reservation.create({
             data: {
-                cabinId: data.cabinId,
+                cabinId: cabinId, // Usa o ID resolvido (UUID)
                 userId,
                 customerName: data.customerName,
                 customerEmail: data.customerEmail.toLowerCase(),

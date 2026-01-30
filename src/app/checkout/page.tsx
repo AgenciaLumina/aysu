@@ -7,7 +7,7 @@ import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Calendar, Clock, Lock, User, ArrowLeft, Copy, CheckCircle2 } from 'lucide-react'
+import { Calendar, Clock, Lock, User, ArrowLeft, Copy, CheckCircle2, QrCode } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -23,6 +23,14 @@ const PIX_DATA = {
     type: 'CNPJ',
     bank: 'Itaú',
     name: 'Aysú Beach Lounge'
+}
+
+const maskPhone = (value: string) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+        .slice(0, 15)
 }
 
 function CheckoutContent() {
@@ -47,7 +55,12 @@ function CheckoutContent() {
     })
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target
+        let { name, value } = e.target
+
+        if (name === 'customerPhone') {
+            value = maskPhone(value)
+        }
+
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
@@ -83,7 +96,7 @@ function CheckoutContent() {
                     customerDocument: formData.customerDocument,
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
-                    source: 'ONLINE_PIX_PENDING', // Status inicial pendente
+                    source: 'ONLINE', // Status será PENDING automaticamente na API
                 }),
             })
 
@@ -193,9 +206,7 @@ Estou enviando o comprovante do Pix em anexo.`
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <div className="w-8 h-8 rounded bg-[#d4a574]/20 flex items-center justify-center">
-                                            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#d4a574]">
-                                                <path d="M12.005 2.01c-.167 0-.34.02-.5.056l-5.637 1.258c-1 .222-1.637 1.256-1.393 2.257l2.58 10.59a1.868 1.868 0 0 0 1.342 1.353l6.55 1.77a.56.56 0 0 0 .15.02c.045 0 .09-.004.135-.01l6.98-1.558a1.87 1.87 0 0 0 1.4-1.34l2.545-10.43c.243-1-.383-2.028-1.38-2.26L12.51 2.067a2.12 2.12 0 0 0-.505-.057zM18.6 15.02l-6.98 1.557-6.55-1.77-2.58-10.59 5.637-1.258c.03-.007.06-.01.09-.01.59 0 1.13.38 1.3.94l1.885 6.202 2.924-4.2a1.24 1.24 0 0 1 1.05-.515h.02c.42 0 .8.2 1.05.54l2.97 4.093 1.84-6.06c.172-.563.71-.945 1.303-.945.034 0 .067.002.102.01l6.757 1.648-2.545 10.43c-.012.05-.028.1-.048.148z" />
-                                            </svg>
+                                            <QrCode className="w-5 h-5 text-[#d4a574]" />
                                         </div>
                                         Pagamento via Pix
                                     </CardTitle>

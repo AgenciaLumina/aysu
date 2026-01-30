@@ -1,15 +1,16 @@
-// AISSU Beach Lounge - Admin Reservas (Refatorado)
+// AISSU Beach Lounge - Admin Reservas
 'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Users, Search, Plus } from 'lucide-react'
+import { Calendar, Users, Search, Plus, Check, X } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import toast from 'react-hot-toast'
 
 interface Reservation {
     id: string
@@ -26,21 +27,50 @@ export default function AdminReservasPage() {
     const [reservations, setReservations] = useState<Reservation[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
+    const [processingId, setProcessingId] = useState<string | null>(null)
+
+    const fetchReservations = async () => {
+        try {
+            const res = await fetch('/api/reservations')
+            const data = await res.json()
+            if (data.success) setReservations(data.data)
+        } catch (error) {
+            console.error('Erro:', error)
+            toast.error('Erro ao carregar reservas')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     useEffect(() => {
-        async function fetchReservations() {
-            try {
-                const res = await fetch('/api/reservations')
-                const data = await res.json()
-                if (data.success) setReservations(data.data)
-            } catch (error) {
-                console.error('Erro:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
         fetchReservations()
     }, [])
+
+    const handleStatusUpdate = async (id: string, newStatus: 'CONFIRMED' | 'CANCELLED') => {
+        if (!confirm(`Tem certeza que deseja ${newStatus === 'CONFIRMED' ? 'APROVAR' : 'REJEITAR'} esta reserva?`)) return
+
+        setProcessingId(id)
+        try {
+            const res = await fetch(`/api/reservations/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            const data = await res.json()
+
+            if (data.success) {
+                toast.success(newStatus === 'CONFIRMED' ? 'Reserva Aprovada!' : 'Reserva Rejeitada')
+                fetchReservations() // Recarrega a lista
+            } else {
+                toast.error(data.error || 'Erro ao atualizar status')
+            }
+        } catch (error) {
+            console.error('Erro:', error)
+            toast.error('Erro ao processar solicitação')
+        } finally {
+            setProcessingId(null)
+        }
+    }
 
     const filtered = reservations.filter(r =>
         r.customerName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -98,9 +128,9 @@ export default function AdminReservasPage() {
                     <CardContent className="p-0 divide-y divide-[#e0d5c7]">
                         {filtered.map(reservation => (
                             <div key={reservation.id} className="p-4 hover:bg-[#fdfbf8] transition-colors">
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-[#f1c595]/30 flex items-center justify-center">
+                                        <div className="w-12 h-12 rounded-full bg-[#f1c595]/30 flex items-center justify-center flex-shrink-0">
                                             <Users className="h-6 w-6 text-[#d4a574]" />
                                         </div>
                                         <div>
@@ -108,14 +138,40 @@ export default function AdminReservasPage() {
                                             <p className="text-sm text-[#8a5c3f]">{reservation.cabin?.name}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <Badge variant={getReservationStatusVariant(reservation.status)}>
-                                            {getReservationStatusLabel(reservation.status)}
-                                        </Badge>
-                                        <p className="text-sm text-[#8a5c3f] mt-1">
-                                            {formatDate(reservation.checkIn)} {formatTime(reservation.checkIn)}
-                                        </p>
-                                        <p className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</p>
+
+                                    <div className="flex items-center justify-between md:justify-end gap-6 flex-1">
+                                        {/* Status & Price */}
+                                        <div className="text-right">
+                                            <Badge variant={getReservationStatusVariant(reservation.status)}>
+                                                {getReservationStatusLabel(reservation.status)}
+                                            </Badge>
+                                            <p className="text-sm text-[#8a5c3f] mt-1">
+                                                {formatDate(reservation.checkIn)} {formatTime(reservation.checkIn)}
+                                            </p>
+                                            <p className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</p>
+                                        </div>
+
+                                        {/* Actions (Only for PENDING) */}
+                                        {reservation.status === 'PENDING' && (
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleStatusUpdate(reservation.id, 'CONFIRMED')}
+                                                    disabled={processingId === reservation.id}
+                                                    title="Aprovar Reserva"
+                                                    className="w-10 h-10 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors disabled:opacity-50"
+                                                >
+                                                    {processingId === reservation.id ? <Spinner size="sm" /> : <Check className="h-5 w-5" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleStatusUpdate(reservation.id, 'CANCELLED')}
+                                                    disabled={processingId === reservation.id}
+                                                    title="Rejeitar Reserva"
+                                                    className="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 text-red-700 flex items-center justify-center transition-colors disabled:opacity-50"
+                                                >
+                                                    {processingId === reservation.id ? <Spinner size="sm" /> : <X className="h-5 w-5" />}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

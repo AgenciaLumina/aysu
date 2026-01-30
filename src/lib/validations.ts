@@ -42,7 +42,7 @@ export const updateCabinSchema = createCabinSchema.partial().extend({
 // ============================================================
 
 export const createReservationSchema = z.object({
-    cabinId: z.string().uuid('Cabin ID inválido'),
+    cabinId: z.string().min(1, 'Cabin ID or Slug is required'),
     customerName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
     customerEmail: z.string().email('Email inválido'),
     customerPhone: z.string().min(10, 'Telefone inválido'),
