@@ -9,8 +9,9 @@ import type { ApiResponse } from '@/lib/types'
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params
     try {
         const authUser = getAuthUser(request)
 
