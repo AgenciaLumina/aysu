@@ -41,8 +41,8 @@ async function main() {
         { name: 'Bangalô Frente Mar 2', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
         { name: 'Bangalô Frente Mar 3', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
         { name: 'Bangalô Frente Mar 4', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        // Bangalô Central (Flagship) - 1 unidade
-        { name: 'Bangalô Central Flagship', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)' },
+        // Bangalô Central (Galera) - 1 unidade
+        { name: 'Bangalô Central Galera', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)' },
         // Sunbed - 8 unidades
         { name: 'Sunbed Casal 1', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
         { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },

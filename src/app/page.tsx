@@ -250,7 +250,7 @@ export default function HomePage() {
                 {[
                   { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 700", price: "R$ 1.000" },
                   { title: "Bangalô Piscina / Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-                  { title: "Bangalô Flagship", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
+                  { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
                   { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 350", price: "R$ 500" },
                   { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 150", price: "R$ 200" },
                 ].map((item, i) => (

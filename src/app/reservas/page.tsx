@@ -78,7 +78,7 @@ const spaceTypes: SpaceType[] = [
         category: 'bangalo',
         tier: 'premium',
     },
-    // BANGALÔ CENTRAL - Nível 3 (Flagship)
+    // BANGALÔ CENTRAL - Nível 3 (Galera)
     {
         id: 'bangalo-central',
         name: 'Bangalô Central',

@@ -13,6 +13,7 @@ interface HeaderProps {
 const navLinks = [
     { href: '/reservas', label: 'Reservas' },
     { href: '/cardapio', label: 'Cardápio' },
+    { href: '/experiencias', label: 'Experiências' },
     { href: '/midia', label: 'Na Mídia' },
     { href: '/eventos', label: 'Faça seu Evento' },
 ]

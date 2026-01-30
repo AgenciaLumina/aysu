@@ -20,7 +20,7 @@ interface Space {
 const SPACES: Space[] = [
     { id: 'bangalo-lateral', name: 'Bangalô Lateral', price: 1000, capacity: '4-5 pessoas' },
     { id: 'bangalo-piscina', name: 'Bangalô Piscina', price: 1800, capacity: '6-8 pessoas' },
-    { id: 'bangalo-vip', name: 'Bangalô VIP Flagship', price: 2500, capacity: '10 pessoas' },
+    { id: 'bangalo-vip', name: 'Bangalô VIP Galera', price: 2500, capacity: '10 pessoas' },
     { id: 'sunbed-casal', name: 'Sunbed Casal', price: 500, capacity: '2 pessoas' },
 ]
 
