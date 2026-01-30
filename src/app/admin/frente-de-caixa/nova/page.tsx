@@ -19,8 +19,9 @@ interface Space {
 
 const SPACES: Space[] = [
     { id: 'bangalo-lateral', name: 'Bangalô Lateral', price: 1000, capacity: '4-5 pessoas' },
-    { id: 'bangalo-piscina', name: 'Bangalô Piscina', price: 1800, capacity: '6-8 pessoas' },
-    { id: 'bangalo-vip', name: 'Bangalô VIP Galera', price: 2500, capacity: '10 pessoas' },
+    { id: 'bangalo-piscina', name: 'Bangalô Piscina', price: 1800, capacity: '6 pessoas' },
+    { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', price: 1800, capacity: '6-8 pessoas' },
+    { id: 'bangalo-central', name: 'Bangalô Central (Galera)', price: 2500, capacity: '10 pessoas' },
     { id: 'sunbed-casal', name: 'Sunbed Casal', price: 500, capacity: '2 pessoas' },
 ]
 
@@ -40,8 +41,26 @@ export default function NovaReservaManualPage() {
         customerName: '',
         customerPhone: '',
         customerEmail: '',
+        customerDocument: '',
         notes: '',
     })
+
+    const maskPhone = (value: string) => {
+        return value
+            .replace(/\D/g, '')
+            .replace(/^(\d{2})(\d)/g, '($1) $2')
+            .replace(/(\d)(\d{4})$/, '$1-$2')
+            .slice(0, 15)
+    }
+
+    const maskCPF = (value: string) => {
+        return value
+            .replace(/\D/g, '')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+            .slice(0, 14)
+    }
 
     // Fetch occupied dates when space is selected
     useEffect(() => {
@@ -64,7 +83,6 @@ export default function NovaReservaManualPage() {
                     .map((d: { date: string }) => d.date)
                 setOccupiedDates(occupied)
             } else {
-                // Fallback para mock em caso de erro
                 setOccupiedDates([])
             }
         } catch (error) {
@@ -92,14 +110,46 @@ export default function NovaReservaManualPage() {
             return
         }
 
+        if (!selectedSpace || !selectedDate) {
+            toast.error('Selecione espaço e data')
+            return
+        }
+
         setIsSubmitting(true)
         try {
-            // API call would go here
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            toast.success('Reserva criada com sucesso!')
-            router.push('/admin/frente-de-caixa')
+            const checkIn = new Date(selectedDate)
+            checkIn.setHours(8, 0, 0, 0) // Padrão Day Use: Início as 08:00
+
+            const checkOut = new Date(checkIn)
+            checkOut.setHours(checkOut.getHours() + 8) // Padrão Day Use: 8 horas de duração
+
+            const res = await fetch('/api/reservations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cabinId: selectedSpace.id,
+                    customerName: form.customerName,
+                    customerPhone: form.customerPhone,
+                    customerEmail: form.customerEmail ? form.customerEmail.toLowerCase() : `offline-${Date.now()}@aissu.com.br`,
+                    customerDocument: form.customerDocument,
+                    checkIn: checkIn.toISOString(),
+                    checkOut: checkOut.toISOString(),
+                    source: 'OFFLINE',
+                    notes: form.notes,
+                }),
+            })
+
+            const data = await res.json()
+
+            if (data.success) {
+                toast.success('Reserva criada com sucesso!')
+                router.push('/admin/reservas') // Redireciona para a lista de reservas
+            } else {
+                toast.error(data.error || 'Erro ao criar reserva')
+            }
         } catch (error) {
-            toast.error('Erro ao criar reserva')
+            console.error('Error creating reservation:', error)
+            toast.error('Erro ao conectar com o servidor')
         } finally {
             setIsSubmitting(false)
         }
@@ -341,24 +391,37 @@ export default function NovaReservaManualPage() {
                                         <input
                                             type="tel"
                                             value={form.customerPhone}
-                                            onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-                                            placeholder="(12) 99999-9999"
+                                            onChange={(e) => setForm({ ...form, customerPhone: maskPhone(e.target.value) })}
+                                            placeholder="(11) 99999-9999"
                                             className="w-full px-4 py-3 rounded-xl border border-[#e0d5c7] focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574]"
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-[#2a2a2a] mb-2">
-                                            E-mail (opcional)
+                                            CPF (opcional)
                                         </label>
                                         <input
-                                            type="email"
-                                            value={form.customerEmail}
-                                            onChange={(e) => setForm({ ...form, customerEmail: e.target.value })}
-                                            placeholder="email@exemplo.com"
+                                            type="text"
+                                            value={form.customerDocument}
+                                            onChange={(e) => setForm({ ...form, customerDocument: maskCPF(e.target.value) })}
+                                            placeholder="000.000.000-00"
                                             className="w-full px-4 py-3 rounded-xl border border-[#e0d5c7] focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574]"
                                         />
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-[#2a2a2a] mb-2">
+                                        E-mail (opcional)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={form.customerEmail}
+                                        onChange={(e) => setForm({ ...form, customerEmail: e.target.value })}
+                                        placeholder="email@exemplo.com"
+                                        className="w-full px-4 py-3 rounded-xl border border-[#e0d5c7] focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574]"
+                                    />
                                 </div>
 
                                 <div>

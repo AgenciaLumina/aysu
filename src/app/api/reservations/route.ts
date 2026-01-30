@@ -118,9 +118,15 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        if (checkIn < new Date()) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const checkInDateOnly = new Date(checkIn)
+        checkInDateOnly.setHours(0, 0, 0, 0)
+
+        if (checkInDateOnly < today) {
             return NextResponse.json<ApiResponse>(
-                { success: false, error: 'Não é possível reservar no passado' },
+                { success: false, error: 'Não é possível reservar datas passadas' },
                 { status: 400 }
             )
         }
@@ -211,7 +217,7 @@ export async function POST(request: NextRequest) {
         // Verifica conflito de horário (double-booking)
         const conflictingReservation = await prisma.reservation.findFirst({
             where: {
-                cabinId: data.cabinId,
+                cabinId: cabinId, // Agora usa o ID resolvido (UUID)
                 status: {
                     in: [
                         ReservationStatus.PENDING,

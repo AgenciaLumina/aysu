@@ -10,112 +10,131 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const cabinId = searchParams.get('cabinId')
-        const dateParam = searchParams.get('date')
 
-        if (!cabinId || !dateParam) {
+        // Suporte para data única ou mês completo
+        const dateParam = searchParams.get('date')
+        const yearParam = searchParams.get('year')
+        const monthParam = searchParams.get('month')
+
+        if (!cabinId) {
             return NextResponse.json<ApiResponse>(
-                { success: false, error: 'cabinId e date são obrigatórios' },
+                { success: false, error: 'cabinId é obrigatório' },
                 { status: 400 }
             )
         }
 
-        // Verifica se cabin existe
-        const cabin = await prisma.cabin.findUnique({
-            where: { id: cabinId },
-        })
+        // Resolvendo o(s) Bangalô(s) - UUID ou Slug
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId)
+        let cabinPoolIds: string[] = []
+        let nameToReturn = ''
 
-        if (!cabin) {
-            return NextResponse.json<ApiResponse>(
-                { success: false, error: 'Bangalô não encontrado' },
-                { status: 404 }
-            )
+        if (isUuid) {
+            const cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
+            if (!cabin) return NextResponse.json({ success: false, error: 'Bangalô não encontrado' }, { status: 404 })
+            cabinPoolIds = [cabin.id]
+            nameToReturn = cabin.name
+        } else {
+            const slugMap: Record<string, string> = {
+                'bangalo-lateral': 'Bangalô Lateral',
+                'bangalo-piscina': 'Bangalô Piscina',
+                'bangalo-frente-mar': 'Bangalô Frente Mar',
+                'bangalo-central': 'Bangalô Central',
+                'sunbed-casal': 'Sunbed Casal',
+            }
+            const namePrefix = slugMap[cabinId]
+            if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
+
+            const cabins = await prisma.cabin.findMany({
+                where: { name: { startsWith: namePrefix }, isActive: true },
+                select: { id: true }
+            })
+            cabinPoolIds = cabins.map(c => c.id)
+            nameToReturn = namePrefix
         }
 
-        // Define início e fim do dia
-        const date = new Date(dateParam)
-        const startOfDay = new Date(date)
-        startOfDay.setHours(0, 0, 0, 0)
+        const totalUnits = cabinPoolIds.length
 
-        const endOfDay = new Date(date)
-        endOfDay.setHours(23, 59, 59, 999)
+        // LÓGICA MENSAL
+        if (yearParam && monthParam) {
+            const year = parseInt(yearParam)
+            const month = parseInt(monthParam) - 1
+            const firstDay = new Date(year, month, 1)
+            const lastDay = new Date(year, month + 1, 0)
 
-        // Busca reservas do dia
-        const reservations = await prisma.reservation.findMany({
-            where: {
-                cabinId,
-                status: {
-                    in: [
-                        ReservationStatus.PENDING,
-                        ReservationStatus.CONFIRMED,
-                        ReservationStatus.CHECKED_IN,
-                        ReservationStatus.IN_PROGRESS,
-                    ],
-                },
-                OR: [
-                    // Reservas que começam no dia
-                    { checkIn: { gte: startOfDay, lte: endOfDay } },
-                    // Reservas que terminam no dia
-                    { checkOut: { gte: startOfDay, lte: endOfDay } },
-                    // Reservas que englobam o dia todo
-                    { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gte: endOfDay } }] },
-                ],
-            },
-            orderBy: { checkIn: 'asc' },
-            select: {
-                id: true,
-                checkIn: true,
-                checkOut: true,
-                status: true,
-            },
-        })
+            const dayResults = []
+            for (let d = 1; d <= lastDay.getDate(); d++) {
+                const currentDay = new Date(year, month, d)
+                const startOfDay = new Date(currentDay)
+                startOfDay.setHours(8, 0, 0, 0)
+                const endOfDay = new Date(currentDay)
+                endOfDay.setHours(18, 0, 0, 0)
 
-        // Gera slots de hora em hora (8h às 22h)
-        const slots: AvailabilitySlot[] = []
-        const operatingStart = 8 // 8h
-        const operatingEnd = 22 // 22h
+                // Conta quantas reservas existem para este tipo no dia
+                const reservedCount = await prisma.reservation.count({
+                    where: {
+                        cabinId: { in: cabinPoolIds },
+                        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
+                        OR: [
+                            { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
+                            { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
+                            { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                        ]
+                    }
+                })
 
-        for (let hour = operatingStart; hour < operatingEnd; hour++) {
-            const slotStart = new Date(date)
-            slotStart.setHours(hour, 0, 0, 0)
+                dayResults.push({
+                    date: currentDay.toISOString().split('T')[0],
+                    available: reservedCount < totalUnits
+                })
+            }
 
-            const slotEnd = new Date(date)
-            slotEnd.setHours(hour + 1, 0, 0, 0)
+            return NextResponse.json({ success: true, data: dayResults })
+        }
 
-            // Verifica se há reserva neste slot
-            const isOccupied = reservations.some(r => {
-                const rCheckIn = new Date(r.checkIn)
-                const rCheckOut = new Date(r.checkOut)
-                // Slot está ocupado se começa antes do fim da reserva E termina depois do início
-                return slotStart < rCheckOut && slotEnd > rCheckIn
+        // LÓGICA DE DATA ÚNICA (Slots)
+        if (dateParam) {
+            const date = new Date(dateParam)
+            const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0)
+            const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999)
+
+            const reservations = await prisma.reservation.findMany({
+                where: {
+                    cabinId: { in: cabinPoolIds },
+                    status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
+                    OR: [
+                        { checkIn: { gte: startOfDay, lte: endOfDay } },
+                        { checkOut: { gte: startOfDay, lte: endOfDay } },
+                        { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gte: endOfDay } }] },
+                    ]
+                }
             })
 
-            // Não mostra slots no passado
-            const now = new Date()
-            const isPast = slotStart < now
+            const slots = []
+            for (let hour = 8; hour < 18; hour++) {
+                const slotStart = new Date(date); slotStart.setHours(hour, 0, 0, 0)
+                const slotEnd = new Date(date); slotEnd.setHours(hour + 1, 0, 0, 0)
 
-            slots.push({
-                start: slotStart.toISOString(),
-                end: slotEnd.toISOString(),
-                isOccupied: isOccupied || isPast,
+                // Ocupado se o número de reservas no slot for >= número de unidades
+                const countAtSlot = reservations.filter(r => slotStart < r.checkOut && slotEnd > r.checkIn).length
+                const isOccupied = countAtSlot >= totalUnits || slotStart < new Date()
+
+                slots.push({
+                    start: slotStart.toISOString(),
+                    end: slotEnd.toISOString(),
+                    isOccupied
+                })
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: { cabinId, cabinName: nameToReturn, date: dateParam, slots }
             })
         }
 
-        const availability: CabinAvailability = {
-            cabinId,
-            cabinName: cabin.name,
-            date: dateParam,
-            slots,
-        }
+        return NextResponse.json({ success: false, error: 'Parâmetros insuficientes (date ou year/month)' }, { status: 400 })
 
-        return NextResponse.json<ApiResponse<CabinAvailability>>({
-            success: true,
-            data: availability,
-        })
     } catch (error) {
         console.error('[Availability Error]', error)
-        return NextResponse.json<ApiResponse>(
-            { success: false, error: 'Erro ao verificar disponibilidade' },
-            { status: 500 }
-        )
+        return NextResponse.json({ success: false, error: 'Erro ao verificar disponibilidade' }, { status: 500 })
     }
 }
