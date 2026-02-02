@@ -94,8 +94,9 @@ function CheckoutContent() {
 
         try {
             const checkIn = new Date(date || '')
+            checkIn.setHours(10, 0, 0, 0) // Day use início 10h
             const checkOut = new Date(checkIn)
-            checkOut.setHours(checkOut.getHours() + 8) // Day use
+            checkOut.setHours(18, 0, 0, 0) // Day use fim 18h
 
             // 1. Criar Reserva no Backend
             const reservationRes = await fetch('/api/reservations', {
@@ -302,7 +303,7 @@ Estou enviando o comprovante do Pix em anexo.`
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-[#8a5c3f]" />
-                                        <span>Day use (08:00 - 18:00)</span>
+                                        <span>Day use (10:00 - 18:00)</span>
                                     </div>
                                 </div>
 

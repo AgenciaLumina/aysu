@@ -17,9 +17,9 @@ export default function AdminConfiguracoesPage() {
         email: 'contato@aissu.com.br',
         address: 'Praia de Massaguaçu, Caraguatatuba-SP',
         openingHours: {
-            weekdays: '08:00 - 22:00',
-            saturday: '08:00 - 23:00',
-            sunday: '08:00 - 20:00',
+            weekdays: '10:00 - 22:00',
+            saturday: '10:00 - 23:00',
+            sunday: '10:00 - 20:00',
         },
     })
 

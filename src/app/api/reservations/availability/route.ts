@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
             for (let d = 1; d <= lastDay.getDate(); d++) {
                 const currentDay = new Date(year, month, d)
                 const startOfDay = new Date(currentDay)
-                startOfDay.setHours(8, 0, 0, 0)
+                startOfDay.setHours(10, 0, 0, 0)
                 const endOfDay = new Date(currentDay)
                 endOfDay.setHours(18, 0, 0, 0)
 
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
             })
 
             const slots = []
-            for (let hour = 8; hour < 18; hour++) {
+            for (let hour = 10; hour < 18; hour++) {
                 const slotStart = new Date(date); slotStart.setHours(hour, 0, 0, 0)
                 const slotEnd = new Date(date); slotEnd.setHours(hour + 1, 0, 0, 0)
 

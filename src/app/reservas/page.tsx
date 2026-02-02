@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
@@ -153,14 +153,29 @@ const getTierColor = (tier: SpaceType['tier']) => {
 // COMPONENTE PRINCIPAL
 // ==========================================
 
+interface ClosedDateInfo {
+    date: string
+    reason: string
+}
+
 export default function ReservasPage() {
     const router = useRouter()
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
+    const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
     const [currentMonth, setCurrentMonth] = useState(() => {
         // Default to February 2026 for Carnaval
         return new Date(2026, 1, 1)
     })
+
+    useEffect(() => {
+        fetch('/api/closed-dates')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) setClosedDates(data.data)
+            })
+            .catch(() => {})
+    }, [])
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
@@ -170,10 +185,10 @@ export default function ReservasPage() {
         const daysInMonth = lastDay.getDate()
         const startWeekday = firstDay.getDay()
 
-        const days: { date: Date | null; isPast: boolean; isHoliday: boolean; holidayName?: string; isSoldOut: boolean }[] = []
+        const days: { date: Date | null; isPast: boolean; isHoliday: boolean; holidayName?: string; isSoldOut: boolean; isClosed: boolean; closedReason?: string }[] = []
 
         for (let i = 0; i < startWeekday; i++) {
-            days.push({ date: null, isPast: true, isHoliday: false, isSoldOut: false })
+            days.push({ date: null, isPast: true, isHoliday: false, isSoldOut: false, isClosed: false })
         }
 
         const today = new Date()
@@ -183,6 +198,7 @@ export default function ReservasPage() {
             const date = new Date(year, month, day)
             const dateStr = formatDateISO(date)
             const holiday = isHoliday(dateStr)
+            const closedInfo = closedDates.find(cd => cd.date === dateStr)
 
             days.push({
                 date,
@@ -190,11 +206,13 @@ export default function ReservasPage() {
                 isHoliday: !!holiday,
                 holidayName: holiday?.name,
                 isSoldOut: soldOutDates.includes(dateStr),
+                isClosed: !!closedInfo,
+                closedReason: closedInfo?.reason,
             })
         }
 
         return days
-    }, [currentMonth])
+    }, [currentMonth, closedDates])
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date)
@@ -332,7 +350,7 @@ export default function ReservasPage() {
 
                                 const dateStr = formatDateISO(day.date)
                                 const isSelected = selectedDate && formatDateISO(selectedDate) === dateStr
-                                const isDisabled = day.isPast || day.isSoldOut
+                                const isDisabled = day.isPast || day.isSoldOut || day.isClosed
                                 const isToday = formatDateISO(new Date()) === dateStr
 
                                 return (
@@ -344,23 +362,35 @@ export default function ReservasPage() {
                                                 w-full aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all
                                                 ${isSelected
                                                     ? 'bg-gray-900 text-white shadow-lg scale-105'
-                                                    : isDisabled
-                                                        ? 'text-gray-200 cursor-not-allowed'
-                                                        : isToday
-                                                            ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                                                            : day.isHoliday
-                                                                ? 'text-amber-600 hover:bg-amber-50'
-                                                                : 'text-gray-700 hover:bg-gray-50'
+                                                    : day.isClosed
+                                                        ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
+                                                        : isDisabled
+                                                            ? 'text-gray-200 cursor-not-allowed'
+                                                            : isToday
+                                                                ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                                                                : day.isHoliday
+                                                                    ? 'text-amber-600 hover:bg-amber-50'
+                                                                    : 'text-gray-700 hover:bg-gray-50'
                                                 }
                                             `}
                                         >
                                             <span>{day.date.getDate()}</span>
-                                            {day.isHoliday && !isSelected && (
+                                            {day.isClosed && !isSelected && (
+                                                <span className="w-1 h-1 rounded-full bg-red-500 mt-0.5" />
+                                            )}
+                                            {day.isHoliday && !day.isClosed && !isSelected && (
                                                 <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
                                             )}
                                         </button>
+                                        {/* Closed Date Tooltip */}
+                                        {day.isClosed && (
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-red-600 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                                {day.closedReason || 'Evento Fechado'} — Não abriremos ao público
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-red-600" />
+                                            </div>
+                                        )}
                                         {/* Holiday Tooltip */}
-                                        {day.holidayName && (
+                                        {day.holidayName && !day.isClosed && (
                                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                                 {day.holidayName}
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-gray-900" />

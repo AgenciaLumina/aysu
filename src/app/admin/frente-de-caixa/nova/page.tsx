@@ -118,10 +118,10 @@ export default function NovaReservaManualPage() {
         setIsSubmitting(true)
         try {
             const checkIn = new Date(selectedDate)
-            checkIn.setHours(8, 0, 0, 0) // Padrão Day Use: Início as 08:00
+            checkIn.setHours(10, 0, 0, 0) // Padrão Day Use: Início as 10:00
 
             const checkOut = new Date(checkIn)
-            checkOut.setHours(checkOut.getHours() + 8) // Padrão Day Use: 8 horas de duração
+            checkOut.setHours(18, 0, 0, 0) // Padrão Day Use: Fim as 18:00
 
             const res = await fetch('/api/reservations', {
                 method: 'POST',

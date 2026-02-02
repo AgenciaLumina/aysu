@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -40,15 +40,36 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const pathname = usePathname()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [showNotifications, setShowNotifications] = useState(false)
+    const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; time: string; unread: boolean }[]>([])
 
     const isActive = (href: string) => pathname?.startsWith(href)
 
-    // Mock notifications - futuramente conectar com API
-    const notifications = [
-        { id: '1', title: 'Nova reserva', message: 'Bangalô Central para 14/02', time: '5 min', unread: true },
-        { id: '2', title: 'Reserva confirmada', message: 'Pagamento aprovado - Sunbed', time: '1h', unread: true },
-        { id: '3', title: 'Cardápio atualizado', message: '3 novos itens adicionados', time: '2h', unread: false },
-    ]
+    useEffect(() => {
+        const fetchPending = async () => {
+            try {
+                const res = await fetch('/api/admin/reservations/pending')
+                const data = await res.json()
+                if (data.success && data.data) {
+                    setNotifications(data.data.map((r: any) => {
+                        const created = new Date(r.createdAt)
+                        const now = new Date()
+                        const diffMin = Math.floor((now.getTime() - created.getTime()) / 60000)
+                        const time = diffMin < 60 ? `${diffMin} min` : `${Math.floor(diffMin / 60)}h`
+                        return {
+                            id: r.id,
+                            title: 'Reserva pendente',
+                            message: `${r.customerName} - ${r.spaceName}`,
+                            time,
+                            unread: true,
+                        }
+                    }))
+                }
+            } catch {}
+        }
+        fetchPending()
+        const interval = setInterval(fetchPending, 30000)
+        return () => clearInterval(interval)
+    }, [])
 
     const unreadCount = notifications.filter(n => n.unread).length
 
@@ -197,9 +218,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                             )}
                                         </div>
                                         <div className="p-3 border-t border-[#e0d5c7] bg-[#faf8f5]">
-                                            <button className="w-full text-center text-sm text-[#d4a574] hover:text-[#c49464] font-medium">
-                                                Ver todas as notificações
-                                            </button>
+                                            <Link href="/admin/frente-de-caixa" className="w-full text-center text-sm text-[#d4a574] hover:text-[#c49464] font-medium block" onClick={() => setShowNotifications(false)}>
+                                                Ver no Frente de Caixa
+                                            </Link>
                                         </div>
                                     </div>
                                 </>

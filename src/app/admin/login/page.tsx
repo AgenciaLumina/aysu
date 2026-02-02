@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const callbackUrl = searchParams.get('callbackUrl') || '/admin/dashboard'
+    const callbackUrl = searchParams.get('callbackUrl') || '/admin/frente-de-caixa'
 
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
@@ -70,7 +70,7 @@ function LoginForm() {
                         value={formData.email}
                         onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         className="w-full pl-12 pr-4 py-3 bg-[#faf8f5] border border-[#e0d5c7] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d4a574]/30 transition-all text-[#2a2a2a]"
-                        placeholder="admin@aysu.com.br"
+                        placeholder="admin@aysubeachlounge.com.br"
                     />
                 </div>
             </div>

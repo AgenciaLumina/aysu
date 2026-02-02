@@ -57,6 +57,12 @@ export function getReservationStatusVariant(status: string): BadgeProps['variant
         COMPLETED: 'completed',
         CANCELLED: 'cancelled',
         NO_SHOW: 'noShow',
+        pending: 'pending',
+        confirmed: 'confirmed',
+        checked_in: 'checkedIn',
+        checked_out: 'completed',
+        cancelled: 'cancelled',
+        no_show: 'noShow',
     }
     return map[status] || 'default'
 }
@@ -71,6 +77,12 @@ export function getReservationStatusLabel(status: string): string {
         COMPLETED: 'Concluída',
         CANCELLED: 'Cancelada',
         NO_SHOW: 'Não Compareceu',
+        pending: 'Pendente',
+        confirmed: 'Confirmada',
+        checked_in: 'Check-in',
+        checked_out: 'Concluída',
+        cancelled: 'Cancelada',
+        no_show: 'Não Compareceu',
     }
     return map[status] || status
 }

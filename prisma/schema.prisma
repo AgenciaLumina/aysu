@@ -355,6 +355,16 @@ model GalleryImage {
   @@index([displayOrder])
 }
 
+// Datas Fechadas (Evento Fechado - sem abertura ao público)
+model ClosedDate {
+  id        String   @id @default(uuid())
+  date      DateTime @unique @db.Date
+  reason    String   @default("Evento Fechado")
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
 // Galeria de Menu (imagens para seção "Nosso Menu" da home)
 model MenuGalleryImage {
   id           String   @id @default(uuid())

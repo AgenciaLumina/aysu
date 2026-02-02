@@ -60,8 +60,11 @@ export async function GET(request: NextRequest) {
             })
 
             // Map Prisma enum to frontend enum
-            let status: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
+            let status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
             switch (r.status) {
+                case 'PENDING':
+                    status = 'pending'
+                    break
                 case 'CHECKED_IN':
                 case 'IN_PROGRESS':
                     status = 'checked_in'

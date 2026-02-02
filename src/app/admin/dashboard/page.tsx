@@ -249,15 +249,15 @@ export default function AdminDashboardPage() {
                                     <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-[#8a5c3f]">Seg - Sex</span>
-                                            <span className="font-medium">08:00 - 22:00</span>
+                                            <span className="font-medium">10:00 - 22:00</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-[#8a5c3f]">Sábado</span>
-                                            <span className="font-medium">08:00 - 23:00</span>
+                                            <span className="font-medium">10:00 - 23:00</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-[#8a5c3f]">Domingo</span>
-                                            <span className="font-medium">08:00 - 20:00</span>
+                                            <span className="font-medium">10:00 - 20:00</span>
                                         </div>
                                     </div>
                                 </CardContent>

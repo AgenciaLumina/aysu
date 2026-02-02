@@ -15,13 +15,15 @@ import {
     ChevronRight,
     Phone,
     MoreVertical,
-    Loader2
+    Loader2,
+    Bell
 } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import toast from 'react-hot-toast'
 
 interface Reservation {
     id: string
@@ -32,61 +34,19 @@ interface Reservation {
     date: string
     time: string
     totalPrice: number
-    status: 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
+    status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
     source: 'online' | 'manual'
 }
 
-// Mock data para demonstração
-const mockReservations: Reservation[] = [
-    {
-        id: '1',
-        customerName: 'João Silva',
-        customerPhone: '(12) 99123-4567',
-        spaceName: 'Bangalô Piscina',
-        spaceType: 'bangalo',
-        date: '2026-01-17',
-        time: '10:00',
-        totalPrice: 1800,
-        status: 'checked_in',
-        source: 'online'
-    },
-    {
-        id: '2',
-        customerName: 'Maria Santos',
-        customerPhone: '(12) 98765-4321',
-        spaceName: 'Bangalô Lateral',
-        spaceType: 'bangalo',
-        date: '2026-01-17',
-        time: '10:00',
-        totalPrice: 1000,
-        status: 'confirmed',
-        source: 'online'
-    },
-    {
-        id: '3',
-        customerName: 'Carlos Lima',
-        customerPhone: '(12) 91234-5678',
-        spaceName: 'Sunbed Casal',
-        spaceType: 'sunbed',
-        date: '2026-01-17',
-        time: '11:00',
-        totalPrice: 500,
-        status: 'confirmed',
-        source: 'manual'
-    },
-    {
-        id: '4',
-        customerName: 'Ana Oliveira',
-        customerPhone: '(12) 92345-6789',
-        spaceName: 'Bangalô VIP',
-        spaceType: 'bangalo',
-        date: '2026-01-17',
-        time: '09:00',
-        totalPrice: 2500,
-        status: 'checked_out',
-        source: 'online'
-    },
-]
+interface PendingReservation {
+    id: string
+    customerName: string
+    customerPhone: string
+    spaceName: string
+    date: string
+    totalPrice: number
+    createdAt: string
+}
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -94,16 +54,90 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 export default function FrenteDeCaixaPage() {
     const [selectedDate, setSelectedDate] = useState(new Date())
     const [reservations, setReservations] = useState<Reservation[]>([])
+    const [pendingReservations, setPendingReservations] = useState<PendingReservation[]>([])
     const [searchQuery, setSearchQuery] = useState('')
     const [isActionsOpen, setIsActionsOpen] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
+    const [approvalLoading, setApprovalLoading] = useState<string | null>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
+
+    const fetchPendingReservations = async () => {
+        try {
+            const res = await fetch('/api/admin/reservations/pending')
+            const data = await res.json()
+            if (data.success) setPendingReservations(data.data)
+        } catch (error) {
+            console.error('Erro ao buscar pendentes:', error)
+        }
+    }
+
+    const handleApprove = async (id: string) => {
+        setApprovalLoading(id)
+        try {
+            const token = document.cookie.split('; ').find(c => c.startsWith('admin_token='))?.split('=')[1]
+            const res = await fetch(`/api/reservations/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: 'CONFIRMED' }),
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success('Reserva aprovada!')
+                fetchPendingReservations()
+                fetchReservations()
+            } else {
+                toast.error(data.error || 'Erro ao aprovar')
+            }
+        } catch {
+            toast.error('Erro ao aprovar reserva')
+        } finally {
+            setApprovalLoading(null)
+        }
+    }
+
+    const handleReject = async (id: string) => {
+        if (!confirm('Tem certeza que deseja rejeitar esta reserva?')) return
+        setApprovalLoading(id)
+        try {
+            const token = document.cookie.split('; ').find(c => c.startsWith('admin_token='))?.split('=')[1]
+            const res = await fetch(`/api/reservations/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: 'CANCELLED' }),
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success('Reserva rejeitada')
+                fetchPendingReservations()
+                fetchReservations()
+            } else {
+                toast.error(data.error || 'Erro ao rejeitar')
+            }
+        } catch {
+            toast.error('Erro ao rejeitar reserva')
+        } finally {
+            setApprovalLoading(null)
+        }
+    }
 
     // Fetch reservations when date changes
     useEffect(() => {
         fetchReservations()
     }, [selectedDate])
+
+    // Fetch pending on mount and every 30s
+    useEffect(() => {
+        fetchPendingReservations()
+        const interval = setInterval(fetchPendingReservations, 30000)
+        return () => clearInterval(interval)
+    }, [])
 
     // Click outside handler
     useEffect(() => {
@@ -173,6 +207,7 @@ export default function FrenteDeCaixaPage() {
         total: reservations.length,
         checkedIn: reservations.filter(r => r.status === 'checked_in').length,
         confirmed: reservations.filter(r => r.status === 'confirmed').length,
+        pending: pendingReservations.length,
         revenue: reservations.filter(r => r.status !== 'cancelled' && r.status !== 'no_show')
             .reduce((sum, r) => sum + r.totalPrice, 0)
     }
@@ -272,6 +307,8 @@ export default function FrenteDeCaixaPage() {
 
     const getStatusIcon = (status: Reservation['status']) => {
         switch (status) {
+            case 'pending':
+                return <Bell className="h-4 w-4 text-amber-600 animate-pulse" />
             case 'checked_in':
                 return <CheckCircle2 className="h-4 w-4 text-green-500" />
             case 'checked_out':
@@ -386,6 +423,71 @@ export default function FrenteDeCaixaPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Pending Reservations Alert */}
+            {pendingReservations.length > 0 && (
+                <Card className="mb-8 border-amber-300 bg-amber-50/50">
+                    <CardHeader className="border-b border-amber-200">
+                        <CardTitle className="flex items-center gap-3 text-amber-800">
+                            <div className="relative">
+                                <Bell className="h-5 w-5" />
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                    {pendingReservations.length}
+                                </span>
+                            </div>
+                            Reservas Aguardando Aprovação
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 divide-y divide-amber-200">
+                        {pendingReservations.map(reservation => (
+                            <div key={reservation.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center flex-shrink-0">
+                                        <Clock className="h-5 w-5 text-amber-700" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[#2a2a2a]">{reservation.customerName}</p>
+                                        <p className="text-sm text-[#8a5c3f]">{reservation.spaceName}</p>
+                                        <div className="flex items-center gap-3 text-xs text-[#8a5c3f] mt-1">
+                                            <span className="flex items-center gap-1">
+                                                <CalendarDays className="h-3 w-3" />
+                                                {formatDate(reservation.date)}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Phone className="h-3 w-3" />
+                                                {reservation.customerPhone}
+                                            </span>
+                                            <span className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 ml-14 md:ml-0">
+                                    <button
+                                        onClick={() => handleApprove(reservation.id)}
+                                        disabled={approvalLoading === reservation.id}
+                                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        {approvalLoading === reservation.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <CheckCircle2 className="h-4 w-4" />
+                                        )}
+                                        Aprovar
+                                    </button>
+                                    <button
+                                        onClick={() => handleReject(reservation.id)}
+                                        disabled={approvalLoading === reservation.id}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        <XCircle className="h-4 w-4" />
+                                        Rejeitar
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Search */}
             <div className="relative max-w-md mb-6">
