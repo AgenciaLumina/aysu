@@ -26,6 +26,8 @@ interface SpaceType {
     capacityNum: number
     dailyPrice: number
     consumable: number
+    holidayPrice: number
+    holidayConsumable: number
     description: string
     units: number
     category: 'bangalo' | 'sunbed'
@@ -41,8 +43,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/bangalo-lateral.jpg',
         capacity: '4 a 5 pessoas',
         capacityNum: 5,
-        dailyPrice: 1000,
-        consumable: 700,
+        dailyPrice: 600,
+        consumable: 500,
+        holidayPrice: 1000,
+        holidayConsumable: 700,
         description: 'Ideal para casais + amigos',
         units: 6,
         category: 'bangalo',
@@ -56,8 +60,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/bangalo-piscina.jpg',
         capacity: '6 pessoas',
         capacityNum: 6,
-        dailyPrice: 1800,
-        consumable: 1300,
+        dailyPrice: 600,
+        consumable: 500,
+        holidayPrice: 1800,
+        holidayConsumable: 1300,
         description: 'Vista + status à beira da piscina',
         units: 2,
         category: 'bangalo',
@@ -71,8 +77,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/bangalo-frente-mar.jpg',
         capacity: '6 a 8 pessoas',
         capacityNum: 8,
-        dailyPrice: 1800,
-        consumable: 1300,
+        dailyPrice: 720,
+        consumable: 600,
+        holidayPrice: 1800,
+        holidayConsumable: 1300,
         description: 'Posição privilegiada de frente para o mar',
         units: 4,
         category: 'bangalo',
@@ -86,8 +94,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/bangalo10.jpeg',
         capacity: 'até 10 pessoas',
         capacityNum: 10,
-        dailyPrice: 2500,
-        consumable: 2000,
+        dailyPrice: 1500,
+        consumable: 1200,
+        holidayPrice: 2500,
+        holidayConsumable: 2000,
         description: 'Espaço icônico. Experiência Aysú Raiz',
         units: 1,
         category: 'bangalo',
@@ -101,8 +111,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/Sunbeds.jpeg',
         capacity: '2 pessoas (casal)',
         capacityNum: 2,
-        dailyPrice: 500,
-        consumable: 350,
+        dailyPrice: 300,
+        consumable: 200,
+        holidayPrice: 500,
+        holidayConsumable: 350,
         description: 'Cama de praia exclusiva para casais',
         units: 4,
         category: 'sunbed',
@@ -227,12 +239,16 @@ export default function ReservasPage() {
 
     const handleReserve = () => {
         if (selectedDate && selectedSpace) {
+            const isDateHoliday = isHoliday(selectedDate)
+            const finalPrice = isDateHoliday ? selectedSpace.holidayPrice : selectedSpace.dailyPrice
+            const finalConsumable = isDateHoliday ? selectedSpace.holidayConsumable : selectedSpace.consumable
+
             const params = new URLSearchParams({
                 cabinId: selectedSpace.id,
                 cabinName: selectedSpace.name,
                 date: formatDateISO(selectedDate),
-                price: selectedSpace.dailyPrice.toString(),
-                consumable: selectedSpace.consumable.toString(),
+                price: finalPrice.toString(),
+                consumable: finalConsumable.toString(),
             })
             router.push(`/checkout?${params.toString()}`)
         }
@@ -434,84 +450,90 @@ export default function ReservasPage() {
 
                 {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {spaceTypes.map((space) => (
-                        <article
-                            key={space.id}
-                            onClick={() => selectedDate && handleSpaceSelect(space)}
-                            className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 ${selectedDate
-                                ? 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
-                                : 'opacity-50 cursor-not-allowed'
-                                } ${selectedSpace?.id === space.id
-                                    ? 'ring-2 ring-gray-900 shadow-2xl shadow-black/10'
-                                    : 'shadow-lg shadow-black/5'
-                                }`}
-                        >
-                            {/* Image */}
-                            <div className="relative aspect-[16/10] overflow-hidden">
-                                <Image
-                                    src={space.image}
-                                    alt={space.name}
-                                    fill
-                                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                                />
-                                {/* Gradient Overlay */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                    {spaceTypes.map((space) => {
+                        const isDateHoliday = selectedDate ? isHoliday(selectedDate) : false
+                        const finalPrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
+                        const finalConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
 
-                                {/* Top Left: Tier Badge */}
-                                <div className="absolute top-4 left-4">
-                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getTierColor(space.tier)}`}>
-                                        {getTierLabel(space.tier)}
-                                    </span>
+                        return (
+                            <article
+                                key={space.id}
+                                onClick={() => selectedDate && handleSpaceSelect(space)}
+                                className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 ${selectedDate
+                                    ? 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
+                                    : 'opacity-50 cursor-not-allowed'
+                                    } ${selectedSpace?.id === space.id
+                                        ? 'ring-2 ring-gray-900 shadow-2xl shadow-black/10'
+                                        : 'shadow-lg shadow-black/5'
+                                    }`}
+                            >
+                                {/* Image */}
+                                <div className="relative aspect-[16/10] overflow-hidden">
+                                    <Image
+                                        src={space.image}
+                                        alt={space.name}
+                                        fill
+                                        className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                    />
+                                    {/* Gradient Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+                                    {/* Top Left: Tier Badge */}
+                                    <div className="absolute top-4 left-4">
+                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getTierColor(space.tier)}`}>
+                                            {getTierLabel(space.tier)}
+                                        </span>
+                                    </div>
+
+                                    {/* Top Right: Availability */}
+                                    <div className="absolute top-4 right-4">
+                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
+                                            {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
+                                        </span>
+                                    </div>
+
+                                    {/* Bottom: Quick Info */}
+                                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                                        <span className="inline-flex items-center gap-1.5 text-white text-sm">
+                                            <Users className="h-4 w-4" />
+                                            {space.capacity}
+                                        </span>
+                                    </div>
+
+                                    {/* Selection Overlay */}
+                                    {selectedSpace?.id === space.id && (
+                                        <div className="absolute inset-0 bg-gray-900/30 flex items-center justify-center">
+                                            <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl">
+                                                <Check className="h-8 w-8 text-gray-900" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Top Right: Availability */}
-                                <div className="absolute top-4 right-4">
-                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                        {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
-                                    </span>
-                                </div>
+                                {/* Content */}
+                                <div className="p-6">
+                                    {/* Title */}
+                                    <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
+                                    <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
 
-                                {/* Bottom: Quick Info */}
-                                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                                    <span className="inline-flex items-center gap-1.5 text-white text-sm">
-                                        <Users className="h-4 w-4" />
-                                        {space.capacity}
-                                    </span>
-                                </div>
-
-                                {/* Selection Overlay */}
-                                {selectedSpace?.id === space.id && (
-                                    <div className="absolute inset-0 bg-gray-900/30 flex items-center justify-center">
-                                        <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl">
-                                            <Check className="h-8 w-8 text-gray-900" />
+                                    {/* Pricing */}
+                                    <div className="flex items-end justify-between pt-4 border-t border-[var(--aissu-border)]">
+                                        <div>
+                                            <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>{formatCurrency(finalPrice)}</p>
+                                            <p className="text-xs" style={{ color: 'var(--aissu-text-muted)' }}>por dia</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="flex items-center gap-1.5 text-emerald-600">
+                                                <Utensils className="h-4 w-4" />
+                                                <span className="font-semibold">{formatCurrency(finalConsumable)}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500">em consumação</p>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Content */}
-                            <div className="p-6">
-                                {/* Title */}
-                                <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
-                                <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
-
-                                {/* Pricing */}
-                                <div className="flex items-end justify-between pt-4 border-t border-[var(--aissu-border)]">
-                                    <div>
-                                        <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>{formatCurrency(space.dailyPrice)}</p>
-                                        <p className="text-xs" style={{ color: 'var(--aissu-text-muted)' }}>por dia</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="flex items-center gap-1.5 text-emerald-600">
-                                            <Utensils className="h-4 w-4" />
-                                            <span className="font-semibold">{formatCurrency(space.consumable)}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500">em consumação</p>
-                                    </div>
                                 </div>
-                            </div>
-                        </article>
-                    ))}
+                            </article>
+                        )
+                    })}
                 </div>
             </section>
 
@@ -547,7 +569,7 @@ export default function ReservasPage() {
                             </div>
 
                             <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
-                                Day Use Carnaval
+                                {selectedDate && isHoliday(selectedDate) ? 'Day Use Carnaval' : 'Day Use Praia'}
                             </h3>
                             <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
                                 Espreguiçadeira + Guarda-sol • Mesas de praia (8)
@@ -555,11 +577,15 @@ export default function ReservasPage() {
 
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
                                 <div>
-                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>R$ 200</p>
+                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 100'}
+                                    </p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                                    <span className="text-lg font-semibold text-emerald-600">R$ 150</span>
+                                    <span className="text-lg font-semibold text-emerald-600">
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 80'}
+                                    </span>
                                     <span className="text-xs text-emerald-600">consumação</span>
                                 </div>
                             </div>
@@ -585,11 +611,15 @@ export default function ReservasPage() {
 
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
                                 <div>
-                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>R$ 200</p>
+                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 100'}
+                                    </p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                                    <span className="text-lg font-semibold text-emerald-600">R$ 150</span>
+                                    <span className="text-lg font-semibold text-emerald-600">
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 80'}
+                                    </span>
                                     <span className="text-xs text-emerald-600">consumação</span>
                                 </div>
                             </div>
@@ -660,8 +690,12 @@ export default function ReservasPage() {
                             {/* Right: Price & CTA */}
                             <div className="flex items-center gap-6">
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>{formatCurrency(selectedSpace.dailyPrice)}</p>
-                                    <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>{formatCurrency(selectedSpace.consumable)} consumação</p>
+                                    <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayPrice : selectedSpace.dailyPrice)}
+                                    </p>
+                                    <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>
+                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayConsumable : selectedSpace.consumable)} consumação
+                                    </p>
                                 </div>
                                 <button
                                     onClick={handleReserve}

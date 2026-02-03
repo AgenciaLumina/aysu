@@ -12,6 +12,7 @@ import InstagramStories from '@/components/InstagramStories'
 import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
+import { PricingSection } from '@/components/home/PricingSection'
 
 
 export default function HomePage() {
@@ -228,51 +229,8 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-2xl shadow-[#d4a574]/10 border border-[#e0d5c7]/50 relative">
-              {/* Badge Carnaval - Na borda superior */}
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#8B4513] text-white text-xs font-medium shadow-lg">
-                  <span>🎭</span>
-                  <span className="whitespace-nowrap">Valores exclusivos para o Carnaval de 13 a 18 de fevereiro</span>
-                </div>
-              </div>
-
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Image src="/logo_aysu.png" width={100} height={100} alt="Logo Bg" />
-              </div>
-
-              <h3 className="font-serif text-2xl font-bold text-[#2a2a2a] mb-8 flex items-center gap-3 mt-4">
-                <div className="w-1 h-8 bg-[#d4a574] rounded-full" />
-                Tabela de Valores
-              </h3>
-
-              <div className="space-y-5">
-                {[
-                  { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 700", price: "R$ 1.000" },
-                  { title: "Bangalô Piscina / Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-                  { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
-                  { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 350", price: "R$ 500" },
-                  { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 150", price: "R$ 200" },
-                ].map((item, i) => (
-                  <div key={i} className="flex flex-wrap justify-between items-end gap-4 pb-4 border-b border-[#f5f0e8] last:border-0 hover:bg-[#faf8f5] p-2 rounded-lg transition-colors">
-                    <div>
-                      <p className="font-serif font-medium text-[#2a2a2a] text-lg">{item.title}</p>
-                      <p className="text-xs text-[#8a5c3f] mt-1 flex items-center gap-2">
-                        <Users className="h-3 w-3" /> {item.cap}
-                        <span className="w-1 h-1 bg-[#d4a574] rounded-full" />
-                        Consome {item.val}
-                      </p>
-                    </div>
-                    <p className="text-xl font-bold text-[#d4a574]">{item.price}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-[#f5f0e8] text-center">
-                <p className="text-xs text-[#a09080] italic">
-                  * Valores exclusivos para o Carnaval 2026.
-                </p>
-              </div>
+            <div className="relative">
+              <PricingSection />
             </div>
           </div>
         </div>
