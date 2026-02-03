@@ -25,8 +25,8 @@ const NORMAL_PRICING: PricingItem[] = [
     { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 500", price: "R$ 600" },
     { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "R$ 720" },
     { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 1.200", price: "R$ 1.500" },
-    { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 200", price: "R$ 300" },
-    { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 80", price: "R$ 100" },
+    { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 200", price: "R$ 250" },
+    { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 100", price: "R$ 120" },
 ]
 
 export default function PricingSection() {

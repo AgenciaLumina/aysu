@@ -111,7 +111,7 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/Sunbeds.jpeg',
         capacity: '2 pessoas (casal)',
         capacityNum: 2,
-        dailyPrice: 300,
+        dailyPrice: 250,
         consumable: 200,
         holidayPrice: 500,
         holidayConsumable: 350,
@@ -578,13 +578,13 @@ export default function ReservasPage() {
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
                                 <div>
                                     <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 100'}
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
                                     </p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
                                     <span className="text-lg font-semibold text-emerald-600">
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 80'}
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
                                     </span>
                                     <span className="text-xs text-emerald-600">consumação</span>
                                 </div>
@@ -612,13 +612,13 @@ export default function ReservasPage() {
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
                                 <div>
                                     <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 100'}
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
                                     </p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
                                     <span className="text-lg font-semibold text-emerald-600">
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 80'}
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
                                     </span>
                                     <span className="text-xs text-emerald-600">consumação</span>
                                 </div>
