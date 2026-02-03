@@ -229,7 +229,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="relative min-h-[400px]">
+            <div className="relative min-h-[500px] lg:my-10">
               <PricingSection />
             </div>
           </div>

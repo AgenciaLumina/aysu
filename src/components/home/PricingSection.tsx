@@ -35,26 +35,26 @@ export default function PricingSection() {
     const currentPricing = activeTab === 'normal' ? NORMAL_PRICING : HOLIDAY_PRICING
 
     return (
-        <div className="bg-white rounded-[2rem] p-8 lg:p-10 shadow-2xl shadow-[#d4a574]/10 border border-[#e0d5c7]/50 relative transition-all duration-500">
+        <div className="bg-white rounded-[2.5rem] p-10 lg:p-14 shadow-2xl shadow-[#d4a574]/10 border border-[#e0d5c7]/50 relative transition-all duration-500">
             {/* Tabs Selector */}
-            <div className="flex p-1 bg-[#f5f0e8] rounded-2xl mb-8 max-w-sm mx-auto">
-                <button
-                    onClick={() => setActiveTab('normal')}
-                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'normal'
-                        ? 'bg-white text-[#d4a574] shadow-md'
-                        : 'text-[#8a5c3f] hover:text-[#d4a574]'
-                        }`}
-                >
-                    Datas Normais
-                </button>
+            <div className="flex p-1 bg-[#f5f0e8] rounded-2xl mb-12 max-w-sm mx-auto">
                 <button
                     onClick={() => setActiveTab('holiday')}
-                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'holiday'
+                    className={`flex-1 py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'holiday'
                         ? 'bg-[#8B4513] text-white shadow-md'
                         : 'text-[#8a5c3f] hover:text-[#8B4513]'
                         }`}
                 >
                     Carnaval & Feriados
+                </button>
+                <button
+                    onClick={() => setActiveTab('normal')}
+                    className={`flex-1 py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'normal'
+                        ? 'bg-white text-[#d4a574] shadow-md'
+                        : 'text-[#8a5c3f] hover:text-[#d4a574]'
+                        }`}
+                >
+                    Datas Normais
                 </button>
             </div>
 
@@ -76,21 +76,21 @@ export default function PricingSection() {
             </div>
 
             {/* Listagem de Preços */}
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {currentPricing.map((item, i) => (
                     <div
                         key={i}
-                        className="flex flex-wrap justify-between items-end gap-4 pb-4 border-b border-[#f5f0e8] last:border-0 hover:bg-[#faf8f5] p-2 rounded-lg transition-colors group"
+                        className="flex flex-wrap justify-between items-end gap-4 pb-6 border-b border-[#f5f0e8] last:border-0 hover:bg-[#faf8f5] p-3 rounded-xl transition-colors group"
                     >
                         <div>
-                            <p className="font-serif font-medium text-[#2a2a2a] text-lg group-hover:text-[#d4a574] transition-colors">{item.title}</p>
-                            <p className="text-xs text-[#8a5c3f] mt-1 flex items-center gap-2">
-                                <Users className="h-3 w-3" /> {item.cap}
+                            <p className="font-serif font-medium text-[#2a2a2a] text-lg lg:text-xl group-hover:text-[#d4a574] transition-colors">{item.title}</p>
+                            <p className="text-sm text-[#8a5c3f] mt-1.5 flex items-center gap-2">
+                                <Users className="h-4 w-4" /> {item.cap}
                                 <span className="w-1 h-1 bg-[#d4a574] rounded-full" />
                                 <span className="font-medium">Consome {item.val}</span>
                             </p>
                         </div>
-                        <p className={`text-xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
+                        <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
                             {item.price}
                         </p>
                     </div>
