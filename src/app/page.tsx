@@ -12,7 +12,7 @@ import InstagramStories from '@/components/InstagramStories'
 import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
-import { PricingSection } from '@/components/home/PricingSection'
+import PricingSection from '@/components/home/PricingSection'
 
 
 export default function HomePage() {
@@ -229,7 +229,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="relative">
+            <div className="relative min-h-[400px]">
               <PricingSection />
             </div>
           </div>

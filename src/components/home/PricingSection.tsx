@@ -29,7 +29,7 @@ const NORMAL_PRICING: PricingItem[] = [
     { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 80", price: "R$ 100" },
 ]
 
-export function PricingSection() {
+export default function PricingSection() {
     const [activeTab, setActiveTab] = useState<'normal' | 'holiday'>('holiday')
 
     const currentPricing = activeTab === 'normal' ? NORMAL_PRICING : HOLIDAY_PRICING
