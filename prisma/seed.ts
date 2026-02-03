@@ -31,30 +31,30 @@ async function main() {
     // 2. Criar cabins (Bangalôs conforme especificação)
     const cabins = [
         // Bangalô Lateral - 6 unidades
-        { name: 'Bangalô Lateral 1', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
-        { name: 'Bangalô Lateral 2', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
-        { name: 'Bangalô Lateral 3', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
-        { name: 'Bangalô Lateral 4', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
-        { name: 'Bangalô Lateral 5', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
-        { name: 'Bangalô Lateral 6', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)' },
+        { name: 'Bangalô Lateral 1', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Lateral 2', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Lateral 3', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Lateral 4', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Lateral 5', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Lateral 6', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
         // Bangalô Piscina + Frente Mar - 6 unidades
-        { name: 'Bangalô Piscina 1', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        { name: 'Bangalô Piscina 2', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        { name: 'Bangalô Frente Mar 1', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        { name: 'Bangalô Frente Mar 2', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        { name: 'Bangalô Frente Mar 3', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
-        { name: 'Bangalô Frente Mar 4', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)' },
+        { name: 'Bangalô Piscina 1', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-piscina.jpg' },
+        { name: 'Bangalô Piscina 2', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-piscina.jpg' },
+        { name: 'Bangalô Frente Mar 1', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
+        { name: 'Bangalô Frente Mar 2', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
+        { name: 'Bangalô Frente Mar 3', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
+        { name: 'Bangalô Frente Mar 4', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
         // Bangalô Central (Galera) - 1 unidade
-        { name: 'Bangalô Central Galera', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)' },
+        { name: 'Bangalô Central Galera', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)', imageUrl: '/espacos/bangalo10.jpeg' },
         // Sunbed - 8 unidades
-        { name: 'Sunbed Casal 1', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 3', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 4', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 5', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 6', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 7', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
-        { name: 'Sunbed Casal 8', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)' },
+        { name: 'Sunbed Casal 1', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 3', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 4', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 5', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 6', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 7', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Sunbed Casal 8', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 1.000)', imageUrl: '/espacos/Sunbeds.jpeg' },
     ]
 
     for (const cabin of cabins) {

@@ -13,7 +13,7 @@ export default function AdminConfiguracoesPage() {
     const [saving, setSaving] = useState(false)
     const [config, setConfig] = useState({
         businessName: 'AISSU Beach Lounge',
-        phone: '(12) 99999-9999',
+        phone: '(12) 98289-6301',
         email: 'contato@aissu.com.br',
         address: 'Praia de Massaguaçu, Caraguatatuba-SP',
         openingHours: {

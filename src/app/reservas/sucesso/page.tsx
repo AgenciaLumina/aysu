@@ -21,7 +21,7 @@ export default function ReservaSucessoPage() {
 
                 <div className="bg-white rounded-xl p-6 border border-[#e0d5c7] mb-6">
                     <a
-                        href="https://wa.me/5511992066688"
+                        href="https://wa.me/5512982896301"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-3 text-[#25D366] hover:text-[#128C7E] transition-colors font-medium"

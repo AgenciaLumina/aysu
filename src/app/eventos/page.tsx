@@ -520,7 +520,7 @@ export default function EventosPage() {
                         <p className="text-white/60 mb-4">Ou entre em contato diretamente:</p>
                         <div className="flex flex-wrap justify-center gap-6">
                             <a
-                                href="tel:+5512991234567"
+                                href="tel:+5512982896301"
                                 className="flex items-center gap-2 text-[#d4a574] hover:text-[#f1c595] transition-colors"
                             >
                                 <Phone className="h-5 w-5" />

@@ -38,7 +38,7 @@ const spaceTypes: SpaceType[] = [
         id: 'bangalo-lateral',
         name: 'Bangalô Lateral',
         slug: 'lateral',
-        image: '/espacos/bangalo7.jpeg',
+        image: '/espacos/bangalo-lateral.jpg',
         capacity: '4 a 5 pessoas',
         capacityNum: 5,
         dailyPrice: 1000,
@@ -53,7 +53,7 @@ const spaceTypes: SpaceType[] = [
         id: 'bangalo-piscina',
         name: 'Bangalô Piscina',
         slug: 'piscina',
-        image: '/espacos/bangalo8.jpeg',
+        image: '/espacos/bangalo-piscina.jpg',
         capacity: '6 pessoas',
         capacityNum: 6,
         dailyPrice: 1800,
@@ -68,7 +68,7 @@ const spaceTypes: SpaceType[] = [
         id: 'bangalo-frente-mar',
         name: 'Bangalô Frente Mar',
         slug: 'frente-mar',
-        image: '/espacos/bangalo9.jpeg',
+        image: '/espacos/bangalo-frente-mar.jpg',
         capacity: '6 a 8 pessoas',
         capacityNum: 8,
         dailyPrice: 1800,
@@ -174,7 +174,7 @@ export default function ReservasPage() {
             .then(data => {
                 if (data.success) setClosedDates(data.data)
             })
-            .catch(() => {})
+            .catch(() => { })
     }, [])
 
     const calendarDays = useMemo(() => {
