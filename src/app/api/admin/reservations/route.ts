@@ -7,22 +7,24 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const dateParam = searchParams.get('date') // YYYY-MM-DD
+        const limitParam = searchParams.get('limit')
 
-        if (!dateParam) {
-            return NextResponse.json({ error: 'Date parameter required' }, { status: 400 })
+        const where: any = {}
+
+        // Se tiver data, filtra. Se não, traz tudo.
+        if (dateParam) {
+            const targetDate = new Date(dateParam)
+            const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0))
+            const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999))
+
+            where.checkIn = {
+                gte: startOfDay,
+                lte: endOfDay,
+            }
         }
 
-        const targetDate = new Date(dateParam)
-        const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0))
-        const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999))
-
         const reservations = await prisma.reservation.findMany({
-            where: {
-                checkIn: {
-                    gte: startOfDay,
-                    lte: endOfDay,
-                },
-            },
+            where,
             include: {
                 cabin: {
                     select: {
@@ -48,8 +50,9 @@ export async function GET(request: NextRequest) {
                 },
             },
             orderBy: {
-                checkIn: 'asc',
+                checkIn: 'asc', // Próximas reservas primeiro
             },
+            take: limitParam ? Number(limitParam) : undefined,
         })
 
         // Transform to match frontend interface
@@ -88,6 +91,7 @@ export async function GET(request: NextRequest) {
                 customerPhone: r.customerPhone,
                 customerEmail: r.customerEmail,
                 spaceName: r.cabin.name,
+                cabin: { name: r.cabin.name }, // Adicionado para compatibilidade com Dashboard/Reservas
                 spaceType: r.cabin.category.toLowerCase(),
                 date: r.checkIn.toISOString().split('T')[0],
                 time: checkInTime,
@@ -95,6 +99,7 @@ export async function GET(request: NextRequest) {
                 status,
                 source: r.source === 'ONLINE' ? 'online' : 'manual',
                 paymentStatus: r.payment?.status || null,
+                checkIn: r.checkIn.toISOString(), // Adicionado formato ISO completo
             }
         })
 

@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
     useEffect(() => {
         async function fetchDashboardData() {
             try {
-                const res = await fetch('/api/reservations?limit=5')
+                const res = await fetch('/api/admin/reservations?limit=5')
                 const data = await res.json()
 
                 if (data.success) {
