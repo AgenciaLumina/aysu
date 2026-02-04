@@ -195,25 +195,7 @@ export default function ReservasPage() {
         }
     }, [selectedDate])
 
-    // ... (rest of component) ...
 
-    {/* Top Right: Availability */ }
-    <div className="absolute top-4 right-4">
-        {selectedDate ? (
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm 
-                                                ${(availabilityCounts[space.id] || 0) > 0
-                    ? 'bg-white/95 text-gray-900'
-                    : 'bg-red-500/90 text-white'}`}>
-                {(availabilityCounts[space.id] || 0) > 0
-                    ? `${availabilityCounts[space.id]} ${availabilityCounts[space.id] === 1 ? 'disponível' : 'disponíveis'}`
-                    : 'Esgotado'}
-            </span>
-        ) : (
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
-            </span>
-        )}
-    </div>
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
@@ -480,15 +462,25 @@ export default function ReservasPage() {
                         const isDateHoliday = selectedDate ? isHoliday(selectedDate) : false
                         const finalPrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
                         const finalConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
+                        const availableCount = availabilityCounts[space.id]
+                        const isSoldOut = selectedDate && availableCount !== undefined && availableCount === 0
 
                         return (
                             <article
                                 key={space.id}
-                                onClick={() => selectedDate && handleSpaceSelect(space)}
-                                className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 ${selectedDate
-                                    ? 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
-                                    : 'opacity-50 cursor-not-allowed'
-                                    } ${selectedSpace?.id === space.id
+                                onClick={() => {
+                                    if (!selectedDate) return
+                                    if (isSoldOut) return // Block sold-out
+                                    handleSpaceSelect(space)
+                                }}
+                                className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 
+                                        ${!selectedDate
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : isSoldOut
+                                            ? 'opacity-60 cursor-not-allowed grayscale'
+                                            : 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
+                                    } 
+                                        ${selectedSpace?.id === space.id
                                         ? 'ring-2 ring-gray-900 shadow-2xl shadow-black/10'
                                         : 'shadow-lg shadow-black/5'
                                     }`}
@@ -514,17 +506,29 @@ export default function ReservasPage() {
                                     {/* Top Right: Availability */}
                                     <div className="absolute top-4 right-4">
                                         {selectedDate ? (
-                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm 
-                                                ${availabilityCounts[space.id] === undefined ? 'opacity-0' :
-                                                    (availabilityCounts[space.id] || 0) > 0
-                                                        ? 'bg-white/95 text-gray-900'
-                                                        : 'bg-red-500/95 text-white'}`}>
-                                                {availabilityCounts[space.id] !== undefined && (
-                                                    (availabilityCounts[space.id] || 0) > 0
-                                                        ? `${availabilityCounts[space.id]} ${(availabilityCounts[space.id] || 0) === 1 ? 'unidade' : 'unidades'}`
-                                                        : 'Esgotado'
-                                                )}
-                                            </span>
+                                            (() => {
+                                                const count = availabilityCounts[space.id]
+                                                if (count === undefined) return <span className="opacity-0">...</span>
+                                                if (count === 0) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-red-500/95 text-white">
+                                                            🚫 Esgotado
+                                                        </span>
+                                                    )
+                                                }
+                                                if (count <= 2) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500/95 text-white animate-pulse">
+                                                            🔥 {count === 1 ? 'Última unidade!' : `Últimas ${count}!`}
+                                                        </span>
+                                                    )
+                                                }
+                                                return (
+                                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">
+                                                        {count} disponíveis
+                                                    </span>
+                                                )
+                                            })()
                                         ) : (
                                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
                                                 {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
