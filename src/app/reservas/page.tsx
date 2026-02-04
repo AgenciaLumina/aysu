@@ -518,7 +518,7 @@ export default function ReservasPage() {
                                                 }
                                                 if (count <= 2) {
                                                     return (
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500/95 text-white animate-pulse">
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white ring-2 ring-amber-300 ring-offset-1">
                                                             🔥 {count === 1 ? 'Última unidade!' : `Últimas ${count}!`}
                                                         </span>
                                                     )
