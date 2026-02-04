@@ -43,7 +43,7 @@ export default function AdminReservasPage() {
 
     const fetchReservations = async () => {
         try {
-            const res = await fetch('/api/reservations')
+            const res = await fetch('/api/admin/reservations')
             const data = await res.json()
             if (data.success) setReservations(data.data)
         } catch (error) {
