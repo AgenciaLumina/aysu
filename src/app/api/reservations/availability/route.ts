@@ -105,13 +105,15 @@ export async function GET(request: NextRequest) {
             })
 
             // Agrupar IDs por tipo (slug/prefixo)
-            // hardcoded mapping base on frontend logic
-            const slugMap: Record<string, string> = {
-                'Bangalô Lateral': 'bangalo-lateral',
-                'Bangalô Piscina': 'bangalo-piscina',
-                'Bangalô Frente Mar': 'bangalo-frente-mar',
-                'Bangalô Central': 'bangalo-central',
-                'Sunbed Casal': 'sunbed-casal',
+            // Mapping mais robusto - normaliza o nome do cabin
+            const getCabinSlug = (cabinName: string): string | null => {
+                const normalized = cabinName.toLowerCase().trim()
+                if (normalized.includes('lateral')) return 'bangalo-lateral'
+                if (normalized.includes('piscina')) return 'bangalo-piscina'
+                if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
+                if (normalized.includes('central')) return 'bangalo-central'
+                if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
+                return null
             }
 
             // Inicializar contadores totais
@@ -140,12 +142,14 @@ export async function GET(request: NextRequest) {
             const availability: Record<string, number> = { ...totalUnitsByType }
 
             reservations.forEach(res => {
-                const slug = slugMap[res.cabin.name.split(' #')[0]] // Remove sufixo se houver "Bangalô Lateral #1" -> "Bangalô Lateral"
+                const slug = getCabinSlug(res.cabin.name)
+                console.log(`[Availability] Cabin: "${res.cabin.name}" -> Slug: ${slug}`)
                 if (slug && availability[slug] > 0) {
                     availability[slug]--
                 }
             })
 
+            console.log('[Availability] Final counts:', availability)
             return NextResponse.json({ success: true, data: availability })
         }
 
