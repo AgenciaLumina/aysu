@@ -140,6 +140,45 @@ export default function AdminReservasPage() {
         r.customerName.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
+    // Estados e Filtros
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // Padrão: Mais recentes primeiro (desc)
+
+    // ... codigo existente ...
+
+    // Ordenação manual no front (já que a API traz tudo)
+    const sortedReservations = [...filtered].sort((a, b) => {
+        const dateA = new Date(a.checkIn).getTime()
+        const dateB = new Date(b.checkIn).getTime()
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+    })
+
+    const toggleSort = () => {
+        setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    }
+
+    const handleDelete = async (id: string, customerName: string) => {
+        if (!confirm(`⚠️ ATENÇÃO: Deseja apagar PERMANENTEMENTE a reserva de ${customerName}?\n\nEsta ação não pode ser desfeita.`)) return
+
+        setProcessingId(id)
+        try {
+            const res = await fetch(`/api/admin/reservations/${id}/delete`, {
+                method: 'DELETE'
+            })
+            const data = await res.json()
+
+            if (data.success) {
+                toast.success('Reserva apagada do sistema')
+                fetchReservations()
+            } else {
+                toast.error(data.error || 'Erro ao apagar')
+            }
+        } catch (error) {
+            toast.error('Erro ao apagar reserva')
+        } finally {
+            setProcessingId(null)
+        }
+    }
+
     return (
         <AdminLayout>
             {/* Header */}
@@ -148,12 +187,18 @@ export default function AdminReservasPage() {
                     <h1 className="text-2xl font-serif font-bold text-[#2a2a2a]">Reservas</h1>
                     <p className="text-[#8a5c3f]">Gerencie todas as reservas do beach club</p>
                 </div>
-                <Link href="/admin/frente-de-caixa/nova">
-                    <Button>
-                        <Plus className="h-4 w-4" />
-                        Nova Reserva
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={toggleSort} className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {sortOrder === 'desc' ? 'Mais Recentes' : 'Mais Antigas'}
                     </Button>
-                </Link>
+                    <Link href="/admin/frente-de-caixa/nova">
+                        <Button>
+                            <Plus className="h-4 w-4" />
+                            Nova Reserva
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Search */}
@@ -171,7 +216,7 @@ export default function AdminReservasPage() {
             {/* Content */}
             {loading ? (
                 <div className="flex justify-center py-20"><Spinner size="lg" /></div>
-            ) : filtered.length === 0 ? (
+            ) : sortedReservations.length === 0 ? (
                 <Card>
                     <CardContent className="py-16 text-center">
                         <Calendar className="h-12 w-12 text-[#e0d5c7] mx-auto mb-4" />
@@ -190,7 +235,7 @@ export default function AdminReservasPage() {
             ) : (
                 <Card>
                     <CardContent className="p-0 divide-y divide-[#e0d5c7]">
-                        {filtered.map(reservation => (
+                        {sortedReservations.map(reservation => (
                             <div key={reservation.id} className="p-4 hover:bg-[#fdfbf8] transition-colors">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
@@ -215,27 +260,39 @@ export default function AdminReservasPage() {
                                             <p className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</p>
                                         </div>
 
-                                        {/* Actions (Only for PENDING) */}
-                                        {reservation.status === 'PENDING' && (
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleStatusUpdate(reservation.id, 'CONFIRMED')}
-                                                    disabled={processingId === reservation.id}
-                                                    title="Aprovar Reserva"
-                                                    className="w-10 h-10 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors disabled:opacity-50"
-                                                >
-                                                    {processingId === reservation.id ? <Spinner size="sm" /> : <Check className="h-5 w-5" />}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(reservation.id, 'CANCELLED')}
-                                                    disabled={processingId === reservation.id}
-                                                    title="Rejeitar Reserva"
-                                                    className="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 text-red-700 flex items-center justify-center transition-colors disabled:opacity-50"
-                                                >
-                                                    {processingId === reservation.id ? <Spinner size="sm" /> : <X className="h-5 w-5" />}
-                                                </button>
-                                            </div>
-                                        )}
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2">
+                                            {reservation.status === 'PENDING' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(reservation.id, 'CONFIRMED')}
+                                                        disabled={processingId === reservation.id}
+                                                        title="Aprovar Reserva"
+                                                        className="w-10 h-10 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors disabled:opacity-50"
+                                                    >
+                                                        {processingId === reservation.id ? <Spinner size="sm" /> : <Check className="h-5 w-5" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(reservation.id, 'CANCELLED')}
+                                                        disabled={processingId === reservation.id}
+                                                        title="Rejeitar Reserva"
+                                                        className="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 text-red-700 flex items-center justify-center transition-colors disabled:opacity-50"
+                                                    >
+                                                        {processingId === reservation.id ? <Spinner size="sm" /> : <X className="h-5 w-5" />}
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            {/* Botão de Excluir (Disponível para todas) */}
+                                            <button
+                                                onClick={() => handleDelete(reservation.id, reservation.customerName)}
+                                                disabled={processingId === reservation.id}
+                                                title="Apagar permanentemente"
+                                                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center transition-colors disabled:opacity-50 ml-2"
+                                            >
+                                                <Trash2 className="h-5 w-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
