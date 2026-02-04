@@ -244,9 +244,12 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Calcula horas e preço
+        // Calcula horas
         const hoursBooked = getHoursDifference(checkIn, checkOut)
-        const totalPrice = Number(cabin.pricePerHour) * hoursBooked
+
+        // Se o frontend enviou totalPrice, usa ele (day use com preço fixo)
+        // Senão, calcula por hora (fallback para casos especiais)
+        const totalPrice = data.totalPrice ?? (Number(cabin.pricePerHour) * hoursBooked)
 
         // Verifica se veio de usuário autenticado (OFFLINE) ou público (ONLINE)
         const authUser = getAuthUser(request)

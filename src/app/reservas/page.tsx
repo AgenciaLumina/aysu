@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
@@ -134,10 +134,6 @@ const formatDateShort = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 }
 
-const formatDateISO = (date: Date) => {
-    return date.toISOString().split('T')[0]
-}
-
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -208,7 +204,7 @@ export default function ReservasPage() {
 
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day)
-            const dateStr = formatDateISO(date)
+            const dateStr = toLocalISODate(date)
             const holiday = isHoliday(dateStr)
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
 
@@ -246,7 +242,7 @@ export default function ReservasPage() {
             const params = new URLSearchParams({
                 cabinId: selectedSpace.id,
                 cabinName: selectedSpace.name,
-                date: formatDateISO(selectedDate),
+                date: toLocalISODate(selectedDate),
                 price: finalPrice.toString(),
                 consumable: finalConsumable.toString(),
             })
@@ -364,10 +360,10 @@ export default function ReservasPage() {
                                     return <div key={idx} className="aspect-square" />
                                 }
 
-                                const dateStr = formatDateISO(day.date)
-                                const isSelected = selectedDate && formatDateISO(selectedDate) === dateStr
+                                const dateStr = toLocalISODate(day.date)
+                                const isSelected = selectedDate && toLocalISODate(selectedDate) === dateStr
                                 const isDisabled = day.isPast || day.isSoldOut || day.isClosed
-                                const isToday = formatDateISO(new Date()) === dateStr
+                                const isToday = toLocalISODate(new Date()) === dateStr
 
                                 return (
                                     <div key={idx} className="relative group">

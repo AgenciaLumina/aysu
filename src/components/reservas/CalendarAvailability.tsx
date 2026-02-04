@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react'
 import { isHoliday, getHolidayName } from '@/lib/holidays'
-import { cn } from '@/lib/utils'
+import { cn, toLocalISODate } from '@/lib/utils'
 
 interface CalendarAvailabilityProps {
     cabinId: string
@@ -61,7 +61,7 @@ export function CalendarAvailability({ cabinId, onDateSelect, selectedDate }: Ca
 
                 days.forEach(day => {
                     if (!day) return
-                    const dateStr = day.toISOString().split('T')[0]
+                    const dateStr = toLocalISODate(day)
                     const isPast = day < today
 
                     // Simula ocupação aleatória para demo
@@ -132,7 +132,7 @@ export function CalendarAvailability({ cabinId, onDateSelect, selectedDate }: Ca
                         return <div key={`empty-${index}`} className="aspect-square" />
                     }
 
-                    const dateStr = day.toISOString().split('T')[0]
+                    const dateStr = toLocalISODate(day)
                     const dayData = availability[dateStr]
                     const holiday = isHoliday(dateStr)
                     const holidayName = getHolidayName(dateStr)

@@ -93,10 +93,10 @@ function CheckoutContent() {
         setSubmitting(true)
 
         try {
-            const checkIn = new Date(date || '')
-            checkIn.setHours(10, 0, 0, 0) // Day use início 10h
-            const checkOut = new Date(checkIn)
-            checkOut.setHours(18, 0, 0, 0) // Day use fim 18h
+            // Parse da data no formato YYYY-MM-DD para evitar problemas de timezone
+            const [year, month, day] = (date || '').split('-').map(Number)
+            const checkIn = new Date(year, month - 1, day, 10, 0, 0, 0) // Day use início 10h
+            const checkOut = new Date(year, month - 1, day, 18, 0, 0, 0) // Day use fim 18h
 
             // 1. Criar Reserva no Backend
             const reservationRes = await fetch('/api/reservations', {
@@ -110,6 +110,7 @@ function CheckoutContent() {
                     customerDocument: formData.customerDocument,
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
+                    totalPrice: price, // Preço da diária (não multiplica por horas!)
                     source: 'ONLINE', // Status será PENDING automaticamente na API
                 }),
             })

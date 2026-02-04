@@ -49,6 +49,7 @@ export const createReservationSchema = z.object({
     customerDocument: z.string().optional(),
     checkIn: z.string().or(z.date()),
     checkOut: z.string().or(z.date()),
+    totalPrice: z.number().positive().optional(), // Se fornecido, ignora cálculo por hora
     notes: z.string().optional(),
     source: z.enum(['ONLINE', 'OFFLINE']).default('ONLINE'),
 })
