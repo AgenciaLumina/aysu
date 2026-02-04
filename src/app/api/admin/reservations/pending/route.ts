@@ -16,7 +16,13 @@ export async function GET() {
             customerName: r.customerName,
             customerPhone: r.customerPhone,
             spaceName: r.cabin.name,
-            date: r.checkIn.toISOString().split('T')[0],
+            date: (() => {
+                const d = new Date(r.checkIn)
+                const year = d.getFullYear()
+                const month = String(d.getMonth() + 1).padStart(2, '0')
+                const day = String(d.getDate()).padStart(2, '0')
+                return `${year}-${month}-${day}`
+            })(),
             totalPrice: Number(r.totalPrice),
             createdAt: r.createdAt.toISOString(),
         }))
