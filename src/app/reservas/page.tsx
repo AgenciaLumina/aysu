@@ -176,14 +176,44 @@ export default function ReservasPage() {
         return new Date(2026, 1, 1)
     })
 
+    const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
+
     useEffect(() => {
-        fetch('/api/closed-dates')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) setClosedDates(data.data)
-            })
-            .catch(() => { })
-    }, [])
+        if (selectedDate) {
+            // Fetch availability for specific date
+            const dateStr = toLocalISODate(selectedDate)
+            fetch(`/api/reservations/availability?date=${dateStr}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        setAvailabilityCounts(data.data)
+                    }
+                })
+                .catch(err => console.error('Erro ao buscar disponibilidade:', err))
+        } else {
+            setAvailabilityCounts({})
+        }
+    }, [selectedDate])
+
+    // ... (rest of component) ...
+
+    {/* Top Right: Availability */ }
+    <div className="absolute top-4 right-4">
+        {selectedDate ? (
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm 
+                                                ${(availabilityCounts[space.id] || 0) > 0
+                    ? 'bg-white/95 text-gray-900'
+                    : 'bg-red-500/90 text-white'}`}>
+                {(availabilityCounts[space.id] || 0) > 0
+                    ? `${availabilityCounts[space.id]} ${availabilityCounts[space.id] === 1 ? 'disponível' : 'disponíveis'}`
+                    : 'Esgotado'}
+            </span>
+        ) : (
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
+                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
+            </span>
+        )}
+    </div>
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
@@ -483,9 +513,23 @@ export default function ReservasPage() {
 
                                     {/* Top Right: Availability */}
                                     <div className="absolute top-4 right-4">
-                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                            {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
-                                        </span>
+                                        {selectedDate ? (
+                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm 
+                                                ${availabilityCounts[space.id] === undefined ? 'opacity-0' :
+                                                    (availabilityCounts[space.id] || 0) > 0
+                                                        ? 'bg-white/95 text-gray-900'
+                                                        : 'bg-red-500/95 text-white'}`}>
+                                                {availabilityCounts[space.id] !== undefined && (
+                                                    (availabilityCounts[space.id] || 0) > 0
+                                                        ? `${availabilityCounts[space.id]} ${(availabilityCounts[space.id] || 0) === 1 ? 'unidade' : 'unidades'}`
+                                                        : 'Esgotado'
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
+                                                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Bottom: Quick Info */}

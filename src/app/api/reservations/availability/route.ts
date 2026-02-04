@@ -16,40 +16,42 @@ export async function GET(request: NextRequest) {
         const yearParam = searchParams.get('year')
         const monthParam = searchParams.get('month')
 
-        if (!cabinId) {
+        if (!cabinId && !dateParam) {
             return NextResponse.json<ApiResponse>(
-                { success: false, error: 'cabinId é obrigatório' },
+                { success: false, error: 'cabinId ou date é obrigatório' },
                 { status: 400 }
             )
         }
 
         // Resolvendo o(s) Bangalô(s) - UUID ou Slug
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId || '')
         let cabinPoolIds: string[] = []
         let nameToReturn = ''
 
-        if (isUuid) {
-            const cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
-            if (!cabin) return NextResponse.json({ success: false, error: 'Bangalô não encontrado' }, { status: 404 })
-            cabinPoolIds = [cabin.id]
-            nameToReturn = cabin.name
-        } else {
-            const slugMap: Record<string, string> = {
-                'bangalo-lateral': 'Bangalô Lateral',
-                'bangalo-piscina': 'Bangalô Piscina',
-                'bangalo-frente-mar': 'Bangalô Frente Mar',
-                'bangalo-central': 'Bangalô Central',
-                'sunbed-casal': 'Sunbed Casal',
-            }
-            const namePrefix = slugMap[cabinId]
-            if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
+        if (cabinId) {
+            if (isUuid) {
+                const cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
+                if (!cabin) return NextResponse.json({ success: false, error: 'Bangalô não encontrado' }, { status: 404 })
+                cabinPoolIds = [cabin.id]
+                nameToReturn = cabin.name
+            } else {
+                const slugMap: Record<string, string> = {
+                    'bangalo-lateral': 'Bangalô Lateral',
+                    'bangalo-piscina': 'Bangalô Piscina',
+                    'bangalo-frente-mar': 'Bangalô Frente Mar',
+                    'bangalo-central': 'Bangalô Central',
+                    'sunbed-casal': 'Sunbed Casal',
+                }
+                const namePrefix = slugMap[cabinId] // cabinId is confirmed string
+                if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
 
-            const cabins = await prisma.cabin.findMany({
-                where: { name: { startsWith: namePrefix }, isActive: true },
-                select: { id: true }
-            })
-            cabinPoolIds = cabins.map(c => c.id)
-            nameToReturn = namePrefix
+                const cabins = await prisma.cabin.findMany({
+                    where: { name: { startsWith: namePrefix }, isActive: true },
+                    select: { id: true }
+                })
+                cabinPoolIds = cabins.map(c => c.id)
+                nameToReturn = namePrefix
+            }
         }
 
         const totalUnits = cabinPoolIds.length
@@ -89,6 +91,62 @@ export async function GET(request: NextRequest) {
             }
 
             return NextResponse.json({ success: true, data: dayResults })
+        }
+
+        // LÓGICA DE CONTAGEM DIÁRIA (Todos os bangalôs)
+        if (!cabinId && dateParam) {
+            const date = new Date(dateParam)
+            const startOfDay = new Date(date); startOfDay.setHours(10, 0, 0, 0)
+            const endOfDay = new Date(date); endOfDay.setHours(18, 0, 0, 0)
+
+            // Buscar todos os tipos de cabines ativos
+            const allCabins = await prisma.cabin.findMany({
+                where: { isActive: true }
+            })
+
+            // Agrupar IDs por tipo (slug/prefixo)
+            // hardcoded mapping base on frontend logic
+            const slugMap: Record<string, string> = {
+                'Bangalô Lateral': 'bangalo-lateral',
+                'Bangalô Piscina': 'bangalo-piscina',
+                'Bangalô Frente Mar': 'bangalo-frente-mar',
+                'Bangalô Central': 'bangalo-central',
+                'Sunbed Casal': 'sunbed-casal',
+            }
+
+            // Inicializar contadores totais
+            const totalUnitsByType: Record<string, number> = {
+                'bangalo-lateral': 6,
+                'bangalo-piscina': 2,
+                'bangalo-frente-mar': 4,
+                'bangalo-central': 1,
+                'sunbed-casal': 4
+            }
+
+            // Buscar reservas do dia para TODOS os bangalôs
+            const reservations = await prisma.reservation.findMany({
+                where: {
+                    status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
+                    OR: [
+                        { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
+                        { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
+                        { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                    ]
+                },
+                include: { cabin: true }
+            })
+
+            // Calcular disponibilidade
+            const availability: Record<string, number> = { ...totalUnitsByType }
+
+            reservations.forEach(res => {
+                const slug = slugMap[res.cabin.name.split(' #')[0]] // Remove sufixo se houver "Bangalô Lateral #1" -> "Bangalô Lateral"
+                if (slug && availability[slug] > 0) {
+                    availability[slug]--
+                }
+            })
+
+            return NextResponse.json({ success: true, data: availability })
         }
 
         // LÓGICA DE DATA ÚNICA (Slots)
