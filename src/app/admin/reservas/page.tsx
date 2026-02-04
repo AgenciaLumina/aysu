@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Users, Search, Plus, Check, X, Ban, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, Users, Search, Plus, Check, X, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -27,6 +27,7 @@ interface Reservation {
     status: string
     totalPrice: number
     cabin: { name: string }
+    notes?: string
 }
 
 export default function AdminReservasPage() {
@@ -295,6 +296,12 @@ export default function AdminReservasPage() {
                                         </div>
                                     </div>
                                 </div>
+                                {reservation.notes && (
+                                    <div className="mt-3 ml-16 text-sm bg-yellow-50 text-[#8a5c3f] p-3 rounded-lg border border-yellow-100 flex items-start gap-2">
+                                        <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0 text-yellow-600" />
+                                        <span><span className="font-semibold text-yellow-700">Observação:</span> {reservation.notes}</span>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </CardContent>

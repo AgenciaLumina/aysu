@@ -47,10 +47,10 @@ export const createReservationSchema = z.object({
     customerEmail: z.string().email('Email inválido'),
     customerPhone: z.string().min(10, 'Telefone inválido'),
     customerDocument: z.string().optional(),
+    notes: z.string().optional(), // Added this line as per instruction
     checkIn: z.string().or(z.date()),
     checkOut: z.string().or(z.date()),
     totalPrice: z.number().positive().optional(), // Se fornecido, ignora cálculo por hora
-    notes: z.string().optional(),
     source: z.enum(['ONLINE', 'OFFLINE']).default('ONLINE'),
 })
 

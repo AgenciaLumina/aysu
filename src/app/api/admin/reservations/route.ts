@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
                 source: r.source === 'ONLINE' ? 'online' : 'manual',
                 paymentStatus: r.payment?.status || null,
                 checkIn: r.checkIn.toISOString(), // Adicionado formato ISO completo
+                notes: r.notes,
             }
         })
 

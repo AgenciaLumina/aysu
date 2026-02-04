@@ -11,6 +11,7 @@ import { Calendar, Clock, Lock, User, ArrowLeft, Copy, CheckCircle2, QrCode } fr
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { CancellationPolicyCheckbox, CancellationPolicyModal } from '@/components/reservas/CancellationPolicy'
@@ -42,6 +43,14 @@ const maskCPF = (value: string) => {
         .slice(0, 14)
 }
 
+interface CheckoutFormData {
+    customerName: string
+    customerEmail: string
+    customerPhone: string
+    customerDocument: string
+    notes?: string
+}
+
 function CheckoutContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -56,14 +65,15 @@ function CheckoutContent() {
     const [policyAccepted, setPolicyAccepted] = useState(false)
     const [showPolicyModal, setShowPolicyModal] = useState(false)
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<CheckoutFormData>({
         customerName: '',
         customerEmail: '',
         customerPhone: '',
         customerDocument: '',
+        notes: '', // Initialize notes field
     })
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { // Updated type to include HTMLTextAreaElement
         let { name, value } = e.target
 
         if (name === 'customerPhone') {
@@ -74,7 +84,7 @@ function CheckoutContent() {
             value = maskCPF(value)
         }
 
-        setFormData(prev => ({ ...prev, [name]: value }))
+        setFormData((prev: CheckoutFormData) => ({ ...prev, [name]: value }))
     }
 
     const copyPixKey = () => {
@@ -212,6 +222,16 @@ Estou enviando o comprovante do Pix em anexo.`
                                         placeholder="(11) 99999-9999"
                                         required
                                     />
+                                    <div className="md:col-span-2">
+                                        <Textarea
+                                            label="Observações (Opcional)"
+                                            name="notes"
+                                            value={formData.notes || ''}
+                                            onChange={handleInputChange}
+                                            placeholder="Ex: Aniversário, restrições alimentares, etc."
+                                            rows={3}
+                                        />
+                                    </div>
                                 </CardContent>
                             </Card>
 

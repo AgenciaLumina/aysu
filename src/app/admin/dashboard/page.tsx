@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
     Calendar, Users, DollarSign, UtensilsCrossed, Music,
-    TrendingUp, CheckCircle, AlertCircle, ChevronRight, ImageIcon, FolderOpen
+    TrendingUp, CheckCircle, AlertCircle, ChevronRight, ImageIcon, FolderOpen, MessageSquare
 } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
@@ -27,6 +27,7 @@ interface RecentReservation {
     cabin: { name: string }
     checkIn: string
     status: string
+    notes?: string
     totalPrice: number
 }
 
@@ -192,24 +193,32 @@ export default function AdminDashboardPage() {
                                     ) : (
                                         <div className="space-y-4">
                                             {recentReservations.map(reservation => (
-                                                <div key={reservation.id} className="flex items-center justify-between py-3 border-b border-[#e0d5c7] last:border-0">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-full bg-[#f1c595]/30 flex items-center justify-center">
-                                                            <Users className="h-5 w-5 text-[#d4a574]" />
+                                                <div key={reservation.id} className="flex flex-col gap-2 p-3 hover:bg-[#fdfbf8] transition-colors border-b border-[#e0d5c7] last:border-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-full bg-[#f1c595]/30 flex items-center justify-center flex-shrink-0">
+                                                                <Users className="h-5 w-5 text-[#d4a574]" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-[#2a2a2a]">{reservation.customerName}</p>
+                                                                <p className="text-sm text-[#8a5c3f]">{reservation.cabin?.name}</p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium text-[#2a2a2a]">{reservation.customerName}</p>
-                                                            <p className="text-sm text-[#8a5c3f]">{reservation.cabin?.name}</p>
+                                                        <div className="text-right">
+                                                            <Badge variant={getReservationStatusVariant(reservation.status)}>
+                                                                {getReservationStatusLabel(reservation.status)}
+                                                            </Badge>
+                                                            <p className="text-sm text-[#8a5c3f] mt-1">
+                                                                {formatDate(reservation.checkIn)} {formatTime(reservation.checkIn)}
+                                                            </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <Badge variant={getReservationStatusVariant(reservation.status)}>
-                                                            {getReservationStatusLabel(reservation.status)}
-                                                        </Badge>
-                                                        <p className="text-sm text-[#8a5c3f] mt-1">
-                                                            {formatDate(reservation.checkIn)} {formatTime(reservation.checkIn)}
-                                                        </p>
-                                                    </div>
+                                                    {reservation.notes && (
+                                                        <div className="ml-12 text-xs bg-yellow-50 text-[#8a5c3f] p-2 rounded border border-yellow-100 flex items-start gap-1.5">
+                                                            <MessageSquare className="h-3 w-3 mt-0.5 flex-shrink-0 text-yellow-600" />
+                                                            <span>{reservation.notes}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
