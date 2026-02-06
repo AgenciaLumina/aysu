@@ -199,6 +199,18 @@ export default function ReservasPage() {
         }
     }, [selectedDate])
 
+    // Fetch Public Closed Dates
+    useEffect(() => {
+        fetch('/api/closed-dates')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setClosedDates(data.data)
+                }
+            })
+            .catch(err => console.error('Erro ao buscar datas fechadas:', err))
+    }, [])
+
 
 
     const calendarDays = useMemo(() => {
