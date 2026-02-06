@@ -340,6 +340,18 @@ export default function AdminReservasPage() {
                                                 </button>
                                             )}
 
+                                            {/* Botão de Cancelar (para reservas confirmadas) */}
+                                            {reservation.status === 'CONFIRMED' && (
+                                                <button
+                                                    onClick={() => handleStatusUpdate(reservation.id, 'CANCELLED')}
+                                                    disabled={processingId === reservation.id}
+                                                    title="Cancelar Reserva"
+                                                    className="w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors disabled:opacity-50"
+                                                >
+                                                    {processingId === reservation.id ? <Spinner size="sm" /> : <XCircle className="h-5 w-5" />}
+                                                </button>
+                                            )}
+
                                             {/* Botão de Excluir */}
                                             <button
                                                 onClick={() => handleDelete(reservation.id, reservation.customerName)}
