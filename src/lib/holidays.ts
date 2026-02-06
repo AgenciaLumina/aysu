@@ -69,7 +69,17 @@ export const holidays2026: Holiday[] = [
 
 // Helpers
 export function isHoliday(date: string | Date): Holiday | undefined {
-    const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0]
+    let dateStr: string
+    if (typeof date === 'string') {
+        dateStr = date
+    } else {
+        // Usa data LOCAL para evitar problemas de fuso horário (ignora horas)
+        // Isso resolve o problema de datas voltarem 1 dia quando usa toISOString()
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        dateStr = `${year}-${month}-${day}`
+    }
     return holidays2026.find(h => h.date === dateStr)
 }
 
