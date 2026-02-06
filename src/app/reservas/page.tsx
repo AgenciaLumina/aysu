@@ -134,6 +134,10 @@ const formatDateShort = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 }
 
+const formatDateISO = (date: Date) => {
+    return toLocalISODate(date)
+}
+
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
