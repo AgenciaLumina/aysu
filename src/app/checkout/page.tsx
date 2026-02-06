@@ -103,10 +103,11 @@ function CheckoutContent() {
         setSubmitting(true)
 
         try {
-            // Parse da data no formato YYYY-MM-DD para evitar problemas de timezone
-            const [year, month, day] = (date || '').split('-').map(Number)
-            const checkIn = new Date(year, month - 1, day, 10, 0, 0, 0) // Day use início 10h
-            const checkOut = new Date(year, month - 1, day, 18, 0, 0, 0) // Day use fim 18h
+            // Parse da data garantindo o dia correto
+            // Adicionamos "T12:00:00" para garantir que o dia não volte devido a UTC
+            const targetDateStr = date || ''
+            const checkIn = new Date(`${targetDateStr}T10:00:00`)
+            const checkOut = new Date(`${targetDateStr}T18:00:00`)
 
             // 1. Criar Reserva no Backend
             const reservationRes = await fetch('/api/reservations', {

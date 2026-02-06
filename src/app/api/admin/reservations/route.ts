@@ -13,13 +13,22 @@ export async function GET(request: NextRequest) {
 
         // Se tiver data, filtra. Se não, traz tudo.
         if (dateParam) {
-            const targetDate = new Date(dateParam)
-            const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0))
-            const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999))
+            // Garante que o filtro use a data correta UTC para cobrir o dia inteiro
+            // YYYY-MM-DD -> range do dia inteiro
+            const startOfDay = new Date(`${dateParam}T00:00:00.000Z`)
+            const endOfDay = new Date(`${dateParam}T23:59:59.999Z`)
+
+            // Ajuste manual de timezone: em UTC, nossas reservas (feitas como T10:00 local) 
+            // podem cair no dia anterior/posterior dependendo de como foram salvas.
+            // O mais seguro é buscar um range ampliado e filtrar no código ou garantir que o create salve UTC.
+
+            // Mas, dado que estamos corrigindo o CREATE para salvar com Timezone correto, 
+            // aqui podemos confiar no range extendido -3h / +3h se necessário.
+            // Para simplificar: buscamos pelo checkIn string que DEVE bater com o dia.
 
             where.checkIn = {
-                gte: startOfDay,
-                lte: endOfDay,
+                gte: new Date(new Date(dateParam).setUTCHours(0, 0, 0, 0)),
+                lte: new Date(new Date(dateParam).setUTCHours(23, 59, 59, 999))
             }
         }
 

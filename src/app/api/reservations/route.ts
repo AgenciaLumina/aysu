@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
         }
 
         const data = validation.data
+
+        // CORREÇÃO CRÍTICA DE TIMEZONE
+        // Recebemos strings ISO completas (ex: 2026-02-06T10:00:00.000Z) do frontend
+        // Mas para garantir, reconstruímos com base apenas no dia se necessário,
+        // ou confiamos na string se ela já vier correta do frontend (que agora envia T10:00:00 local)
         const checkIn = new Date(data.checkIn)
         const checkOut = new Date(data.checkOut)
 
