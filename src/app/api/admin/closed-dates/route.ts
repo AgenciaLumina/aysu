@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
+import { getAuthUser, isAdmin, hasRole } from '@/lib/auth'
 
 export async function GET() {
     try {
@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const authUser = getAuthUser(request)
-        if (!authUser || !isAdmin(authUser)) {
+        if (!authUser || !hasRole(authUser, ['ADMIN', 'MANAGER', 'CASHIER'] as any)) {
             return NextResponse.json(
                 { success: false, error: 'Acesso negado' },
                 { status: 403 }
