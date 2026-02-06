@@ -97,6 +97,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             )
         }
 
+        // Se houver alteração de datas, verificar disponibilidade
+        if (validation.data.checkIn || validation.data.checkOut) {
+            const newCheckIn = validation.data.checkIn ? new Date(validation.data.checkIn) : existingReservation.checkIn
+            const newCheckOut = validation.data.checkOut ? new Date(validation.data.checkOut) : existingReservation.checkOut
+
+            // Validate invalid dates
+            if (newCheckIn >= newCheckOut) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Check-in deve ser anterior ao check-out' },
+                    { status: 400 }
+                )
+            }
+
+            // Check conflict
+            const conflict = await prisma.reservation.findFirst({
+                where: {
+                    id: { not: id },
+                    cabinId: existingReservation.cabinId,
+                    status: {
+                        in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'],
+                    },
+                    OR: [
+                        { AND: [{ checkIn: { lte: newCheckIn } }, { checkOut: { gt: newCheckIn } }] },
+                        { AND: [{ checkIn: { lt: newCheckOut } }, { checkOut: { gte: newCheckOut } }] },
+                        { AND: [{ checkIn: { gte: newCheckIn } }, { checkOut: { lte: newCheckOut } }] },
+                    ],
+                },
+            })
+
+            if (conflict) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Data indisponível (conflito de agenda)' },
+                    { status: 409 }
+                )
+            }
+        }
+
         // Atualiza reserva
         const reservation = await prisma.reservation.update({
             where: { id },

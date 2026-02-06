@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Users, Search, Plus, Check, X, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react'
+import { Calendar, Users, Search, Plus, Check, X, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare, Edit } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -41,6 +41,11 @@ export default function AdminReservasPage() {
     const [closedLoading, setClosedLoading] = useState(false)
     const [closedMonth, setClosedMonth] = useState(() => new Date())
     const [closedReason, setClosedReason] = useState('Evento Fechado')
+
+    // Edit Modal
+    const [editingReservation, setEditingReservation] = useState<Reservation | null>(null)
+    const [newDate, setNewDate] = useState('')
+    const [editLoading, setEditLoading] = useState(false)
 
     const fetchReservations = async () => {
         try {
@@ -180,6 +185,45 @@ export default function AdminReservasPage() {
         }
     }
 
+    const openEditModal = (reservation: Reservation) => {
+        setEditingReservation(reservation)
+        // Extract YYYY-MM-DD from checkIn string (ISO)
+        setNewDate(reservation.checkIn.split('T')[0])
+    }
+
+    const handleSaveDate = async () => {
+        if (!editingReservation || !newDate) return
+
+        setEditLoading(true)
+        try {
+            // Construct standard safe dates (T10:00 - T18:00)
+            const checkIn = new Date(`${newDate}T10:00:00`)
+            const checkOut = new Date(`${newDate}T18:00:00`)
+
+            const res = await fetch(`/api/reservations/${editingReservation.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    checkIn: checkIn.toISOString(),
+                    checkOut: checkOut.toISOString()
+                })
+            })
+            const data = await res.json()
+
+            if (data.success) {
+                toast.success('Data alterada com sucesso!')
+                setEditingReservation(null)
+                fetchReservations() // Refresh list
+            } else {
+                toast.error(data.error || 'Erro ao alterar data')
+            }
+        } catch (error) {
+            toast.error('Erro ao salvar nova data')
+        } finally {
+            setEditLoading(false)
+        }
+    }
+
     return (
         <AdminLayout>
             {/* Header */}
@@ -284,7 +328,19 @@ export default function AdminReservasPage() {
                                                 </>
                                             )}
 
-                                            {/* Botão de Excluir (Disponível para todas) */}
+                                            {/* Botão de Editar */}
+                                            {reservation.status !== 'CANCELLED' && (
+                                                <button
+                                                    onClick={() => openEditModal(reservation)}
+                                                    title="Alterar Data"
+                                                    disabled={processingId === reservation.id}
+                                                    className="w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors disabled:opacity-50 ml-2"
+                                                >
+                                                    <Edit className="h-5 w-5" />
+                                                </button>
+                                            )}
+
+                                            {/* Botão de Excluir */}
                                             <button
                                                 onClick={() => handleDelete(reservation.id, reservation.customerName)}
                                                 disabled={processingId === reservation.id}
@@ -419,6 +475,50 @@ export default function AdminReservasPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Modal Editar */}
+            {editingReservation && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                        <h3 className="text-xl font-bold text-[#2a2a2a] mb-2">Alterar Data</h3>
+                        <p className="text-[#8a5c3f] text-sm mb-6">
+                            Remarcando reserva de <span className="font-semibold">{editingReservation.customerName}</span><br />
+                            Atual: {formatDate(editingReservation.checkIn)}
+                        </p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-[#2a2a2a] mb-1">Nova Data</label>
+                                <input
+                                    type="date"
+                                    value={newDate}
+                                    onChange={(e) => setNewDate(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border border-[#e0d5c7] focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574]"
+                                    min={new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setEditingReservation(null)}
+                                    disabled={editLoading}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleSaveDate}
+                                    isLoading={editLoading}
+                                >
+                                    Salvar Alteração
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     )
 }

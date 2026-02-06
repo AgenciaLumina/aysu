@@ -68,6 +68,8 @@ export const updateReservationSchema = z.object({
     customerName: z.string().min(2).optional(),
     customerEmail: z.string().email().optional(),
     customerPhone: z.string().min(10).optional(),
+    checkIn: z.string().or(z.date()).optional(),
+    checkOut: z.string().or(z.date()).optional(),
 })
 
 // ============================================================
