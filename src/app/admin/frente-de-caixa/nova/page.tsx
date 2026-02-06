@@ -44,6 +44,7 @@ export default function NovaReservaManualPage() {
     const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [occupiedDates, setOccupiedDates] = useState<string[]>([])
+    const [closedDates, setClosedDates] = useState<Array<{ date: string; reason: string }>>([])
     const [currentMonth, setCurrentMonth] = useState(new Date())
     const [form, setForm] = useState({
         customerName: '',
@@ -70,12 +71,29 @@ export default function NovaReservaManualPage() {
             .slice(0, 14)
     }
 
+    // Fetch closed dates on mount
+    useEffect(() => {
+        fetchClosedDates()
+    }, [])
+
     // Fetch occupied dates when space is selected
     useEffect(() => {
         if (selectedSpace) {
             fetchOccupiedDates(selectedSpace.id)
         }
     }, [selectedSpace, currentMonth])
+
+    const fetchClosedDates = async () => {
+        try {
+            const res = await fetch('/api/closed-dates')
+            const data = await res.json()
+            if (data.success) {
+                setClosedDates(data.data)
+            }
+        } catch (error) {
+            console.error('Error fetching closed dates:', error)
+        }
+    }
 
     const fetchOccupiedDates = async (spaceId: string) => {
         try {
@@ -106,7 +124,8 @@ export default function NovaReservaManualPage() {
 
     const handleDateSelect = (date: Date) => {
         const dateStr = date.toISOString().split('T')[0]
-        if (!occupiedDates.includes(dateStr)) {
+        const isClosed = closedDates.some(cd => cd.date === dateStr)
+        if (!occupiedDates.includes(dateStr) && !isClosed) {
             setSelectedDate(date)
             setStep(3)
         }
@@ -179,6 +198,8 @@ export default function NovaReservaManualPage() {
             date: Date | null
             isCurrentMonth: boolean
             isOccupied: boolean
+            isClosed: boolean
+            closedReason?: string
             isPast: boolean
             isHoliday: boolean
             holidayName: string | undefined
@@ -187,7 +208,7 @@ export default function NovaReservaManualPage() {
         // Dias vazios do início
         const firstDayOfWeek = firstDay.getDay()
         for (let i = 0; i < firstDayOfWeek; i++) {
-            days.push({ date: null, isCurrentMonth: false, isOccupied: false, isPast: false, isHoliday: false, holidayName: undefined })
+            days.push({ date: null, isCurrentMonth: false, isOccupied: false, isClosed: false, isPast: false, isHoliday: false, holidayName: undefined })
         }
 
         // Dias do mês
@@ -195,11 +216,14 @@ export default function NovaReservaManualPage() {
             const date = new Date(year, month, i)
             const dateStr = date.toISOString().split('T')[0]
             const holiday = isHoliday(dateStr)
+            const closedInfo = closedDates.find(cd => cd.date === dateStr)
 
             days.push({
                 date,
                 isCurrentMonth: true,
                 isOccupied: occupiedDates.includes(dateStr),
+                isClosed: !!closedInfo,
+                closedReason: closedInfo?.reason,
                 isPast: date < today,
                 isHoliday: !!holiday,
                 holidayName: holiday?.name
@@ -207,7 +231,7 @@ export default function NovaReservaManualPage() {
         }
 
         return days
-    }, [currentMonth, occupiedDates])
+    }, [currentMonth, occupiedDates, closedDates])
 
     const changeMonth = (offset: number) => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1))
@@ -309,14 +333,15 @@ export default function NovaReservaManualPage() {
                                     return (
                                         <div key={i} className="relative group">
                                             <button
-                                                onClick={() => !day.isOccupied && !day.isPast && handleDateSelect(day.date!)}
-                                                disabled={day.isOccupied || day.isPast}
+                                                onClick={() => !day.isOccupied && !day.isClosed && !day.isPast && handleDateSelect(day.date!)}
+                                                disabled={day.isOccupied || day.isClosed || day.isPast}
                                                 className={`
                                                     w-full aspect-square p-2 rounded-lg text-sm transition-all flex flex-col items-center justify-center
                                                     ${day.isOccupied ? 'bg-red-100 text-red-400 cursor-not-allowed' : ''}
+                                                    ${day.isClosed && !day.isOccupied ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}
                                                     ${day.isPast ? 'text-[#b0a090] cursor-not-allowed' : ''}
-                                                    ${day.isHoliday && !day.isOccupied && !day.isPast ? 'text-amber-600 font-medium' : ''}
-                                                    ${!day.isOccupied && !day.isPast
+                                                    ${day.isHoliday && !day.isOccupied && !day.isClosed && !day.isPast ? 'text-amber-600 font-medium' : ''}
+                                                    ${!day.isOccupied && !day.isClosed && !day.isPast
                                                         ? 'hover:bg-[#f1c595]/30 hover:text-[#d4a574] cursor-pointer'
                                                         : ''}
                                                 `}
@@ -326,10 +351,10 @@ export default function NovaReservaManualPage() {
                                                     <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
                                                 )}
                                             </button>
-                                            {/* Holiday Tooltip */}
-                                            {day.holidayName && (
+                                            {/* Tooltip for Holiday or Closed */}
+                                            {(day.holidayName || day.closedReason) && (
                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                                    {day.holidayName}
+                                                    {day.closedReason || day.holidayName}
                                                 </div>
                                             )}
                                         </div>
@@ -342,6 +367,10 @@ export default function NovaReservaManualPage() {
                                 <div className="flex items-center gap-2">
                                     <div className="w-4 h-4 bg-red-100 rounded"></div>
                                     <span className="text-[#8a5c3f]">Ocupado</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-gray-100 rounded"></div>
+                                    <span className="text-[#8a5c3f]">Espaço Fechado</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-4 h-4 bg-white border border-[#e0d5c7] rounded"></div>
