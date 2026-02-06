@@ -13,19 +13,27 @@ import toast from 'react-hot-toast'
 interface Space {
     id: string
     name: string
-    price: number
+    dailyPrice: number
+    holidayPrice: number
     capacity: string
 }
 
 const SPACES: Space[] = [
-    { id: 'bangalo-lateral', name: 'Bangalô Lateral', price: 1000, capacity: '4-5 pessoas' },
-    { id: 'bangalo-piscina', name: 'Bangalô Piscina', price: 1800, capacity: '6 pessoas' },
-    { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', price: 1800, capacity: '6-8 pessoas' },
-    { id: 'bangalo-central', name: 'Bangalô Central (Galera)', price: 2500, capacity: '10 pessoas' },
-    { id: 'sunbed-casal', name: 'Sunbed Casal', price: 500, capacity: '2 pessoas' },
+    { id: 'bangalo-lateral', name: 'Bangalô Lateral', dailyPrice: 600, holidayPrice: 1000, capacity: '4-5 pessoas' },
+    { id: 'bangalo-piscina', name: 'Bangalô Piscina', dailyPrice: 600, holidayPrice: 1800, capacity: '6 pessoas' },
+    { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', dailyPrice: 720, holidayPrice: 1800, capacity: '6-8 pessoas' },
+    { id: 'bangalo-central', name: 'Bangalô Central (Galera)', dailyPrice: 1500, holidayPrice: 2500, capacity: '10 pessoas' },
+    { id: 'sunbed-casal', name: 'Sunbed Casal', dailyPrice: 300, holidayPrice: 500, capacity: '2 pessoas' },
 ]
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+// Helper to get price based on holiday status
+const getPrice = (space: Space, date: Date | null): number => {
+    if (!date) return space.dailyPrice
+    const dateStr = date.toISOString().split('T')[0]
+    return isHoliday(dateStr) ? space.holidayPrice : space.dailyPrice
+}
 
 export default function NovaReservaManualPage() {
     const router = useRouter()
@@ -123,6 +131,8 @@ export default function NovaReservaManualPage() {
             const checkOut = new Date(checkIn)
             checkOut.setHours(18, 0, 0, 0) // Padrão Day Use: Fim as 18:00
 
+            const totalPrice = getPrice(selectedSpace, selectedDate)
+
             const res = await fetch('/api/reservations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -134,6 +144,7 @@ export default function NovaReservaManualPage() {
                     customerDocument: form.customerDocument,
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
+                    totalPrice,
                     source: 'OFFLINE',
                     notes: form.notes,
                 }),
@@ -236,7 +247,7 @@ export default function NovaReservaManualPage() {
                                     <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{space.name}</h3>
                                     <p className="text-sm text-[#8a5c3f] mb-3">{space.capacity}</p>
                                     <p className="text-2xl font-bold text-[#d4a574]">
-                                        R$ {space.price.toLocaleString('pt-BR')}
+                                        R$ {getPrice(space, selectedDate).toLocaleString('pt-BR')}
                                     </p>
                                 </CardContent>
                             </Card>
@@ -457,7 +468,7 @@ export default function NovaReservaManualPage() {
                                         </p>
                                     </div>
                                     <p className="text-2xl font-bold text-[#d4a574]">
-                                        R$ {selectedSpace.price.toLocaleString('pt-BR')}
+                                        R$ {getPrice(selectedSpace, selectedDate).toLocaleString('pt-BR')}
                                     </p>
                                 </div>
                             </CardContent>
