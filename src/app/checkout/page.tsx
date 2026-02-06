@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { CancellationPolicyCheckbox, CancellationPolicyModal } from '@/components/reservas/CancellationPolicy'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDateUTC } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // Chave Pix do Cliente
@@ -133,12 +133,12 @@ function CheckoutContent() {
             }
 
             // 2. Preparar Mensagem WhatsApp
-            const message = `Olá! Acabei de fazer a reserva *#${reservationData.data.id.slice(0, 6).toUpperCase()}* pelo site.
-            
-📍 *Espaço:* ${cabinName}
-📅 *Data:* ${formatDate(checkIn)}
-💰 *Valor:* ${formatCurrency(price)}
-            
+            const message = `🌟 *Nova Reserva - Aysú Beach Lounge* 🌟
+
+👤 *Cliente:* ${formData.customerName}
+📅 *Data:* ${formatDateUTC(checkIn)}
+🎫 *Reserva:* ${checkIn ? 'Confirmada' : 'Pendente'}
+
 Estou enviando o comprovante do Pix em anexo.`
 
             const whatsappUrl = `https://wa.me/5512982896301?text=${encodeURIComponent(message)}`
@@ -319,9 +319,9 @@ Estou enviando o comprovante do Pix em anexo.`
                                 </div>
 
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-[#8a5c3f]" />
-                                        <span>{date ? formatDate(date) : '-'}</span>
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <span className="text-[#8a5c3f] flex items-center gap-2"><Calendar className="h-4 w-4" /> Data</span>
+                                        <span>{date ? formatDateUTC(date) : '-'}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-[#8a5c3f]" />

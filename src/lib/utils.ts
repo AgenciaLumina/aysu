@@ -170,3 +170,19 @@ export function truncate(text: string, maxLength: number): string {
 export function generateShortId(): string {
     return Math.random().toString(36).substring(2, 9).toUpperCase()
 }
+
+/**
+ * Formata data usando UTC para evitar problemas de timezone (fuso horário)
+ * Entrada: Date ou string ISO (ex: 2026-02-06T00:00:00.000Z)
+ * Saída: DD/MM/YYYY (sempre data "da parede" UTC)
+ */
+export function formatDateUTC(date: Date | string): string {
+    if (!date) return '-'
+    const d = typeof date === 'string' ? new Date(date) : date
+    return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'UTC'
+    }).format(d)
+}

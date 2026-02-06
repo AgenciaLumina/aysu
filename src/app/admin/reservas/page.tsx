@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import { formatCurrency, formatDateUTC, formatTime } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface ClosedDate {
@@ -300,7 +300,7 @@ export default function AdminReservasPage() {
                                                 {getReservationStatusLabel(reservation.status)}
                                             </Badge>
                                             <p className="text-sm text-[#8a5c3f] mt-1">
-                                                {formatDate(reservation.checkIn)} {formatTime(reservation.checkIn)}
+                                                {formatDateUTC(reservation.checkIn)} {formatTime(reservation.checkIn)}
                                             </p>
                                             <p className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</p>
                                         </div>
@@ -483,7 +483,7 @@ export default function AdminReservasPage() {
                         <h3 className="text-xl font-bold text-[#2a2a2a] mb-2">Alterar Data</h3>
                         <p className="text-[#8a5c3f] text-sm mb-6">
                             Remarcando reserva de <span className="font-semibold">{editingReservation.customerName}</span><br />
-                            Atual: {formatDate(editingReservation.checkIn)}
+                            Actual: {formatDateUTC(editingReservation.checkIn)}
                         </p>
 
                         <div className="space-y-4">
