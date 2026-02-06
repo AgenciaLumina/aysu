@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatDate, formatTime, generateSlug } from '@/lib/utils'
+import { formatDateUTC, formatTime, generateSlug } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface Event {
@@ -177,7 +177,7 @@ export default function AdminEventsPage() {
                                 <p className="text-sm text-[#8a5c3f] line-clamp-2 mb-3">{event.description}</p>
 
                                 <div className="space-y-1 text-sm text-[#8a5c3f] mb-4">
-                                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />{formatDate(event.startDate)}</div>
+                                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />{formatDateUTC(event.startDate)}</div>
                                     <div className="flex items-center gap-2"><Clock className="h-4 w-4" />{formatTime(event.startDate)}</div>
                                     {event.djName && <div className="flex items-center gap-2"><Music className="h-4 w-4" />{event.djName}</div>}
                                 </div>
