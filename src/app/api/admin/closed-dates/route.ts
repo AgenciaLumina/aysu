@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getAuthUser, isAdmin } from '@/lib/auth'
 
 export async function GET() {
     try {
@@ -19,6 +20,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!authUser || !isAdmin(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const body = await request.json()
         const { date, reason } = body
 
@@ -31,7 +40,8 @@ export async function POST(request: NextRequest) {
 
         const closedDate = await prisma.closedDate.create({
             data: {
-                date: new Date(date),
+                // Force 12:00 UTC to avoid timezone shifts (e.g. -3h pushing to previous day)
+                date: new Date(`${date}T12:00:00Z`),
                 reason: reason || 'Evento Fechado',
             },
         })

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Users, Search, Plus, Check, X, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare, Edit } from 'lucide-react'
+import { Calendar, Users, Search, Plus, Check, X, XCircle, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare, Edit } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -49,7 +49,10 @@ export default function AdminReservasPage() {
 
     const fetchReservations = async () => {
         try {
-            const res = await fetch('/api/admin/reservations')
+            const token = localStorage.getItem('token')
+            const res = await fetch('/api/admin/reservations', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
             const data = await res.json()
             if (data.success) setReservations(data.data)
         } catch (error) {
@@ -62,7 +65,10 @@ export default function AdminReservasPage() {
 
     const fetchClosedDates = async () => {
         try {
-            const res = await fetch('/api/admin/closed-dates')
+            const token = localStorage.getItem('token')
+            const res = await fetch('/api/admin/closed-dates', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
             const data = await res.json()
             if (data.success) setClosedDates(data.data)
         } catch (error) {
@@ -74,13 +80,20 @@ export default function AdminReservasPage() {
         const existing = closedDates.find(cd => cd.date.split('T')[0] === dateStr)
         setClosedLoading(true)
         try {
+            const token = localStorage.getItem('token')
             if (existing) {
-                await fetch(`/api/admin/closed-dates/${existing.id}`, { method: 'DELETE' })
+                await fetch(`/api/admin/closed-dates/${existing.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
                 toast.success('Data reaberta')
             } else {
                 await fetch('/api/admin/closed-dates', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ date: dateStr, reason: closedReason }),
                 })
                 toast.success('Data marcada como Evento Fechado')
@@ -121,9 +134,13 @@ export default function AdminReservasPage() {
 
         setProcessingId(id)
         try {
+            const token = localStorage.getItem('token')
             const res = await fetch(`/api/reservations/${id}/status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ status: newStatus })
             })
             const data = await res.json()
@@ -167,8 +184,10 @@ export default function AdminReservasPage() {
 
         setProcessingId(id)
         try {
+            const token = localStorage.getItem('token')
             const res = await fetch(`/api/admin/reservations/${id}/delete`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
             })
             const data = await res.json()
 
@@ -179,6 +198,7 @@ export default function AdminReservasPage() {
                 toast.error(data.error || 'Erro ao apagar')
             }
         } catch (error) {
+            console.error('Erro:', error)
             toast.error('Erro ao apagar reserva')
         } finally {
             setProcessingId(null)
@@ -200,9 +220,13 @@ export default function AdminReservasPage() {
             const checkIn = new Date(`${newDate}T10:00:00`)
             const checkOut = new Date(`${newDate}T18:00:00`)
 
+            const token = localStorage.getItem('token')
             const res = await fetch(`/api/reservations/${editingReservation.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString()

@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getAuthUser, isAdmin } from '@/lib/auth'
 
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const authUser = getAuthUser(request)
+        if (!authUser || !isAdmin(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { id } = await params
 
         await prisma.closedDate.delete({
