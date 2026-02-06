@@ -1,0 +1,1 @@
+import { prisma } from './src/lib/db'; async function main() { const res = await prisma.reservation.findMany({ where: { checkIn: { gte: new Date('2026-03-01'), lt: new Date('2026-04-01') } } }); console.log(JSON.stringify(res, null, 2)); } main();

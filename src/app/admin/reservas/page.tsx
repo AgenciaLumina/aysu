@@ -487,13 +487,12 @@ export default function AdminReservasPage() {
                                 <h3 className="text-sm font-semibold text-[#2a2a2a] mb-3">Datas marcadas como fechadas:</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {closedDates.map(cd => {
-                                        const d = new Date(cd.date)
                                         return (
                                             <span
                                                 key={cd.id}
                                                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-sm border border-red-200"
                                             >
-                                                {d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                {formatDateUTC(cd.date)}
                                                 <span className="text-xs text-red-500">({cd.reason})</span>
                                                 <button
                                                     onClick={() => toggleClosedDate(cd.date.split('T')[0])}
