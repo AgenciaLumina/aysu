@@ -8,6 +8,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { isHoliday, getHolidayName } from '@/lib/holidays'
+import { toLocalISODate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface Space {
@@ -23,7 +24,8 @@ const SPACES: Space[] = [
     { id: 'bangalo-piscina', name: 'Bangalô Piscina', dailyPrice: 600, holidayPrice: 1800, capacity: '6 pessoas' },
     { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', dailyPrice: 720, holidayPrice: 1800, capacity: '6-8 pessoas' },
     { id: 'bangalo-central', name: 'Bangalô Central (Galera)', dailyPrice: 1500, holidayPrice: 2500, capacity: '10 pessoas' },
-    { id: 'sunbed-casal', name: 'Sunbed Casal', dailyPrice: 300, holidayPrice: 500, capacity: '2 pessoas' },
+    { id: 'sunbed-casal', name: 'Sunbed Casal', dailyPrice: 250, holidayPrice: 500, capacity: '2 pessoas' },
+    { id: 'day-use-praia', name: 'Day Use Praia', dailyPrice: 120, holidayPrice: 200, capacity: '1 pessoa' },
 ]
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -31,7 +33,7 @@ const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 // Helper to get price based on holiday status
 const getPrice = (space: Space, date: Date | null): number => {
     if (!date) return space.dailyPrice
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = toLocalISODate(date)
     return isHoliday(dateStr) ? space.holidayPrice : space.dailyPrice
 }
 
