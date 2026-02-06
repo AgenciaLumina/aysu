@@ -45,7 +45,7 @@ export const createReservationSchema = z.object({
     cabinId: z.string().min(1, 'Cabin ID or Slug is required'),
     customerName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
     customerEmail: z.string().email('Email inválido'),
-    customerPhone: z.string().min(10, 'Telefone inválido'),
+    customerPhone: z.string().min(14, 'Telefone/WhatsApp inválido (use (11) 99999-9999)').optional().or(z.literal('')),
     customerDocument: z.string().optional(),
     notes: z.string().optional(), // Added this line as per instruction
     checkIn: z.string().or(z.date()),

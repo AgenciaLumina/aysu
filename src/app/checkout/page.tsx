@@ -216,12 +216,11 @@ Estou enviando o comprovante do Pix em anexo.`
                                         required
                                     />
                                     <Input
-                                        label="Telefone"
+                                        label="Telefone/WhatsApp (Opcional)"
                                         name="customerPhone"
                                         value={formData.customerPhone}
                                         onChange={handleInputChange}
                                         placeholder="(11) 99999-9999"
-                                        required
                                     />
                                     <div className="md:col-span-2">
                                         <Textarea
