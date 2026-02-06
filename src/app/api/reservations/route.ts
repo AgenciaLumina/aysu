@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
                 userId,
                 customerName: data.customerName,
                 customerEmail: data.customerEmail.toLowerCase(),
-                customerPhone: data.customerPhone,
+                customerPhone: data.customerPhone ?? '',
                 customerDocument: data.customerDocument,
                 checkIn,
                 checkOut,
