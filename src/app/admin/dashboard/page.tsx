@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime, toLocalISODate } from '@/lib/utils'
 
 interface DashboardStats {
     totalReservations: number
@@ -51,7 +51,8 @@ export default function AdminDashboardPage() {
                     setRecentReservations(data.data)
 
                     // Calcula estatísticas
-                    const today = new Date().toISOString().split('T')[0]
+                    // Usa toLocalISODate para garantir que "hoje" seja a data local correta
+                    const today = toLocalISODate(new Date())
                     const todayReservations = data.data.filter((r: RecentReservation) =>
                         r.checkIn.startsWith(today)
                     ).length

@@ -84,8 +84,14 @@ export async function GET(request: NextRequest) {
                     }
                 })
 
+                // Formata YYYY-MM-DD usando data local (seguro contra fuso horário do servidor)
+                const yearStr = currentDay.getFullYear()
+                const monthStr = String(currentDay.getMonth() + 1).padStart(2, '0')
+                const dayStr = String(currentDay.getDate()).padStart(2, '0')
+                const dateStr = `${yearStr}-${monthStr}-${dayStr}`
+
                 dayResults.push({
-                    date: currentDay.toISOString().split('T')[0],
+                    date: dateStr,
                     available: reservedCount < totalUnits
                 })
             }

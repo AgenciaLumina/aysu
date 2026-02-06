@@ -125,7 +125,7 @@ export default function NovaReservaManualPage() {
     }
 
     const handleDateSelect = (date: Date) => {
-        const dateStr = date.toISOString().split('T')[0]
+        const dateStr = toLocalISODate(date)
         const isClosed = closedDates.some(cd => cd.date === dateStr)
         if (!occupiedDates.includes(dateStr) && !isClosed) {
             setSelectedDate(date)
@@ -216,7 +216,7 @@ export default function NovaReservaManualPage() {
         // Dias do mês
         for (let i = 1; i <= lastDay.getDate(); i++) {
             const date = new Date(year, month, i)
-            const dateStr = date.toISOString().split('T')[0]
+            const dateStr = toLocalISODate(date)
             const holiday = isHoliday(dateStr)
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
 
