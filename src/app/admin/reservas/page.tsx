@@ -82,13 +82,15 @@ export default function AdminReservasPage() {
         try {
             const token = localStorage.getItem('token')
             if (existing) {
-                await fetch(`/api/admin/closed-dates/${existing.id}`, {
+                const res = await fetch(`/api/admin/closed-dates/${existing.id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
+                const data = await res.json()
+                if (!data.success) throw new Error(data.error)
                 toast.success('Data reaberta')
             } else {
-                await fetch('/api/admin/closed-dates', {
+                const res = await fetch('/api/admin/closed-dates', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -96,11 +98,13 @@ export default function AdminReservasPage() {
                     },
                     body: JSON.stringify({ date: dateStr, reason: closedReason }),
                 })
+                const data = await res.json()
+                if (!data.success) throw new Error(data.error)
                 toast.success('Data marcada como Evento Fechado')
             }
             fetchClosedDates()
-        } catch {
-            toast.error('Erro ao atualizar data')
+        } catch (error: any) {
+            toast.error(error.message || 'Erro ao atualizar data')
         } finally {
             setClosedLoading(false)
         }
