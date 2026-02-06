@@ -22,7 +22,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDateUTC } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface Reservation {
@@ -457,7 +457,7 @@ export default function FrenteDeCaixaPage() {
                                         <div className="flex items-center gap-3 text-xs text-[#8a5c3f] mt-1">
                                             <span className="flex items-center gap-1">
                                                 <CalendarDays className="h-3 w-3" />
-                                                {formatDate(reservation.date)}
+                                                {formatDateUTC(reservation.date)}
                                             </span>
                                             <span className="flex items-center gap-1">
                                                 <Phone className="h-3 w-3" />
