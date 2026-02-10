@@ -90,6 +90,21 @@ export function CancellationPolicyModal({ isOpen, onClose }: CancellationPolicyM
                         </ul>
                     </section>
 
+                    {/* Capacidade - Bangalô Frente Mar */}
+                    <section className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                                <p className="font-medium text-blue-800 mb-2">Capacidade - Bangalô Frente Mar:</p>
+                                <ul className="space-y-1 text-blue-700">
+                                    <li>• O Bangalô Frente Mar comporta de <strong>6 a 8 pessoas</strong>.</li>
+                                    <li>• O valor da reserva informado é referente à ocupação mínima de <strong>6 pessoas</strong>.</li>
+                                    <li>• Para ocupação superior a 6 pessoas (até o limite máximo de 8), será cobrado o valor de <strong>Day Use Tradicional</strong> por pessoa excedente.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
                     {/* Política de Cancelamento */}
                     <section>
                         <h3 className="font-semibold text-[#2a2a2a] mb-3">Política de Cancelamento</h3>

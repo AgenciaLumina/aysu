@@ -14,7 +14,7 @@ interface PricingItem {
 const HOLIDAY_PRICING: PricingItem[] = [
     { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 700", price: "R$ 1.000" },
     { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
+    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "A partir de R$ 1.800" },
     { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
     { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 350", price: "R$ 500" },
     { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 150", price: "R$ 200" },
@@ -23,7 +23,7 @@ const HOLIDAY_PRICING: PricingItem[] = [
 const NORMAL_PRICING: PricingItem[] = [
     { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 500", price: "R$ 600" },
     { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 500", price: "R$ 600" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "R$ 720" },
+    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "A partir de R$ 720" },
     { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 1.200", price: "R$ 1.500" },
     { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 200", price: "R$ 250" },
     { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 100", price: "R$ 120" },
@@ -98,7 +98,10 @@ export default function PricingSection() {
             </div>
 
             {/* Rodapé Dinâmico */}
-            <div className="mt-8 pt-6 border-t border-[#f5f0e8] text-center">
+            <div className="mt-8 pt-6 border-t border-[#f5f0e8] text-center space-y-2">
+                <p className="text-xs text-[#a09080] italic">
+                    * Bangalô Frente Mar: Valor referente a 6 pessoas. Excedentes (até o limite de 8) pagam Day Use Tradicional.
+                </p>
                 <p className="text-xs text-[#a09080] italic">
                     {activeTab === 'holiday'
                         ? '* Valores válidos para Feriados e Datas Comemorativas (Carnaval 2026).'

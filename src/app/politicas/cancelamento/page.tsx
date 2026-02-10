@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronDown, ChevronUp, AlertCircle, CheckCircle, X, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, AlertCircle, CheckCircle, X, Phone, Mail, Users } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 
@@ -105,6 +105,34 @@ export default function PoliticaCancelamentoPage() {
                             </div>
                         </section>
 
+                        {/* Seção: Capacidade Bangalô Frente Mar */}
+                        <section className="bg-blue-50 border border-blue-200 rounded-2xl p-6 md:p-8 shadow-sm">
+                            <div className="flex flex-col md:flex-row gap-6 items-start">
+                                <div className="bg-white p-3 rounded-full shadow-sm flex-shrink-0 mx-auto md:mx-0">
+                                    <Users className="h-8 w-8 text-blue-600" />
+                                </div>
+                                <div className="text-center md:text-left">
+                                    <h2 className="text-2xl font-serif font-bold text-blue-900 mb-4">
+                                        Capacidade - Bangalô Frente Mar
+                                    </h2>
+                                    <ul className="space-y-3 text-blue-800">
+                                        <li className="flex items-start gap-3">
+                                            <span className="text-blue-600 font-bold text-lg">•</span>
+                                            <span>O Bangalô Frente Mar comporta de <strong>6 a 8 pessoas</strong>.</span>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <span className="text-blue-600 font-bold text-lg">•</span>
+                                            <span>O valor da reserva informado é referente à ocupação mínima de <strong>6 pessoas</strong>.</span>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <span className="text-blue-600 font-bold text-lg">•</span>
+                                            <span>Para ocupação superior a 6 pessoas (até o limite máximo de 8), será cobrado o valor de <strong>Day Use Tradicional</strong> por pessoa excedente.</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
                         {/* Seção: Política de Cancelamento */}
                         <section className="bg-white rounded-2xl shadow-sm border border-[#e0d5c7] p-6 md:p-8">
                             <h2 className="text-xl font-semibold text-[#2a2a2a] mb-4">
@@ -182,8 +210,8 @@ export default function PoliticaCancelamentoPage() {
                             </div>
                         </section>
                     </div>
-                </div>
-            </main>
+                </div >
+            </main >
 
             <Footer />
         </>
