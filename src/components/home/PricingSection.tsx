@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Users, Star } from 'lucide-react'
+import { Users, Star, Info } from 'lucide-react'
 
 interface PricingItem {
     title: string
@@ -14,7 +14,7 @@ interface PricingItem {
 const HOLIDAY_PRICING: PricingItem[] = [
     { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 700", price: "R$ 1.000" },
     { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "A partir de R$ 1.800" },
+    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
     { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
     { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 350", price: "R$ 500" },
     { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 150", price: "R$ 200" },
@@ -23,7 +23,7 @@ const HOLIDAY_PRICING: PricingItem[] = [
 const NORMAL_PRICING: PricingItem[] = [
     { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 500", price: "R$ 600" },
     { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 500", price: "R$ 600" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "A partir de R$ 720" },
+    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "R$ 720" },
     { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 1.200", price: "R$ 1.500" },
     { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 200", price: "R$ 250" },
     { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 100", price: "R$ 120" },
@@ -90,9 +90,28 @@ export default function PricingSection() {
                                 <span className="font-medium">Consome {item.val}</span>
                             </p>
                         </div>
-                        <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
-                            {item.price}
-                        </p>
+                        <div className="text-right flex flex-col items-end">
+                            {item.title === "Bangalô Frente Mar" && (
+                                <span className="inline-block bg-[#d4a574]/20 text-[#8a5c3f] text-[10px] font-bold px-2 py-0.5 rounded-full mb-1">
+                                    A PARTIR
+                                </span>
+                            )}
+                            <div className="flex items-center gap-2">
+                                <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
+                                    {item.price}
+                                </p>
+                                {item.title === "Bangalô Frente Mar" && (
+                                    <div className="relative group">
+                                        <Info className="h-4 w-4 text-[#d4a574] animate-pulse cursor-help" />
+                                        {/* Tooltip simples */}
+                                        <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-[#2a2a2a] text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10 pointer-events-none">
+                                            Valor para 6 pessoas. Até 8 pessoas mediante taxa extra.
+                                            <div className="absolute -bottom-1 right-1 w-2 h-2 bg-[#2a2a2a] rotate-45"></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 ))}
             </div>
