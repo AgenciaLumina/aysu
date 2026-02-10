@@ -91,7 +91,7 @@ export default function PricingSection() {
                             </p>
                         </div>
                         <div className="text-right flex flex-col items-end">
-                            {item.title === "Bangalô Frente Mar" && (
+                            {item.title === "Bangalô Frente Mar" && activeTab === 'normal' && (
                                 <span className="inline-block bg-[#d4a574]/20 text-[#8a5c3f] text-[10px] font-bold px-2 py-0.5 rounded-full mb-1">
                                     A PARTIR
                                 </span>
@@ -100,7 +100,7 @@ export default function PricingSection() {
                                 <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
                                     {item.price}
                                 </p>
-                                {item.title === "Bangalô Frente Mar" && (
+                                {item.title === "Bangalô Frente Mar" && activeTab === 'normal' && (
                                     <div className="relative group">
                                         <Info className="h-4 w-4 text-[#d4a574] animate-pulse cursor-help" />
                                         {/* Tooltip simples */}
