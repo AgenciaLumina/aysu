@@ -82,13 +82,21 @@ export function extractTokenFromHeader(authHeader: string | null): string | null
  */
 export function getAuthUser(request: NextRequest): JWTPayload | null {
     const authHeader = request.headers.get('Authorization')
-    const token = extractTokenFromHeader(authHeader)
+    const headerToken = extractTokenFromHeader(authHeader)
 
-    if (!token) {
-        return null
+    if (headerToken) {
+        const decoded = verifyToken(headerToken)
+        if (decoded) return decoded
     }
 
-    return verifyToken(token)
+    // Fallback para sessão de admin autenticada por cookie
+    const cookieToken = request.cookies.get('admin_token')?.value
+    if (cookieToken) {
+        const decoded = verifyToken(cookieToken)
+        if (decoded) return decoded
+    }
+
+    return null
 }
 
 /**
