@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
     LayoutDashboard,
     Calendar,
-    UtensilsCrossed,
     Home,
     Settings,
     LogOut,
@@ -25,6 +24,21 @@ interface AdminLayoutProps {
     children: React.ReactNode
 }
 
+interface NotificationItem {
+    id: string
+    title: string
+    message: string
+    time: string
+    unread: boolean
+}
+
+interface PendingReservationNotification {
+    id: string
+    customerName: string
+    spaceName: string
+    createdAt: string
+}
+
 const navItems = [
     { href: '/admin/frente-de-caixa', label: 'Frente de Caixa', icon: CreditCard },
     { href: '/admin/reservas', label: 'Reservas', icon: Calendar },
@@ -38,19 +52,94 @@ const navItems = [
 
 export function AdminLayout({ children }: AdminLayoutProps) {
     const pathname = usePathname()
+    const router = useRouter()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [showNotifications, setShowNotifications] = useState(false)
-    const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; time: string; unread: boolean }[]>([])
+    const [notifications, setNotifications] = useState<NotificationItem[]>([])
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
 
     const isActive = (href: string) => pathname?.startsWith(href)
+
+    const clearClientAuth = useCallback(() => {
+        document.cookie = 'admin_token=; path=/; max-age=0; SameSite=Lax'
+        localStorage.removeItem('token')
+    }, [])
+
+    const redirectToLogin = useCallback(() => {
+        const callback = pathname?.startsWith('/admin') ? pathname : '/admin'
+        router.replace(`/admin/login?callbackUrl=${encodeURIComponent(callback || '/admin')}`)
+        router.refresh()
+    }, [pathname, router])
+
+    const handleLogout = useCallback(async () => {
+        if (isLoggingOut) return
+        setIsLoggingOut(true)
+
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                credentials: 'include',
+            })
+        } catch {
+            // Mesmo com falha de rede, limpamos sessão local para não manter estado quebrado
+        } finally {
+            clearClientAuth()
+            router.replace('/admin/login')
+            router.refresh()
+            setIsLoggingOut(false)
+        }
+    }, [clearClientAuth, isLoggingOut, router])
+
+    useEffect(() => {
+        let cancelled = false
+
+        const verifySession = async () => {
+            try {
+                const res = await fetch('/api/auth/verify', {
+                    method: 'GET',
+                    credentials: 'include',
+                    cache: 'no-store',
+                })
+
+                if (!res.ok) {
+                    throw new Error('Sessão inválida')
+                }
+
+                const data = await res.json()
+                if (!data?.success) {
+                    throw new Error('Sessão inválida')
+                }
+            } catch {
+                if (cancelled) return
+                clearClientAuth()
+                redirectToLogin()
+            }
+        }
+
+        verifySession()
+
+        return () => {
+            cancelled = true
+        }
+    }, [clearClientAuth, pathname, redirectToLogin])
 
     useEffect(() => {
         const fetchPending = async () => {
             try {
-                const res = await fetch('/api/admin/reservations/pending')
+                const res = await fetch('/api/admin/reservations/pending', {
+                    credentials: 'include',
+                    cache: 'no-store',
+                })
+
+                if (res.status === 401 || res.status === 403) {
+                    clearClientAuth()
+                    redirectToLogin()
+                    return
+                }
+
                 const data = await res.json()
                 if (data.success && data.data) {
-                    setNotifications(data.data.map((r: any) => {
+                    setNotifications(data.data.map((r: PendingReservationNotification) => {
                         const created = new Date(r.createdAt)
                         const now = new Date()
                         const diffMin = Math.floor((now.getTime() - created.getTime()) / 60000)
@@ -69,7 +158,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         fetchPending()
         const interval = setInterval(fetchPending, 30000)
         return () => clearInterval(interval)
-    }, [])
+    }, [clearClientAuth, pathname, redirectToLogin])
 
     const unreadCount = notifications.filter(n => n.unread).length
 
@@ -149,9 +238,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         className="flex items-center gap-3 px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
                         title={isCollapsed ? 'Voltar ao Site' : undefined}
                     >
-                        <LogOut className="h-5 w-5" />
+                        <Home className="h-5 w-5" />
                         {!isCollapsed && <span className="text-sm">Voltar ao Site</span>}
                     </Link>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                        title={isCollapsed ? 'Sair' : undefined}
+                    >
+                        <LogOut className="h-5 w-5" />
+                        {!isCollapsed && <span className="text-sm">{isLoggingOut ? 'Saindo...' : 'Sair'}</span>}
+                    </button>
                 </div>
             </aside>
 

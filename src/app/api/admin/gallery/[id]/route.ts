@@ -1,6 +1,7 @@
 // AISSU Beach Lounge - Gallery Item API Routes
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -9,6 +10,14 @@ interface RouteParams {
 // GET - Busca uma imagem específica
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { id } = await params
 
         const image = await prisma.galleryImage.findUnique({
@@ -38,6 +47,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH - Atualiza uma imagem
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { id } = await params
         const body = await request.json()
         const { caption, permalink, displayOrder, isActive } = body
@@ -69,6 +86,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE - Remove uma imagem
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { id } = await params
 
         await prisma.galleryImage.delete({

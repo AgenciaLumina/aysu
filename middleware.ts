@@ -4,6 +4,28 @@ import type { NextRequest } from 'next/server'
 // Rotas públicas dentro do admin (apenas login)
 const PUBLIC_ADMIN_ROUTES = ['/admin/login', '/admin/recuperar-senha']
 
+function decodeJwtPayload(token: string): { exp?: number } | null {
+    try {
+        const parts = token.split('.')
+        if (parts.length !== 3) return null
+
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+        return JSON.parse(atob(padded))
+    } catch {
+        return null
+    }
+}
+
+function redirectToLoginAndClearToken(request: NextRequest) {
+    const loginUrl = new URL('/admin/login', request.url)
+    loginUrl.searchParams.set('callbackUrl', request.nextUrl.pathname)
+
+    const response = NextResponse.redirect(loginUrl)
+    response.cookies.set('admin_token', '', { path: '/', maxAge: 0 })
+    return response
+}
+
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
 
@@ -19,13 +41,19 @@ export function middleware(request: NextRequest) {
 
         if (!token) {
             // Redireciona para login se não houver token
-            const loginUrl = new URL('/admin/login', request.url)
-            loginUrl.searchParams.set('callbackUrl', pathname)
-            return NextResponse.redirect(loginUrl)
+            return redirectToLoginAndClearToken(request)
         }
 
-        // TODO: Em uma implementação mais robusta, validaríamos o JWT aqui tb (jose library)
-        // Por enquanto, a presença do cookie é o primeiro gate check.
+        // Evita "Acesso negado" tardio em APIs quando o token já expirou
+        const payload = decodeJwtPayload(token)
+        const nowInSeconds = Math.floor(Date.now() / 1000)
+        const tokenExpired = payload?.exp ? payload.exp <= nowInSeconds : false
+
+        if (!payload || tokenExpired) {
+            return redirectToLoginAndClearToken(request)
+        }
+
+        // Observação: a assinatura JWT continua sendo validada nas APIs via getAuthUser/verifyToken.
     }
 
     // 2. Proteção de API (opcional, pode ser feito per-route ou aqui)

@@ -1,6 +1,7 @@
 // AISSU Beach Lounge - API para Listar Arquivos do R2
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
 // Construir endpoint do R2 a partir do account ID
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
@@ -19,6 +20,14 @@ const client = new S3Client({
 
 export async function GET(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { searchParams } = new URL(request.url)
         const folder = searchParams.get('folder') || ''
         const limit = parseInt(searchParams.get('limit') || '200')
@@ -55,12 +64,13 @@ export async function GET(request: NextRequest) {
                 }
             },
         })
-    } catch (error: any) {
-        console.error('[R2 List Error]', error?.message || error)
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'desconhecido'
+        console.error('[R2 List Error]', message || error)
         return NextResponse.json(
             {
                 success: false,
-                error: 'Erro ao listar arquivos: ' + (error?.message || 'desconhecido'),
+                error: 'Erro ao listar arquivos: ' + message,
                 debug: {
                     bucket: R2_BUCKET,
                     hasAccountId: !!R2_ACCOUNT_ID,

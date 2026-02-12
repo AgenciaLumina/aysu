@@ -3,9 +3,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { v4 as uuid } from 'uuid'
 import { uploadToR2 } from '@/lib/r2'
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const formData = await request.formData()
         const file = formData.get('file') as File | null
 

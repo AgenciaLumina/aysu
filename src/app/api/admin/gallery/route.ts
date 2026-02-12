@@ -1,10 +1,19 @@
 // AISSU Beach Lounge - Gallery API Routes
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
 // GET - Lista todas as imagens da galeria
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const images = await prisma.galleryImage.findMany({
             where: { isActive: true },
             orderBy: { displayOrder: 'asc' },
@@ -26,6 +35,14 @@ export async function GET() {
 // POST - Adiciona nova imagem
 export async function POST(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const body = await request.json()
         const { imageUrl, caption, permalink } = body
 

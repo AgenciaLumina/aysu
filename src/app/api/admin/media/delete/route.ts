@@ -1,6 +1,7 @@
 // AISSU Beach Lounge - API para Deletar Arquivo do R2
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
 // Construir endpoint do R2 a partir do account ID
 const R2_ENDPOINT = process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
@@ -16,6 +17,14 @@ const client = new S3Client({
 
 export async function DELETE(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const { key } = await request.json()
 
         if (!key) {

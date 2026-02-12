@@ -1,13 +1,19 @@
 // API para listar e criar imagens da galeria de menu
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-// Criar nova instância para garantir o novo modelo
-const prisma = new PrismaClient()
+import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 
 // GET - Listar imagens
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const images = await prisma.menuGalleryImage.findMany({
             where: { isActive: true },
             orderBy: { displayOrder: 'asc' }
@@ -17,8 +23,9 @@ export async function GET() {
             success: true,
             data: images
         })
-    } catch (error: any) {
-        console.error('[MenuGallery GET]', error?.message || error)
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'desconhecido'
+        console.error('[MenuGallery GET]', message)
         return NextResponse.json(
             { success: false, error: 'Erro ao listar', data: [] },
             { status: 500 }
@@ -29,6 +36,14 @@ export async function GET() {
 // POST - Adicionar imagem(s)
 export async function POST(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canAccessAdminPanel(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
+
         const body = await request.json()
 
         // Suporte a múltiplas imagens
@@ -67,10 +82,11 @@ export async function POST(request: NextRequest) {
             data: createdImages,
             count: createdImages.length
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'desconhecido'
         console.error('[MenuGallery POST] Full error:', error)
         return NextResponse.json(
-            { success: false, error: `Erro ao criar: ${error?.message || 'desconhecido'}` },
+            { success: false, error: `Erro ao criar: ${message}` },
             { status: 500 }
         )
     }

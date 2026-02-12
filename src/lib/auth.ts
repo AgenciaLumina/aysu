@@ -135,6 +135,20 @@ export function canManageReservations(user: JWTPayload | null): boolean {
     return hasRole(user, [UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.STAFF])
 }
 
+/**
+ * Verifica se pode acessar recursos internos do painel admin
+ */
+export function canAccessAdminPanel(user: JWTPayload | null): boolean {
+    return hasRole(user, [
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+        UserRole.CASHIER,
+        UserRole.CHEF,
+        UserRole.BARISTA,
+        UserRole.STAFF,
+    ])
+}
+
 // ============================================================
 // RESPONSES DE ERRO
 // ============================================================
