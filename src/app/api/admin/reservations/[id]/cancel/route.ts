@@ -1,12 +1,18 @@
 // API: Cancel Reservation
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canManageReservations(authUser)) {
+            return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
+        }
+
         const { id: reservationId } = await params
         const body = await request.json()
         const { reason } = body

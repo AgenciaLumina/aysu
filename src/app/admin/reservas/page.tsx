@@ -86,6 +86,7 @@ export default function AdminReservasPage() {
     const fetchReservations = async () => {
         try {
             const res = await fetch('/api/admin/reservations', {
+                credentials: 'include',
                 headers: getAuthHeaders(),
             })
             const data = await res.json()
@@ -101,6 +102,7 @@ export default function AdminReservasPage() {
     const fetchClosedDates = async () => {
         try {
             const res = await fetch('/api/admin/closed-dates', {
+                credentials: 'include',
                 headers: getAuthHeaders(),
             })
             const data = await res.json()
@@ -117,6 +119,7 @@ export default function AdminReservasPage() {
             if (existing) {
                 const res = await fetch(`/api/admin/closed-dates/${existing.id}`, {
                     method: 'DELETE',
+                    credentials: 'include',
                     headers: getAuthHeaders(),
                 })
                 const data = await res.json()
@@ -125,6 +128,7 @@ export default function AdminReservasPage() {
             } else {
                 const res = await fetch('/api/admin/closed-dates', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: getAuthHeaders(true),
                     body: JSON.stringify({ date: dateStr, reason: closedReason }),
                 })
@@ -158,10 +162,19 @@ export default function AdminReservasPage() {
 
     const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    const formatDateLocal = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+    }
+    const todayStart = new Date(new Date().setHours(0, 0, 0, 0))
+    const todayDateString = formatDateLocal(todayStart)
 
     useEffect(() => {
         fetchReservations()
         fetchClosedDates()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const handleStatusUpdate = async (id: string, newStatus: 'CONFIRMED' | 'CANCELLED') => {
@@ -171,6 +184,7 @@ export default function AdminReservasPage() {
         try {
             const res = await fetch(`/api/reservations/${id}/status`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: getAuthHeaders(true),
                 body: JSON.stringify({ status: newStatus })
             })
@@ -217,6 +231,7 @@ export default function AdminReservasPage() {
         try {
             const res = await fetch(`/api/admin/reservations/${id}/delete`, {
                 method: 'DELETE',
+                credentials: 'include',
                 headers: getAuthHeaders(),
             })
             const data = await res.json()
@@ -252,6 +267,7 @@ export default function AdminReservasPage() {
 
             const res = await fetch(`/api/reservations/${editingReservation.id}`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: getAuthHeaders(true),
                 body: JSON.stringify({
                     checkIn: checkIn.toISOString(),
@@ -306,6 +322,118 @@ export default function AdminReservasPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#e0d5c7] text-sm focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] bg-white"
                 />
+            </div>
+
+            {/* ==========================================
+                EVENTO FECHADO - Gerenciar Datas
+                ========================================== */}
+            <div className="mb-10">
+                <div className="flex items-center gap-3 mb-6">
+                    <Ban className="h-6 w-6 text-red-500" />
+                    <div>
+                        <h2 className="text-xl font-serif font-bold text-[#2a2a2a]">Evento Fechado</h2>
+                        <p className="text-sm text-[#8a5c3f]">Marque datas em que o beach club não abrirá ao público</p>
+                    </div>
+                </div>
+
+                <Card>
+                    <CardContent className="p-6">
+                        {/* Motivo */}
+                        <div className="mb-6">
+                            <label className="text-sm font-medium text-[#2a2a2a] mb-1 block">Motivo do fechamento</label>
+                            <input
+                                type="text"
+                                value={closedReason}
+                                onChange={e => setClosedReason(e.target.value)}
+                                className="w-full max-w-sm px-4 py-2 rounded-xl border border-[#e0d5c7] text-sm focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] bg-white"
+                                placeholder="Evento Fechado"
+                            />
+                        </div>
+
+                        {/* Calendar Header */}
+                        <div className="flex items-center justify-between mb-4 max-w-sm">
+                            <button
+                                onClick={() => setClosedMonth(new Date(closedMonth.getFullYear(), closedMonth.getMonth() - 1, 1))}
+                                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-[#8a5c3f]"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <span className="font-semibold text-[#2a2a2a]">
+                                {MONTHS[closedMonth.getMonth()]} {closedMonth.getFullYear()}
+                            </span>
+                            <button
+                                onClick={() => setClosedMonth(new Date(closedMonth.getFullYear(), closedMonth.getMonth() + 1, 1))}
+                                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-[#8a5c3f]"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* Calendar Grid */}
+                        <div className="max-w-sm">
+                            <div className="grid grid-cols-7 gap-1 mb-2">
+                                {WEEKDAYS.map(d => (
+                                    <div key={d} className="text-center text-xs font-medium text-[#8a5c3f] py-1">{d}</div>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                                {getClosedMonthDays().map((date, idx) => {
+                                    if (!date) return <div key={idx} />
+                                    const dateStr = formatDateLocal(date)
+                                    const isClosed = isDateClosed(dateStr)
+                                    const isPast = date < todayStart
+
+                                    return (
+                                        <button
+                                            key={idx}
+                                            onClick={() => !isPast && !closedLoading && toggleClosedDate(dateStr)}
+                                            disabled={isPast || closedLoading}
+                                            className={`
+                                                aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all
+                                                ${isClosed
+                                                    ? 'bg-red-500 text-white hover:bg-red-600'
+                                                    : isPast
+                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                        : 'text-gray-700 hover:bg-gray-100'
+                                                }
+                                            `}
+                                            title={isClosed ? 'Clique para reabrir' : 'Clique para fechar'}
+                                        >
+                                            {date.getDate()}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Lista de datas fechadas */}
+                        {closedDates.length > 0 && (
+                            <div className="mt-6 pt-6 border-t border-[#e0d5c7]">
+                                <h3 className="text-sm font-semibold text-[#2a2a2a] mb-3">Datas marcadas como fechadas:</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {closedDates.map(cd => {
+                                        return (
+                                            <span
+                                                key={cd.id}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-sm border border-red-200"
+                                            >
+                                                {formatDateUTC(cd.date)}
+                                                <span className="text-xs text-red-500">({cd.reason})</span>
+                                                <button
+                                                    onClick={() => toggleClosedDate(cd.date.split('T')[0])}
+                                                    className="hover:text-red-900"
+                                                    title="Remover"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                            </span>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Content */}
@@ -425,118 +553,6 @@ export default function AdminReservasPage() {
                     </CardContent>
                 </Card>
             )}
-            {/* ==========================================
-                EVENTO FECHADO - Gerenciar Datas
-                ========================================== */}
-            <div className="mt-12">
-                <div className="flex items-center gap-3 mb-6">
-                    <Ban className="h-6 w-6 text-red-500" />
-                    <div>
-                        <h2 className="text-xl font-serif font-bold text-[#2a2a2a]">Evento Fechado</h2>
-                        <p className="text-sm text-[#8a5c3f]">Marque datas em que o beach club não abrirá ao público</p>
-                    </div>
-                </div>
-
-                <Card>
-                    <CardContent className="p-6">
-                        {/* Motivo */}
-                        <div className="mb-6">
-                            <label className="text-sm font-medium text-[#2a2a2a] mb-1 block">Motivo do fechamento</label>
-                            <input
-                                type="text"
-                                value={closedReason}
-                                onChange={e => setClosedReason(e.target.value)}
-                                className="w-full max-w-sm px-4 py-2 rounded-xl border border-[#e0d5c7] text-sm focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574] bg-white"
-                                placeholder="Evento Fechado"
-                            />
-                        </div>
-
-                        {/* Calendar Header */}
-                        <div className="flex items-center justify-between mb-4 max-w-sm">
-                            <button
-                                onClick={() => setClosedMonth(new Date(closedMonth.getFullYear(), closedMonth.getMonth() - 1, 1))}
-                                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-[#8a5c3f]"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <span className="font-semibold text-[#2a2a2a]">
-                                {MONTHS[closedMonth.getMonth()]} {closedMonth.getFullYear()}
-                            </span>
-                            <button
-                                onClick={() => setClosedMonth(new Date(closedMonth.getFullYear(), closedMonth.getMonth() + 1, 1))}
-                                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-[#8a5c3f]"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        </div>
-
-                        {/* Calendar Grid */}
-                        <div className="max-w-sm">
-                            <div className="grid grid-cols-7 gap-1 mb-2">
-                                {WEEKDAYS.map(d => (
-                                    <div key={d} className="text-center text-xs font-medium text-[#8a5c3f] py-1">{d}</div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-1">
-                                {getClosedMonthDays().map((date, idx) => {
-                                    if (!date) return <div key={idx} />
-                                    const dateStr = date.toISOString().split('T')[0]
-                                    const isClosed = isDateClosed(dateStr)
-                                    const isPast = date < new Date(new Date().setHours(0, 0, 0, 0))
-
-                                    return (
-                                        <button
-                                            key={idx}
-                                            onClick={() => !isPast && !closedLoading && toggleClosedDate(dateStr)}
-                                            disabled={isPast || closedLoading}
-                                            className={`
-                                                aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all
-                                                ${isClosed
-                                                    ? 'bg-red-500 text-white hover:bg-red-600'
-                                                    : isPast
-                                                        ? 'text-gray-300 cursor-not-allowed'
-                                                        : 'text-gray-700 hover:bg-gray-100'
-                                                }
-                                            `}
-                                            title={isClosed ? 'Clique para reabrir' : 'Clique para fechar'}
-                                        >
-                                            {date.getDate()}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Lista de datas fechadas */}
-                        {closedDates.length > 0 && (
-                            <div className="mt-6 pt-6 border-t border-[#e0d5c7]">
-                                <h3 className="text-sm font-semibold text-[#2a2a2a] mb-3">Datas marcadas como fechadas:</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {closedDates.map(cd => {
-                                        return (
-                                            <span
-                                                key={cd.id}
-                                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-sm border border-red-200"
-                                            >
-                                                {formatDateUTC(cd.date)}
-                                                <span className="text-xs text-red-500">({cd.reason})</span>
-                                                <button
-                                                    onClick={() => toggleClosedDate(cd.date.split('T')[0])}
-                                                    className="hover:text-red-900"
-                                                    title="Remover"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
-                                            </span>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
             {/* Modal Editar */}
             {editingReservation && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -555,7 +571,7 @@ export default function AdminReservasPage() {
                                     value={newDate}
                                     onChange={(e) => setNewDate(e.target.value)}
                                     className="w-full px-4 py-3 rounded-xl border border-[#e0d5c7] focus:ring-2 focus:ring-[#d4a574] focus:border-[#d4a574]"
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={todayDateString}
                                 />
                             </div>
 

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
+import { getAuthUser } from '@/lib/auth'
 import { createReservationSchema, paginationSchema, reservationFiltersSchema } from '@/lib/validations'
 import { getHoursDifference } from '@/lib/utils'
 import type { ApiResponse, PaginatedResponse, ReservationWithDetails } from '@/lib/types'

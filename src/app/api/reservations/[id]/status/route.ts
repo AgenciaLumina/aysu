@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 
@@ -15,8 +15,7 @@ export async function PATCH(
     try {
         const authUser = getAuthUser(request)
 
-        // Verifica permissão (Admin ou Manager)
-        if (!isAdmin(authUser)) {
+        if (!canManageReservations(authUser)) {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Não autorizado' },
                 { status: 403 }

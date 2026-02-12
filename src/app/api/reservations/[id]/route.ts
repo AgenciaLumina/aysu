@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse, ReservationWithDetails } from '@/lib/types'
 import { ReservationStatus } from '@prisma/client'
@@ -68,7 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const { id } = await params
         const authUser = getAuthUser(request)
 
-        if (!authUser || !isAdmin(authUser)) {
+        if (!authUser || !canManageReservations(authUser)) {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Acesso negado' },
                 { status: 403 }
@@ -172,7 +172,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const { id } = await params
         const authUser = getAuthUser(request)
 
-        if (!authUser || !isAdmin(authUser)) {
+        if (!authUser || !canManageReservations(authUser)) {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Acesso negado' },
                 { status: 403 }

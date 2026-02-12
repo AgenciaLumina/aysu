@@ -1,6 +1,7 @@
+import { Prisma } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getAuthUser, isAdmin, hasRole } from '@/lib/auth'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 
 export async function GET() {
     try {
@@ -21,7 +22,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const authUser = getAuthUser(request)
-        if (!authUser || !hasRole(authUser, ['ADMIN', 'MANAGER', 'CASHIER'] as any)) {
+        if (!canManageReservations(authUser)) {
             return NextResponse.json(
                 { success: false, error: 'Acesso negado' },
                 { status: 403 }
@@ -51,8 +52,8 @@ export async function POST(request: NextRequest) {
             data: closedDate,
             message: 'Data fechada adicionada com sucesso',
         })
-    } catch (error: any) {
-        if (error?.code === 'P2002') {
+    } catch (error: unknown) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             return NextResponse.json(
                 { success: false, error: 'Esta data já está marcada como fechada' },
                 { status: 409 }

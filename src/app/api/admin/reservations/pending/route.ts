@@ -1,10 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canManageReservations(authUser)) {
+            return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
+        }
+
         const pending = await prisma.reservation.findMany({
             where: { status: 'PENDING' },
             include: {

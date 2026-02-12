@@ -128,6 +128,13 @@ export function canUsePDV(user: JWTPayload | null): boolean {
     return hasRole(user, [UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.BARISTA])
 }
 
+/**
+ * Verifica se pode gerenciar reservas e datas fechadas no admin
+ */
+export function canManageReservations(user: JWTPayload | null): boolean {
+    return hasRole(user, [UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.STAFF])
+}
+
 // ============================================================
 // RESPONSES DE ERRO
 // ============================================================

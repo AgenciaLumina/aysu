@@ -1,23 +1,27 @@
 // API: Get Reservations by Date
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
+import { canManageReservations, getAuthUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
     try {
+        const authUser = getAuthUser(request)
+        if (!canManageReservations(authUser)) {
+            return NextResponse.json(
+                { success: false, error: 'Acesso negado' },
+                { status: 403 }
+            )
+        }
 
         const { searchParams } = new URL(request.url)
         const dateParam = searchParams.get('date') // YYYY-MM-DD
         const limitParam = searchParams.get('limit')
 
-        const where: any = {}
+        const where: Prisma.ReservationWhereInput = {}
 
         // Se tiver data, filtra. Se não, traz tudo.
         if (dateParam) {
-            // Garante que o filtro use a data correta UTC para cobrir o dia inteiro
-            // YYYY-MM-DD -> range do dia inteiro
-            const startOfDay = new Date(`${dateParam}T00:00:00.000Z`)
-            const endOfDay = new Date(`${dateParam}T23:59:59.999Z`)
-
             // Ajuste manual de timezone: em UTC, nossas reservas (feitas como T10:00 local) 
             // podem cair no dia anterior/posterior dependendo de como foram salvas.
             // O mais seguro é buscar um range ampliado e filtrar no código ou garantir que o create salve UTC.
