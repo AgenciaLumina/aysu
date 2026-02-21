@@ -55,6 +55,14 @@ async function main() {
         { name: 'Sunbed Casal 6', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 7', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 8', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 1.000)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        // Mesas de Praia - 8 unidades
+        ...Array.from({ length: 8 }).map((_, i) => ({
+            name: `Mesa de Praia ${i + 1}`, capacity: 4, pricePerHour: 50, category: 'MESA' as const, description: 'Mesa de praia com guarda-sol. R$ 120/pessoa (R$ 100 consumação).', imageUrl: '/espacos/prata.jpg'
+        })),
+        // Mesas Restaurante - 4 unidades
+        ...Array.from({ length: 4 }).map((_, i) => ({
+            name: `Mesa de Restaurante ${i + 1}`, capacity: 6, pricePerHour: 50, category: 'MESA' as const, description: 'Mesa no restaurante. R$ 120/pessoa (R$ 100 consumação).', imageUrl: '/espacos/restaurante.jpg'
+        })),
     ]
 
     for (const cabin of cabins) {

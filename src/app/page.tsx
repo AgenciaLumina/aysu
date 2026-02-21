@@ -13,6 +13,7 @@ import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
 import PricingSection from '@/components/home/PricingSection'
+import UpcomingEventsSection from '@/components/home/UpcomingEventsSection'
 
 
 export default function HomePage() {
@@ -184,6 +185,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Próximos Eventos */}
+      <UpcomingEventsSection />
 
       {/* Day Use Info */}
       <section className="py-24 bg-gradient-to-br from-[#fff9f0] to-[#fff5eb] relative overflow-hidden">

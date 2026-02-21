@@ -265,6 +265,7 @@ model Event {
   specialDrinks   Json?     // Array de drinks especiais
   specialFood     Json?     // Array de comidas especiais
   themeColor      String?   // Hex color
+  spacePricesOverrides Json? // Objeto mapping: { "cabinId": { "price": 1000, "consumable": 500 } }
   isActive        Boolean   @default(true)
   isFeatured      Boolean   @default(false) // Destaque na homepage
   maxCapacity     Int?

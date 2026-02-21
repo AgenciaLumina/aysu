@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
                     'bangalo-frente-mar': 'Bangalô Frente Mar',
                     'bangalo-central': 'Bangalô Central',
                     'sunbed-casal': 'Sunbed Casal',
+                    'mesa-praia': 'Mesa de Praia',
+                    'mesa-restaurante': 'Mesa de Restaurante',
                 }
                 const namePrefix = slugMap[cabinId] // cabinId is confirmed string
                 if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
@@ -119,6 +121,8 @@ export async function GET(request: NextRequest) {
                 if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
                 if (normalized.includes('central')) return 'bangalo-central'
                 if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
+                if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
+                if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
                 return null
             }
 
@@ -128,7 +132,9 @@ export async function GET(request: NextRequest) {
                 'bangalo-piscina': 2,
                 'bangalo-frente-mar': 4,
                 'bangalo-central': 1,
-                'sunbed-casal': 4
+                'sunbed-casal': 8,
+                'mesa-praia': 8,
+                'mesa-restaurante': 4
             }
 
             // Buscar reservas do dia para TODOS os bangalôs
