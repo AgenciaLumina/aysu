@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils, Music, Calendar } from 'lucide-react'
+import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
 import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
@@ -30,8 +30,8 @@ interface SpaceType {
     holidayConsumable: number
     description: string
     units: number
-    category: 'bangalo' | 'sunbed' | 'mesa'
-    tier: 'standard' | 'premium' | 'galera' | 'romantic' | 'praia' | 'restaurante'
+    category: 'bangalo' | 'sunbed'
+    tier: 'standard' | 'premium' | 'galera' | 'romantic'
 }
 
 const spaceTypes: SpaceType[] = [
@@ -109,50 +109,16 @@ const spaceTypes: SpaceType[] = [
         name: 'Sunbed Casal',
         slug: 'sunbed',
         image: '/espacos/Sunbeds.jpeg',
-        capacity: '2 pessoas',
+        capacity: '2 pessoas (casal)',
         capacityNum: 2,
         dailyPrice: 250,
         consumable: 200,
         holidayPrice: 500,
         holidayConsumable: 350,
         description: 'Cama de praia exclusiva para casais',
-        units: 8,
+        units: 4,
         category: 'sunbed',
         tier: 'romantic',
-    },
-    // MESA DE PRAIA
-    {
-        id: 'mesa-de-praia',
-        name: 'Mesa de Praia',
-        slug: 'mesa-praia',
-        image: '/espacos/prata.jpg',
-        capacity: '4 pessoas',
-        capacityNum: 4,
-        dailyPrice: 120,    // Price per table or per person? The user sets it globally inside backend. Let's assume price here is for table/reservation since checkouts sum per space.
-        consumable: 100,    // We can assume it's per person, but the site treats spacePricePerHour in UI. Let's define it as space.
-        holidayPrice: 200,
-        holidayConsumable: 150,
-        description: 'Mesa de praia com guarda-sol e espreguiçadeira',
-        units: 8,
-        category: 'mesa',
-        tier: 'praia',
-    },
-    // MESA RESTAURANTE
-    {
-        id: 'mesa-de-restaurante',
-        name: 'Mesa de Restaurante',
-        slug: 'mesa-restaurante',
-        image: '/espacos/restaurante.jpg',
-        capacity: '4 a 6 pessoas',
-        capacityNum: 6,
-        dailyPrice: 120,
-        consumable: 100,
-        holidayPrice: 200,
-        holidayConsumable: 150,
-        description: 'Mesa Premium na área do Restaurante',
-        units: 4,
-        category: 'mesa',
-        tier: 'restaurante',
     },
 ]
 
@@ -168,6 +134,10 @@ const formatDateShort = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 }
 
+const formatDateISO = (date: Date) => {
+    return toLocalISODate(date)
+}
+
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -179,19 +149,15 @@ const getTierLabel = (tier: SpaceType['tier']) => {
         case 'premium': return 'Premium'
         case 'galera': return 'Galera'
         case 'romantic': return 'Romântico'
-        case 'praia': return 'Praia'
-        case 'restaurante': return 'Restaurante'
     }
 }
 
 const getTierColor = (tier: SpaceType['tier']) => {
     switch (tier) {
-        case 'standard': return 'bg-[#5a7c65] text-white border-[#4a6c55]'
-        case 'premium': return 'bg-[#c9a66b] text-white border-[#b8955a]'
-        case 'galera': return 'bg-[#8b4513] text-white border-[#7a3c0f]'
-        case 'romantic': return 'bg-[#b87d6c] text-white border-[#a76c5b]'
-        case 'praia': return 'bg-gray-100 text-gray-800 border-gray-300'
-        case 'restaurante': return 'bg-blue-50 text-blue-800 border-blue-200'
+        case 'standard': return 'bg-[#5a7c65] text-white border-[#4a6c55]'  // Verde sólido elegante
+        case 'premium': return 'bg-[#c9a66b] text-white border-[#b8955a]'   // Dourado sólido
+        case 'galera': return 'bg-[#8b4513] text-white border-[#7a3c0f]'  // Marrom premium (chocolate)
+        case 'romantic': return 'bg-[#b87d6c] text-white border-[#a76c5b]'  // Rosa terroso elegante
     }
 }
 
@@ -209,15 +175,16 @@ export default function ReservasPage() {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
     const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
-    const [events, setEvents] = useState<any[]>([])
     const [currentMonth, setCurrentMonth] = useState(() => {
-        return new Date()
+        // Default to February 2026 for Carnaval
+        return new Date(2026, 1, 1)
     })
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
 
     useEffect(() => {
         if (selectedDate) {
+            // Fetch availability for specific date
             const dateStr = toLocalISODate(selectedDate)
             fetch(`/api/reservations/availability?date=${dateStr}`)
                 .then(res => res.json())
@@ -232,20 +199,19 @@ export default function ReservasPage() {
         }
     }, [selectedDate])
 
-    // Load Events & Closed Dates
+    // Fetch Public Closed Dates
     useEffect(() => {
         fetch('/api/closed-dates')
             .then(res => res.json())
             .then(data => {
-                if (data.success) setClosedDates(data.data)
+                if (data.success) {
+                    setClosedDates(data.data)
+                }
             })
-
-        fetch('/api/events?isActive=true')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) setEvents(data.data)
-            })
+            .catch(err => console.error('Erro ao buscar datas fechadas:', err))
     }, [])
+
+
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
@@ -255,7 +221,7 @@ export default function ReservasPage() {
         const daysInMonth = lastDay.getDate()
         const startWeekday = firstDay.getDay()
 
-        const days: { date: Date | null; isPast: boolean; isHoliday: boolean; holidayName?: string; isSoldOut: boolean; isClosed: boolean; closedReason?: string, hasEvent?: boolean }[] = []
+        const days: { date: Date | null; isPast: boolean; isHoliday: boolean; holidayName?: string; isSoldOut: boolean; isClosed: boolean; closedReason?: string }[] = []
 
         for (let i = 0; i < startWeekday; i++) {
             days.push({ date: null, isPast: true, isHoliday: false, isSoldOut: false, isClosed: false })
@@ -269,7 +235,6 @@ export default function ReservasPage() {
             const dateStr = toLocalISODate(date)
             const holiday = isHoliday(dateStr)
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
-            const ev = events.find(e => toLocalISODate(new Date(e.startDate)) === dateStr)
 
             days.push({
                 date,
@@ -279,12 +244,11 @@ export default function ReservasPage() {
                 isSoldOut: soldOutDates.includes(dateStr),
                 isClosed: !!closedInfo,
                 closedReason: closedInfo?.reason,
-                hasEvent: !!ev
             })
         }
 
         return days
-    }, [currentMonth, closedDates, events])
+    }, [currentMonth, closedDates])
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date)
@@ -297,36 +261,11 @@ export default function ReservasPage() {
         setSelectedSpace(space)
     }
 
-    // Calcula preço considerando overrides de Lote dinâmico e Feriado
-    const getCalculatedPrices = (space: SpaceType, date: Date | null) => {
-        const dateStr = date ? toLocalISODate(date) : null
-        const isDateHoliday = date ? isHoliday(dateStr as string) : false
-        let finalPrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
-        let finalConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
-
-        if (!dateStr) return { finalPrice, finalConsumable }
-
-        const ev = events.find(e => toLocalISODate(new Date(e.startDate)) === dateStr)
-        if (ev && ev.spacePricesOverrides) {
-            try {
-                const ovMap = typeof ev.spacePricesOverrides === 'string'
-                    ? JSON.parse(ev.spacePricesOverrides)
-                    : ev.spacePricesOverrides
-
-                const spaceOverride = ovMap[space.id] || ovMap[space.slug]
-                if (spaceOverride) {
-                    finalPrice = Number(spaceOverride.price) || finalPrice
-                    finalConsumable = Number(spaceOverride.consumable) || finalConsumable
-                }
-            } catch (e) { }
-        }
-
-        return { finalPrice, finalConsumable }
-    }
-
     const handleReserve = () => {
         if (selectedDate && selectedSpace) {
-            const { finalPrice, finalConsumable } = getCalculatedPrices(selectedSpace, selectedDate)
+            const isDateHoliday = isHoliday(selectedDate)
+            const finalPrice = isDateHoliday ? selectedSpace.holidayPrice : selectedSpace.dailyPrice
+            const finalConsumable = isDateHoliday ? selectedSpace.holidayConsumable : selectedSpace.consumable
 
             const params = new URLSearchParams({
                 cabinId: selectedSpace.id,
@@ -349,9 +288,13 @@ export default function ReservasPage() {
             <Header variant="transparent" />
 
             {/* ==========================================
+                HERO SECTION - Minimalista e elegante
+                ========================================== */}
+            {/* ==========================================
                 HERO SECTION - Padronizado com Eventos
                 ========================================== */}
             <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
+                {/* Background Video */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
                         className="absolute top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-auto h-auto -translate-x-1/2 -translate-y-1/2 scale-150"
@@ -361,17 +304,21 @@ export default function ReservasPage() {
                         style={{ border: 'none' }}
                     />
                 </div>
+                {/* Gradiente Overlay (Padronizado) */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-black/70" />
 
                 <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
                     <p className="text-sm tracking-[0.3em] uppercase text-white/90 mb-4">
                         Praia de Massaguaçu
                     </p>
-                    <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-light mb-6 text-white">
+                    <h1
+                        className="font-serif text-4xl md:text-6xl lg:text-7xl font-light mb-6"
+                        style={{ color: '#FFFFFF' }}
+                    >
                         Reserve seu Espaço
                     </h1>
                     <p className="text-white/80 text-lg md:text-xl max-w-2xl mx-auto font-light">
-                        Experiência day use exclusiva com consumação inclusa e acesso aos nossos melhores eventos.
+                        Experiência day use exclusiva com consumação inclusa
                     </p>
                 </div>
             </section>
@@ -381,6 +328,21 @@ export default function ReservasPage() {
                 ========================================== */}
             <section className="max-w-lg mx-auto px-6 -mt-24 relative z-10 pb-16">
                 <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 border border-gray-100">
+                    {/* Carnaval Badge */}
+                    {currentMonth.getMonth() === 1 && (
+                        <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white px-6 py-4 rounded-t-3xl">
+                            <div className="flex items-center justify-center gap-3">
+                                <span className="text-2xl">🎭</span>
+                                <div className="text-center">
+                                    <p className="font-bold text-lg">Carnaval 2026</p>
+                                    <p className="text-sm text-white/90">13 a 18 de Fevereiro • Reserve agora!</p>
+                                </div>
+                                <span className="text-2xl">🎉</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Calendar Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--aissu-border)]">
                         <button
                             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
@@ -394,10 +356,10 @@ export default function ReservasPage() {
                         </button>
 
                         <div className="text-center">
-                            <h3 className="text-xl font-semibold text-[#8B4513]">
+                            <h3 className="text-xl font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>
                                 {MONTHS[currentMonth.getMonth()]}
                             </h3>
-                            <p className="text-sm text-[#8a5c3f]">{currentMonth.getFullYear()}</p>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>{currentMonth.getFullYear()}</p>
                         </div>
 
                         <button
@@ -408,18 +370,23 @@ export default function ReservasPage() {
                         </button>
                     </div>
 
+                    {/* Calendar Grid */}
                     <div className="p-6">
+                        {/* Weekday Headers */}
                         <div className="grid grid-cols-7 gap-1 mb-4">
                             {WEEKDAYS_SHORT.map((day, i) => (
-                                <div key={i} className="text-center text-xs font-medium py-2 text-gray-500">
+                                <div key={i} className="text-center text-xs font-medium py-2" style={{ color: 'var(--aissu-text-muted)' }}>
                                     {day}
                                 </div>
                             ))}
                         </div>
 
+                        {/* Days */}
                         <div className="grid grid-cols-7 gap-1">
                             {calendarDays.map((day, idx) => {
-                                if (!day.date) return <div key={idx} className="aspect-square" />
+                                if (!day.date) {
+                                    return <div key={idx} className="aspect-square" />
+                                }
 
                                 const dateStr = toLocalISODate(day.date)
                                 const isSelected = selectedDate && toLocalISODate(selectedDate) === dateStr
@@ -434,31 +401,39 @@ export default function ReservasPage() {
                                             className={`
                                                 w-full aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all
                                                 ${isSelected
-                                                    ? 'bg-[#2a2a2a] text-white shadow-lg scale-105'
+                                                    ? 'bg-gray-900 text-white shadow-lg scale-105'
                                                     : day.isClosed
-                                                        ? 'bg-red-50 text-red-400 cursor-not-allowed line-through'
+                                                        ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                                                         : isDisabled
                                                             ? 'text-gray-200 cursor-not-allowed'
                                                             : isToday
                                                                 ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                                                                : day.hasEvent
-                                                                    ? 'text-[#d4a574] hover:bg-[#d4a574]/10 font-bold'
-                                                                    : day.isHoliday
-                                                                        ? 'text-amber-600 hover:bg-amber-50'
-                                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                                : day.isHoliday
+                                                                    ? 'text-amber-600 hover:bg-amber-50'
+                                                                    : 'text-gray-700 hover:bg-gray-50'
                                                 }
                                             `}
                                         >
                                             <span>{day.date.getDate()}</span>
-                                            {day.hasEvent && !isSelected && (
-                                                <span className="w-1 h-1 rounded-full bg-[#d4a574] mt-0.5" />
+                                            {day.isClosed && !isSelected && (
+                                                <span className="w-1 h-1 rounded-full bg-red-500 mt-0.5" />
+                                            )}
+                                            {day.isHoliday && !day.isClosed && !isSelected && (
+                                                <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
                                             )}
                                         </button>
-
-                                        {/* Hover Tooltips */}
+                                        {/* Closed Date Tooltip */}
                                         {day.isClosed && (
                                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-red-600 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                                 {day.closedReason || 'Evento Fechado'} — Não abriremos ao público
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-red-600" />
+                                            </div>
+                                        )}
+                                        {/* Holiday Tooltip */}
+                                        {day.holidayName && !day.isClosed && (
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                                {day.holidayName}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-gray-900" />
                                             </div>
                                         )}
                                     </div>
@@ -467,72 +442,43 @@ export default function ReservasPage() {
                         </div>
                     </div>
 
-                    {/* Exibição do Dia Selecionado + Lógica de Release de Evento */}
+                    {/* Selected Date */}
                     {selectedDate && (
-                        <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex flex-col transition-all">
+                        <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data selecionada</p>
                                     <p className="text-lg font-semibold text-gray-900 capitalize">{formatDateBR(selectedDate)}</p>
                                 </div>
-                                <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                                     <Check className="h-5 w-5 text-white" />
                                 </div>
                             </div>
-
-                            {/* Release Dinâmico do Evento Se Houver */}
-                            {(() => {
-                                const selStr = toLocalISODate(selectedDate)
-                                const ev = events.find(e => toLocalISODate(new Date(e.startDate)) === selStr)
-                                if (ev) {
-                                    return (
-                                        <div className="mt-6 p-5 bg-white rounded-2xl border border-[#d4a574]/30 shadow-sm relative overflow-hidden group animate-fade-in">
-                                            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#d4a574]" />
-                                            <div className="flex items-start justify-between mb-3 pl-2">
-                                                <h4 className="font-serif font-bold text-xl text-[#2a2a2a] leading-tight flex-1 pr-4">{ev.title}</h4>
-                                                <span className="text-[10px] uppercase font-bold text-[#d4a574] bg-[#d4a574]/10 px-2 py-1 rounded-md shrink-0 border border-[#d4a574]/20">Programação</span>
-                                            </div>
-                                            {(ev.fullDescription || ev.description) && (
-                                                <p className="text-sm text-[#8a5c3f] leading-relaxed mb-4 pl-2">
-                                                    {ev.fullDescription || ev.description}
-                                                </p>
-                                            )}
-                                            {ev.djName && (
-                                                <div className="pl-2 flex items-center gap-2 text-xs font-semibold text-[#8B4513] bg-[#f5f0e8]/50 p-2 rounded-lg">
-                                                    <Music className="w-3.5 h-3.5" />
-                                                    Line-up: {ev.djName}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                }
-                                return null
-                            })()}
                         </div>
                     )}
                 </div>
             </section>
 
             {/* ==========================================
-                ESPAÇOS - Grid elegante (Mesas inclusas)
+                ESPAÇOS - Grid elegante
                 ========================================== */}
-            <section id="espacos" className="max-w-7xl mx-auto px-6 py-20 bg-white">
+            <section id="espacos" className="max-w-7xl mx-auto px-6 py-20">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-4xl font-light mb-4" style={{ color: 'var(--aissu-chocolate)', fontFamily: 'var(--font-display)' }}>
                         {selectedDate ? 'Escolha seu Espaço' : 'Nossos Espaços'}
                     </h2>
-                    <p className="max-w-xl mx-auto text-[#8a5c3f]">
-                        Os dados do calendário já refletem os lotes dinâmicos de eventos.
+                    <p className="max-w-xl mx-auto" style={{ color: 'var(--aissu-wood)' }}>
+                        Todos os espaços incluem pulseira dourada com acesso VIP e valor em consumação
                     </p>
                 </div>
 
+                {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
                     {spaceTypes.map((space) => {
-                        const { finalPrice, finalConsumable } = getCalculatedPrices(space, selectedDate)
-
-                        // O nome correto para o match do contador não inclui numeração na UI, mas a API retorna agrupado. (Adaptando para bater com os ID/slug da API)
-                        // A API envia logs baseados no getCabinSlug mapeamento de strings.
-                        const availableCount = availabilityCounts[space.id] || availabilityCounts[space.slug]
+                        const isDateHoliday = selectedDate ? isHoliday(selectedDate) : false
+                        const finalPrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
+                        const finalConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
+                        const availableCount = availabilityCounts[space.id]
                         const isSoldOut = selectedDate && availableCount !== undefined && availableCount === 0
 
                         return (
@@ -540,82 +486,108 @@ export default function ReservasPage() {
                                 key={space.id}
                                 onClick={() => {
                                     if (!selectedDate) return
-                                    if (isSoldOut) return
+                                    if (isSoldOut) return // Block sold-out
                                     handleSpaceSelect(space)
                                 }}
-                                className={`group bg-white rounded-3xl overflow-hidden transition-all duration-500 
+                                className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 
                                         ${!selectedDate
                                         ? 'opacity-50 cursor-not-allowed'
                                         : isSoldOut
                                             ? 'opacity-60 cursor-not-allowed grayscale'
-                                            : 'cursor-pointer hover:shadow-2xl hover:shadow-[#d4a574]/10 hover:-translate-y-1'
+                                            : 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
                                     } 
                                         ${selectedSpace?.id === space.id
-                                        ? 'ring-2 ring-[#d4a574] shadow-xl shadow-[#d4a574]/20'
-                                        : 'shadow-lg shadow-black/5 border border-gray-100'
+                                        ? 'ring-2 ring-gray-900 shadow-2xl shadow-black/10'
+                                        : 'shadow-lg shadow-black/5'
                                     }`}
                             >
+                                {/* Image */}
                                 <div className="relative aspect-[16/10] overflow-hidden">
-                                    <Image src={space.image} alt={space.name} fill className="object-cover group-hover:scale-105 transition-transform duration-700" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                                    <Image
+                                        src={space.image}
+                                        alt={space.name}
+                                        fill
+                                        className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                    />
+                                    {/* Gradient Overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
+                                    {/* Top Left: Tier Badge */}
                                     <div className="absolute top-4 left-4">
-                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border shadow-md backdrop-blur-sm ${getTierColor(space.tier)}`}>
+                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getTierColor(space.tier)}`}>
                                             {getTierLabel(space.tier)}
                                         </span>
                                     </div>
 
+                                    {/* Top Right: Availability */}
                                     <div className="absolute top-4 right-4">
                                         {selectedDate ? (
                                             (() => {
-                                                const count = availableCount
-                                                if (count === undefined) return null
+                                                const count = availabilityCounts[space.id]
+                                                if (count === undefined) return <span className="opacity-0">...</span>
                                                 if (count === 0) {
-                                                    return <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-red-500/95 text-white">🚫 Esgotado</span>
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-red-500/95 text-white">
+                                                            🚫 Esgotado
+                                                        </span>
+                                                    )
                                                 }
                                                 if (count <= 2) {
-                                                    return <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white ring-2 ring-amber-300 ring-offset-1">🔥 Últimas {count}</span>
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white ring-2 ring-amber-300 ring-offset-1">
+                                                            🔥 {count === 1 ? 'Última unidade!' : `Últimas ${count}!`}
+                                                        </span>
+                                                    )
                                                 }
-                                                return <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">{count} disp.</span>
+                                                return (
+                                                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">
+                                                        {count} disponíveis
+                                                    </span>
+                                                )
                                             })()
                                         ) : (
                                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                                {space.units} und.
+                                                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
                                             </span>
                                         )}
                                     </div>
 
+                                    {/* Bottom: Quick Info */}
                                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                                        <span className="inline-flex items-center gap-1.5 text-white text-sm font-medium drop-shadow-md">
+                                        <span className="inline-flex items-center gap-1.5 text-white text-sm">
                                             <Users className="h-4 w-4" />
                                             {space.capacity}
                                         </span>
                                     </div>
 
+                                    {/* Selection Overlay */}
                                     {selectedSpace?.id === space.id && (
-                                        <div className="absolute inset-0 bg-[#d4a574]/30 flex items-center justify-center backdrop-blur-[2px]">
-                                            <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl scale-in-center">
-                                                <Check className="h-8 w-8 text-[#d4a574]" />
+                                        <div className="absolute inset-0 bg-gray-900/30 flex items-center justify-center">
+                                            <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl">
+                                                <Check className="h-8 w-8 text-gray-900" />
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
+                                {/* Content */}
                                 <div className="p-6">
-                                    <h3 className="text-xl font-serif font-bold mb-2 text-[#2a2a2a]">{space.name}</h3>
-                                    <p className="text-sm mb-6 text-[#8a5c3f] leading-relaxed line-clamp-2">{space.description}</p>
+                                    {/* Title */}
+                                    <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
+                                    <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
 
-                                    <div className="flex items-end justify-between pt-4 border-t border-gray-100">
+                                    {/* Pricing */}
+                                    <div className="flex items-end justify-between pt-4 border-t border-[var(--aissu-border)]">
                                         <div>
-                                            <p className="text-2xl font-bold text-[#8B4513]">{formatCurrency(finalPrice)}</p>
-                                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{space.category === 'mesa' ? 'Por Pessoa/Mesa' : 'por dia'}</p>
+                                            <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>{formatCurrency(finalPrice)}</p>
+                                            <p className="text-xs" style={{ color: 'var(--aissu-text-muted)' }}>por dia</p>
                                         </div>
                                         <div className="text-right">
-                                            <div className="flex items-center justify-end gap-1.5 text-[#d4a574]">
+                                            <div className="flex items-center gap-1.5 text-emerald-600">
                                                 <Utensils className="h-4 w-4" />
-                                                <span className="font-bold text-lg">{formatCurrency(finalConsumable)}</span>
+                                                <span className="font-semibold">{formatCurrency(finalConsumable)}</span>
                                             </div>
-                                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider text-right">em consumação</p>
+                                            <p className="text-xs text-gray-500">em consumação</p>
                                         </div>
                                     </div>
                                 </div>
@@ -626,37 +598,169 @@ export default function ReservasPage() {
             </section>
 
             {/* ==========================================
+                ÁREAS NÃO-RESERVÁVEIS - Elegante Info Section
+                ========================================== */}
+            <section className="py-20" style={{ backgroundColor: 'var(--aissu-cream)' }}>
+                <div className="max-w-5xl mx-auto px-6">
+                    {/* Header elegante */}
+                    <div className="text-center mb-16">
+                        <p className="text-sm font-medium tracking-widest uppercase mb-4" style={{ color: 'var(--aissu-terra)' }}>
+                            Ordem de Chegada
+                        </p>
+                        <h2 className="text-3xl md:text-4xl font-light mb-4" style={{ color: 'var(--aissu-chocolate)', fontFamily: 'var(--font-display)' }}>
+                            Experiência Day Use
+                        </h2>
+                        <p className="max-w-md mx-auto" style={{ color: 'var(--aissu-wood)' }}>
+                            Sem reserva prévia. Disponibilidade por ordem de chegada, sujeita à lotação.
+                        </p>
+                    </div>
+
+                    {/* Cards elegantes */}
+                    <div className="grid md:grid-cols-2 gap-8">
+                        {/* Day Use Praia */}
+                        <div className="group bg-white rounded-3xl p-8 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-all duration-300">
+                            <div className="flex items-center justify-between mb-6">
+                                <span className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 shadow-sm">
+                                    PULSEIRA PRATA
+                                </span>
+                                <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-50 text-amber-700">
+                                    Limite 40 pessoas
+                                </span>
+                            </div>
+
+                            <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
+                                {selectedDate && isHoliday(selectedDate) ? 'Day Use Carnaval' : 'Day Use Praia'}
+                            </h3>
+                            <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
+                                Espreguiçadeira + Guarda-sol • Mesas de praia (8)
+                            </p>
+
+                            <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
+                                <div>
+                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
+                                    </p>
+                                    <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
+                                    <span className="text-lg font-semibold text-emerald-600">
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
+                                    </span>
+                                    <span className="text-xs text-emerald-600">consumação</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Mesas Restaurante */}
+                        <div className="group bg-white rounded-3xl p-8 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-all duration-300">
+                            <div className="flex items-center justify-between mb-6">
+                                <span className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 shadow-sm">
+                                    PULSEIRA PRATA
+                                </span>
+                                <span className="text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700">
+                                    4 mesas disponíveis
+                                </span>
+                            </div>
+
+                            <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
+                                Mesas de Restaurante
+                            </h3>
+                            <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
+                                Para 4 a 6 pessoas • 4 mesas
+                            </p>
+
+                            <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
+                                <div>
+                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
+                                    </p>
+                                    <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
+                                    <span className="text-lg font-semibold text-emerald-600">
+                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
+                                    </span>
+                                    <span className="text-xs text-emerald-600">consumação</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Nota informativa */}
+                    <p className="text-center text-sm mt-10" style={{ color: 'var(--aissu-text-muted)' }}>
+                        * Valores especiais para temporada de Carnaval 2026
+                    </p>
+                </div>
+            </section>
+
+            {/* ==========================================
+                INFO SECTION
+                ========================================== */}
+            <section className="py-16" style={{ backgroundColor: 'var(--aissu-cream)' }}>
+                <div className="max-w-5xl mx-auto px-6">
+                    <div className="grid md:grid-cols-3 gap-8 text-center">
+                        <div className="p-6">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--aissu-chocolate)' }}>
+                                <Utensils className="h-5 w-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Consumação Inclusa</h3>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Parte do Valor é revertido em consumação no nosso menu exclusivo</p>
+                        </div>
+                        <div className="p-6">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--aissu-chocolate)' }}>
+                                <Check className="h-5 w-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Cancelamento Flexível</h3>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Cancelamento gratuito até 48h antes da reserva</p>
+                        </div>
+                        <div className="p-6">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--aissu-chocolate)' }}>
+                                <MapPin className="h-5 w-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Localização Premium</h3>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Em uma das praias desejadas do litoral norte de São Paulo</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ==========================================
                 STICKY BOTTOM BAR
                 ========================================== */}
             {selectedSpace && selectedDate && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] border-gray-100 animate-slide-up">
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-2xl shadow-black/10" style={{ borderColor: 'var(--aissu-border)' }}>
                     <div className="max-w-5xl mx-auto px-6 py-4">
                         <div className="flex items-center justify-between">
+                            {/* Left: Selection Info */}
                             <div className="flex items-center gap-4">
-                                <div className="hidden sm:block w-16 h-16 rounded-2xl overflow-hidden relative shadow-md">
-                                    <Image src={selectedSpace.image} alt={selectedSpace.name} fill className="object-cover" />
+                                <div className="hidden sm:block w-16 h-16 rounded-xl overflow-hidden relative shadow-lg">
+                                    <Image
+                                        src={selectedSpace.image}
+                                        alt={selectedSpace.name}
+                                        fill
+                                        className="object-cover"
+                                    />
                                 </div>
                                 <div>
-                                    <p className="font-serif font-bold text-[#2a2a2a]">{selectedSpace.name}</p>
-                                    <p className="text-sm capitalize text-[#8a5c3f] flex items-center gap-1.5 mt-0.5">
-                                        <Calendar className="w-3.5 h-3.5" />
-                                        {formatDateShort(selectedDate)}
-                                    </p>
+                                    <p className="font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{selectedSpace.name}</p>
+                                    <p className="text-sm capitalize" style={{ color: 'var(--aissu-wood)' }}>{formatDateShort(selectedDate)}</p>
                                 </div>
                             </div>
 
+                            {/* Right: Price & CTA */}
                             <div className="flex items-center gap-6">
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-2xl font-bold text-[#8B4513]">
-                                        {formatCurrency(getCalculatedPrices(selectedSpace, selectedDate).finalPrice)}
+                                    <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayPrice : selectedSpace.dailyPrice)}
                                     </p>
-                                    <p className="text-xs font-semibold text-[#d4a574]">
-                                        {formatCurrency(getCalculatedPrices(selectedSpace, selectedDate).finalConsumable)} consumação
+                                    <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>
+                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayConsumable : selectedSpace.consumable)} consumação
                                     </p>
                                 </div>
                                 <button
                                     onClick={handleReserve}
-                                    className="px-8 py-4 rounded-xl font-bold transition-all duration-300 flex items-center gap-2 shadow-lg bg-[#2a2a2a] hover:bg-black text-white hover:scale-105"
+                                    className="px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg"
+                                    style={{ backgroundColor: 'var(--aissu-chocolate)', color: 'white' }}
                                 >
                                     Continuar
                                     <ChevronRight className="h-5 w-5" />
@@ -667,6 +771,7 @@ export default function ReservasPage() {
                 </div>
             )}
 
+            {/* Footer */}
             <Footer />
         </div>
     )
