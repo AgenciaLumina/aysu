@@ -113,6 +113,41 @@ function formatDateBR(date: string) {
     })
 }
 
+function sanitizeCurrencyTyping(value: string) {
+    return value.replace(/[^\d.,]/g, '')
+}
+
+function parseCurrencyInput(value: string): number | null {
+    const cleaned = value.trim().replace(/[^\d.,-]/g, '')
+    if (!cleaned) return null
+
+    const lastComma = cleaned.lastIndexOf(',')
+    const lastDot = cleaned.lastIndexOf('.')
+    const separatorIndex = Math.max(lastComma, lastDot)
+
+    let normalized: string
+    if (separatorIndex >= 0) {
+        const integerPart = cleaned.slice(0, separatorIndex).replace(/[.,]/g, '')
+        const decimalPart = cleaned.slice(separatorIndex + 1).replace(/[.,]/g, '')
+        normalized = `${integerPart || '0'}.${decimalPart}`
+    } else {
+        normalized = cleaned.replace(/[.,]/g, '')
+    }
+
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatCurrencyInput(value: string): string {
+    const parsed = parseCurrencyInput(value)
+    if (parsed === null) return ''
+
+    return parsed.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })
+}
+
 function AdminCalendarioPageContent() {
     const searchParams = useSearchParams()
     const [configs, setConfigs] = useState<DayConfigPayload[]>([])
@@ -203,8 +238,8 @@ function AdminCalendarioPageContent() {
             if (!nextForm.priceOverrides[spaceId]) continue
             nextForm.priceOverrides[spaceId] = {
                 enabled: true,
-                price: override.price.toString(),
-                consumable: override.consumable !== undefined ? override.consumable.toString() : '',
+                price: formatCurrencyInput(override.price.toString()),
+                consumable: override.consumable !== undefined ? formatCurrencyInput(override.consumable.toString()) : '',
             }
         }
 
@@ -214,8 +249,8 @@ function AdminCalendarioPageContent() {
                     enabled: true,
                     name: lot.name,
                     endsAt: lot.endsAt,
-                    price: lot.price.toString(),
-                    consumable: lot.consumable !== undefined ? lot.consumable.toString() : '',
+                    price: formatCurrencyInput(lot.price.toString()),
+                    consumable: lot.consumable !== undefined ? formatCurrencyInput(lot.consumable.toString()) : '',
                     soldOut: !!lot.soldOut,
                 })
                 return
@@ -225,8 +260,8 @@ function AdminCalendarioPageContent() {
                 enabled: true,
                 name: lot.name,
                 endsAt: lot.endsAt,
-                price: lot.price.toString(),
-                consumable: lot.consumable !== undefined ? lot.consumable.toString() : '',
+                price: formatCurrencyInput(lot.price.toString()),
+                consumable: lot.consumable !== undefined ? formatCurrencyInput(lot.consumable.toString()) : '',
                 soldOut: !!lot.soldOut,
             }
         })
@@ -300,10 +335,10 @@ function AdminCalendarioPageContent() {
         const enabledOverrides = Object.entries(form.priceOverrides).reduce<Record<string, { price: number; consumable?: number }>>((acc, [spaceId, value]) => {
             if (!value.enabled) return acc
 
-            const parsedPrice = Number(value.price)
-            if (!Number.isFinite(parsedPrice) || parsedPrice < 0) return acc
+            const parsedPrice = parseCurrencyInput(value.price)
+            if (parsedPrice === null || !Number.isFinite(parsedPrice) || parsedPrice < 0) return acc
 
-            const parsedConsumable = value.consumable.trim() === '' ? null : Number(value.consumable)
+            const parsedConsumable = value.consumable.trim() === '' ? null : parseCurrencyInput(value.consumable)
             acc[spaceId] = {
                 price: parsedPrice,
                 ...(parsedConsumable !== null && Number.isFinite(parsedConsumable) && parsedConsumable >= 0
@@ -318,8 +353,8 @@ function AdminCalendarioPageContent() {
             .map(lot => ({
                 name: lot.name.trim(),
                 endsAt: lot.endsAt,
-                price: Number(lot.price),
-                ...(lot.consumable.trim() ? { consumable: Number(lot.consumable) } : {}),
+                price: parseCurrencyInput(lot.price) ?? Number.NaN,
+                ...(lot.consumable.trim() ? { consumable: parseCurrencyInput(lot.consumable) ?? Number.NaN } : {}),
                 ...(lot.soldOut ? { soldOut: true } : {}),
             }))
             .filter(lot => Number.isFinite(lot.price) && lot.price >= 0)
@@ -661,8 +696,9 @@ function AdminCalendarioPageContent() {
                                                 {space.label}
                                             </label>
                                             <Input
-                                                type="number"
-                                                placeholder="Preço"
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder="R$ 0,00"
                                                 value={override.price}
                                                 onChange={(e) => setForm(prev => ({
                                                     ...prev,
@@ -670,15 +706,29 @@ function AdminCalendarioPageContent() {
                                                         ...prev.priceOverrides,
                                                         [space.id]: {
                                                             ...prev.priceOverrides[space.id],
-                                                            price: e.target.value,
+                                                            price: sanitizeCurrencyTyping(e.target.value),
                                                         },
                                                     },
                                                 }))}
+                                                onBlur={(e) => {
+                                                    const formatted = formatCurrencyInput(e.target.value)
+                                                    setForm(prev => ({
+                                                        ...prev,
+                                                        priceOverrides: {
+                                                            ...prev.priceOverrides,
+                                                            [space.id]: {
+                                                                ...prev.priceOverrides[space.id],
+                                                                price: formatted,
+                                                            },
+                                                        },
+                                                    }))
+                                                }}
                                                 disabled={!override.enabled}
                                             />
                                             <Input
-                                                type="number"
-                                                placeholder="Consumação"
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder="R$ 0,00"
                                                 value={override.consumable}
                                                 onChange={(e) => setForm(prev => ({
                                                     ...prev,
@@ -686,10 +736,23 @@ function AdminCalendarioPageContent() {
                                                         ...prev.priceOverrides,
                                                         [space.id]: {
                                                             ...prev.priceOverrides[space.id],
-                                                            consumable: e.target.value,
+                                                            consumable: sanitizeCurrencyTyping(e.target.value),
                                                         },
                                                     },
                                                 }))}
+                                                onBlur={(e) => {
+                                                    const formatted = formatCurrencyInput(e.target.value)
+                                                    setForm(prev => ({
+                                                        ...prev,
+                                                        priceOverrides: {
+                                                            ...prev.priceOverrides,
+                                                            [space.id]: {
+                                                                ...prev.priceOverrides[space.id],
+                                                                consumable: formatted,
+                                                            },
+                                                        },
+                                                    }))
+                                                }}
                                                 disabled={!override.enabled}
                                             />
                                         </div>
@@ -734,23 +797,33 @@ function AdminCalendarioPageContent() {
                                             disabled={!lot.enabled}
                                         />
                                         <Input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={lot.price}
                                             onChange={(e) => setForm(prev => ({
                                                 ...prev,
-                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, price: e.target.value } : item),
+                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, price: sanitizeCurrencyTyping(e.target.value) } : item),
                                             }))}
-                                            placeholder="Preço"
+                                            onBlur={(e) => setForm(prev => ({
+                                                ...prev,
+                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, price: formatCurrencyInput(e.target.value) } : item),
+                                            }))}
+                                            placeholder="R$ 0,00"
                                             disabled={!lot.enabled}
                                         />
                                         <Input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={lot.consumable}
                                             onChange={(e) => setForm(prev => ({
                                                 ...prev,
-                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, consumable: e.target.value } : item),
+                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, consumable: sanitizeCurrencyTyping(e.target.value) } : item),
                                             }))}
-                                            placeholder="Consumação"
+                                            onBlur={(e) => setForm(prev => ({
+                                                ...prev,
+                                                ticketLots: prev.ticketLots.map((item, idx) => idx === index ? { ...item, consumable: formatCurrencyInput(e.target.value) } : item),
+                                            }))}
+                                            placeholder="R$ 0,00"
                                             disabled={!lot.enabled}
                                         />
                                         <label className="flex items-center gap-2 text-sm">

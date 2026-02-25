@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getAuthUser, isAdmin } from '@/lib/auth'
 import { updateEventSchema } from '@/lib/validations'
+import { syncDayConfigFromActiveEventsForDate } from '@/lib/event-day-sync'
 import type { ApiResponse } from '@/lib/types'
 import type { Event } from '@prisma/client'
 
@@ -104,6 +105,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             data: updateData,
         })
 
+        await syncDayConfigFromActiveEventsForDate(prisma, event.startDate)
+
+        if (existing.startDate.toISOString().split('T')[0] !== event.startDate.toISOString().split('T')[0]) {
+            await syncDayConfigFromActiveEventsForDate(prisma, existing.startDate)
+        }
+
         console.log({
             action: 'EVENT_UPDATED',
             timestamp: new Date().toISOString(),
@@ -153,6 +160,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         await prisma.event.delete({
             where: { slug },
         })
+
+        await syncDayConfigFromActiveEventsForDate(prisma, existing.startDate)
 
         console.log({
             action: 'EVENT_DELETED',

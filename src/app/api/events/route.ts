@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getAuthUser, isAdmin } from '@/lib/auth'
 import { createEventSchema, paginationSchema, eventFiltersSchema } from '@/lib/validations'
+import { syncDayConfigFromActiveEventsForDate } from '@/lib/event-day-sync'
 import type { ApiResponse, PaginatedResponse } from '@/lib/types'
 import type { Event } from '@prisma/client'
 import { Prisma } from '@prisma/client'
@@ -109,6 +110,8 @@ export async function POST(request: NextRequest) {
                 endDate: validation.data.endDate ? new Date(validation.data.endDate) : null,
             },
         })
+
+        await syncDayConfigFromActiveEventsForDate(prisma, event.startDate)
 
         console.log({
             action: 'EVENT_CREATED',
