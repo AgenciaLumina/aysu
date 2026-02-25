@@ -354,11 +354,12 @@ function AdminCalendarioPageContent() {
             })
             const data = await readUploadResponse(res)
 
-            if (!res.ok || !data.success || !data.data?.url) {
+            const uploadedUrl = data.data?.url
+            if (!res.ok || !data.success || typeof uploadedUrl !== 'string' || !uploadedUrl) {
                 throw new Error(data.error || 'Erro ao enviar flyer')
             }
 
-            setForm(prev => ({ ...prev, flyerImageUrl: data.data.url }))
+            setForm(prev => ({ ...prev, flyerImageUrl: uploadedUrl }))
             toast.success('Flyer enviado com sucesso')
         } catch (error: unknown) {
             toast.error(error instanceof Error ? error.message : 'Erro ao fazer upload do flyer')
