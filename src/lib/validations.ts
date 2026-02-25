@@ -143,6 +143,46 @@ export const updateEventSchema = createEventSchema.partial().extend({
 })
 
 // ============================================================
+// DAY CONFIGS (CALENDÁRIO AVANÇADO)
+// ============================================================
+
+const dayConfigPriceOverrideSchema = z.object({
+    price: z.number().nonnegative('Preço deve ser maior ou igual a zero'),
+    consumable: z.number().nonnegative('Consumação deve ser maior ou igual a zero').optional(),
+})
+
+const dayConfigTicketLotSchema = z.object({
+    name: z.string().min(1, 'Nome do lote é obrigatório'),
+    endsAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data limite do lote inválida (YYYY-MM-DD)'),
+    price: z.number().nonnegative('Preço do lote deve ser maior ou igual a zero'),
+    consumable: z.number().nonnegative('Consumação do lote deve ser maior ou igual a zero').optional(),
+    soldOut: z.boolean().optional(),
+})
+
+const dayConfigReservableItemsSchema = z.object({
+    bangalos: z.boolean(),
+    sunbeds: z.boolean(),
+    restaurantTables: z.boolean(),
+    beachTables: z.boolean(),
+    dayUse: z.boolean(),
+})
+
+export const createDayConfigSchema = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (YYYY-MM-DD)'),
+    status: z.enum(['NORMAL', 'EVENT', 'PRIVATE_EVENT', 'BLOCKED']).default('NORMAL'),
+    reservationsEnabled: z.boolean().default(true),
+    title: z.string().max(150, 'Título muito longo').optional().or(z.literal('')),
+    release: z.string().max(5000, 'Release muito longo').optional().or(z.literal('')),
+    flyerImageUrl: z.string().url('URL do flyer inválida').optional().or(z.literal('')),
+    highlightOnHome: z.boolean().default(false),
+    priceOverrides: z.record(z.string(), dayConfigPriceOverrideSchema).optional(),
+    ticketLots: z.array(dayConfigTicketLotSchema).max(10, 'Máximo de 10 lotes').optional(),
+    reservableItems: dayConfigReservableItemsSchema.optional(),
+})
+
+export const updateDayConfigSchema = createDayConfigSchema.partial()
+
+// ============================================================
 // PDV
 // ============================================================
 

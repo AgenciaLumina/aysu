@@ -206,6 +206,31 @@ export interface UpdateEventInput extends Partial<CreateEventInput> {
 }
 
 // ============================================================
+// TIPOS DE CONFIGURAÇÃO DE CALENDÁRIO
+// ============================================================
+
+export interface DayConfigPriceOverride {
+    price: number
+    consumable?: number
+}
+
+export interface DayConfigTicketLot {
+    name: string
+    endsAt: string // YYYY-MM-DD
+    price: number
+    consumable?: number
+    soldOut?: boolean
+}
+
+export interface DayConfigReservableItems {
+    bangalos: boolean
+    sunbeds: boolean
+    restaurantTables: boolean
+    beachTables: boolean
+    dayUse: boolean
+}
+
+// ============================================================
 // TIPOS DE PDV
 // ============================================================
 

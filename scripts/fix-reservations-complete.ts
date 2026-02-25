@@ -1,7 +1,7 @@
 // AISSU Beach Lounge - Correção COMPLETA de Reservas
 // Corrige DATAS e VALORES de reservas com problemas
 
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -266,7 +266,7 @@ async function applyFixes(fixes: ReservationFix[], dryRun: boolean = true) {
     let fixedCount = 0
 
     for (const fix of fixes) {
-        const updates: any = {}
+        const updates: Prisma.ReservationUpdateInput = {}
 
         if (fix.priceNeedsFix) {
             updates.totalPrice = fix.correctPrice

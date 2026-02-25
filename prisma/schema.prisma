@@ -74,6 +74,13 @@ enum EventType {
   OTHER
 }
 
+enum DayConfigStatus {
+  NORMAL
+  EVENT
+  PRIVATE_EVENT
+  BLOCKED
+}
+
 enum PDVOrderStatus {
   PENDING
   PREPARING
@@ -363,6 +370,27 @@ model ClosedDate {
   createdAt DateTime @default(now())
 
   @@index([date])
+}
+
+// Configuração avançada por data (preço, release, lotes, regras)
+model ReservationDayConfig {
+  id                  String          @id @default(uuid())
+  date                DateTime        @unique @db.Date
+  status              DayConfigStatus @default(NORMAL)
+  reservationsEnabled Boolean         @default(true)
+  title               String?
+  release             String?
+  flyerImageUrl       String?
+  highlightOnHome     Boolean         @default(false)
+  priceOverrides      Json? // { [spaceId]: { price: number, consumable?: number } }
+  ticketLots          Json? // [{ name, endsAt, price, consumable?, soldOut? }]
+  reservableItems     Json? // { bangalos, sunbeds, restaurantTables, beachTables, dayUse }
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([date])
+  @@index([status])
+  @@index([highlightOnHome])
 }
 
 // Galeria de Menu (imagens para seção "Nosso Menu" da home)

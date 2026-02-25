@@ -2,10 +2,9 @@
 // Página inicial do beach club
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { Calendar, MapPin, UtensilsCrossed, Music, ChevronRight, Star, Users, Waves, Instagram } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import InstagramStories from '@/components/InstagramStories'
@@ -13,6 +12,7 @@ import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
 import PricingSection from '@/components/home/PricingSection'
+import UpcomingEventsSection from '@/components/home/UpcomingEventsSection'
 
 
 export default function HomePage() {
@@ -88,6 +88,8 @@ export default function HomePage() {
       </section>
 
 
+
+      <UpcomingEventsSection />
 
       {/* Instagram Section */}
       <section className="py-16 md:py-20 bg-gradient-warm">

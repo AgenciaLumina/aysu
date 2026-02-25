@@ -13,8 +13,9 @@ export async function GET() {
             success: true,
             data: images
         })
-    } catch (error: any) {
-        console.error('[Menu Gallery Public GET]', error?.message || error)
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erro desconhecido'
+        console.error('[Menu Gallery Public GET]', message)
         return NextResponse.json(
             { success: false, error: 'Erro ao carregar galeria', data: [] },
             { status: 500 }

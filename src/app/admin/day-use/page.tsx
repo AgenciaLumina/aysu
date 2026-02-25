@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { Save, Umbrella, UtensilsCrossed, Plus, Trash2, AlertCircle, GripVertical } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
@@ -33,8 +33,8 @@ export default function AdminDayUsePage() {
 
     const [configs, setConfigs] = useState<DayUseConfig[]>([
         {
-            id: 'day-use-carnaval',
-            name: 'Day Use Carnaval',
+            id: 'day-use-especial',
+            name: 'Day Use Evento/Feriado',
             description: 'Espreguiçadeira + Guarda-sol • Mesas de praia (8)',
             price: 200,
             consumable: 150,

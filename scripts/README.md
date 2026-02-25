@@ -2,13 +2,39 @@
 
 ## 🔍 Auditoria e Correção de Reservas
 
-### `audit-and-fix-reservations.ts`
+### `audit-and-fix-reservations.mjs`
 
 Script para identificar e corrigir problemas em reservas existentes:
 - ✅ Identifica reservas com valores incorretos
 - ✅ Detecta se o valor foi multiplicado por horas (erro antigo)
 - ✅ Gera relatório detalhado com severidade
 - ✅ Oferece correção automática com dry-run
+
+---
+
+## 🚦 Pre-flight de Produção (Sprint 2.1.1)
+
+### `preflight-v211.mjs`
+
+Script de validação para rodar **antes do deploy**:
+- ✅ Lista reservas por status
+- ✅ Conta reservas que travam estoque (`PENDING/CONFIRMED/CHECKED_IN/IN_PROGRESS`)
+- ✅ Detecta pendentes antigas (>24h)
+- ✅ Valida se existem unidades ativas para `Mesa Restaurante` e `Mesa Praia`
+- ✅ Informa se a tabela `ReservationDayConfig` já está disponível
+
+Execução:
+
+```bash
+ALLOW_DB_READ=1 node scripts/preflight-v211.mjs
+```
+
+Resultado:
+- `exit 0`: pre-flight aprovado
+- `exit 2`: bloqueante (faltam unidades obrigatórias em `Cabin`)
+- `exit 1`: erro de execução
+- `exit 3`: bloqueado por modo seguro (faltou `ALLOW_DB_READ=1`)
+- `exit 4`: bloqueado por variáveis de banco ausentes (`DATABASE_URL`/`DIRECT_URL`)
 
 ---
 
@@ -19,7 +45,7 @@ Script para identificar e corrigir problemas em reservas existentes:
 Executa a auditoria e mostra o que SERIA corrigido (sem alterar nada):
 
 ```bash
-npx tsx scripts/audit-and-fix-reservations.ts
+ALLOW_DB_READ=1 node scripts/audit-and-fix-reservations.mjs
 ```
 
 **Saída exemplo:**
@@ -54,7 +80,7 @@ npx tsx scripts/audit-and-fix-reservations.ts
 ⚠️ **CUIDADO**: Isso MODIFICA o banco de dados em produção!
 
 ```bash
-npx tsx scripts/audit-and-fix-reservations.ts --apply
+ALLOW_DB_READ=1 ALLOW_DB_WRITE=1 node scripts/audit-and-fix-reservations.mjs --apply --i-understand-this-writes
 ```
 
 **O que acontece:**
@@ -123,10 +149,10 @@ Recomendado salvar a saída para auditoria:
 
 ```bash
 # Auditoria apenas
-npx tsx scripts/audit-and-fix-reservations.ts > audit-report.txt
+ALLOW_DB_READ=1 node scripts/audit-and-fix-reservations.mjs > audit-report.txt
 
 # Correção com log
-npx tsx scripts/audit-and-fix-reservations.ts --apply > fix-log.txt
+ALLOW_DB_READ=1 ALLOW_DB_WRITE=1 node scripts/audit-and-fix-reservations.mjs --apply --i-understand-this-writes > fix-log.txt
 ```
 
 ---

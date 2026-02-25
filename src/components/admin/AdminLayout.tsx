@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
     LayoutDashboard,
     Calendar,
+    CalendarDays,
     Home,
     Settings,
     LogOut,
@@ -17,7 +18,8 @@ import {
     CreditCard,
     ImageIcon,
     FolderOpen,
-    Umbrella
+    Umbrella,
+    Music
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -42,6 +44,8 @@ interface PendingReservationNotification {
 const navItems = [
     { href: '/admin/frente-de-caixa', label: 'Frente de Caixa', icon: CreditCard },
     { href: '/admin/reservas', label: 'Reservas', icon: Calendar },
+    { href: '/admin/eventos', label: 'Programação', icon: Music },
+    { href: '/admin/calendario', label: 'Comercial', icon: CalendarDays },
     { href: '/admin/menu-gallery', label: 'Galeria Menu', icon: ImageIcon },
     { href: '/admin/galeria', label: 'Galeria Site', icon: ImageIcon },
     { href: '/admin/midia', label: 'Mídia R2', icon: FolderOpen },

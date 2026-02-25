@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 
 // Rotas públicas dentro do admin (apenas login)
 const PUBLIC_ADMIN_ROUTES = ['/admin/login', '/admin/recuperar-senha']
+const READ_ONLY_ALLOWED_WRITE_PATHS = ['/api/auth/login', '/api/auth/logout']
 
 function decodeJwtPayload(token: string): { exp?: number } | null {
     try {
@@ -68,16 +69,30 @@ export function middleware(request: NextRequest) {
     }
 
     // 2. Proteção de API (opcional, pode ser feito per-route ou aqui)
-    // Se quiser bloquear /api/admin/*, pode adicionar aqui.
+    const READ_ONLY_MODE = process.env.APP_READ_ONLY_MODE === '1'
+    const isApiRoute = pathname.startsWith('/api')
+    const isWriteMethod = !['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase())
+    const isReadOnlyAllowedPath = READ_ONLY_ALLOWED_WRITE_PATHS.some(route => pathname === route || pathname.startsWith(`${route}/`))
+
+    if (READ_ONLY_MODE && isApiRoute && isWriteMethod && !isReadOnlyAllowedPath) {
+        return NextResponse.json(
+            {
+                success: false,
+                error: 'API em modo somente leitura (APP_READ_ONLY_MODE=1). Escritas bloqueadas por segurança.',
+            },
+            { status: 423 }
+        )
+    }
 
     return NextResponse.next()
 }
 
 export const config = {
     matcher: [
+        '/api/:path*',
         /*
          * Match all request paths except for the ones starting with:
-         * - api (API routes) -> We handle them separately or let them pass for now
+         * - api (API routes) -> already covered above by /api/:path*
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)

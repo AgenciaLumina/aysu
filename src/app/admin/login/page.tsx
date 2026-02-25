@@ -44,8 +44,8 @@ function LoginForm() {
             router.push(callbackUrl)
             router.refresh()
 
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Erro ao fazer login')
         } finally {
             setIsLoading(false)
         }

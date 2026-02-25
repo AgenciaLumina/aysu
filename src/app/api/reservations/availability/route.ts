@@ -3,8 +3,34 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import type { ApiResponse, CabinAvailability, AvailabilitySlot } from '@/lib/types'
-import { ReservationStatus } from '@prisma/client'
+import type { ApiResponse } from '@/lib/types'
+import { getActiveReservationFilter } from '@/lib/reservation-hold'
+
+const CABIN_PREFIX_BY_SLUG: Record<string, string> = {
+    'bangalo-lateral': 'Bangalô Lateral',
+    'bangalo-piscina': 'Bangalô Piscina',
+    'bangalo-frente-mar': 'Bangalô Frente Mar',
+    'bangalo-central': 'Bangalô Central',
+    'sunbed-casal': 'Sunbed Casal',
+    'mesa-restaurante': 'Mesa Restaurante',
+    'mesa-praia': 'Mesa Praia',
+    'day-use-praia': 'Day Use Praia',
+}
+
+const CABIN_SLUGS = Object.keys(CABIN_PREFIX_BY_SLUG)
+
+function resolveCabinSlug(cabinName: string): string | null {
+    const normalized = cabinName.toLowerCase().trim()
+    if (normalized.includes('lateral')) return 'bangalo-lateral'
+    if (normalized.includes('piscina')) return 'bangalo-piscina'
+    if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
+    if (normalized.includes('central')) return 'bangalo-central'
+    if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
+    if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
+    if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
+    if (normalized.includes('day use') && normalized.includes('praia')) return 'day-use-praia'
+    return null
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,6 +49,8 @@ export async function GET(request: NextRequest) {
             )
         }
 
+        const activeReservationFilter = getActiveReservationFilter()
+
         // Resolvendo o(s) Bangalô(s) - UUID ou Slug
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId || '')
         let cabinPoolIds: string[] = []
@@ -35,14 +63,7 @@ export async function GET(request: NextRequest) {
                 cabinPoolIds = [cabin.id]
                 nameToReturn = cabin.name
             } else {
-                const slugMap: Record<string, string> = {
-                    'bangalo-lateral': 'Bangalô Lateral',
-                    'bangalo-piscina': 'Bangalô Piscina',
-                    'bangalo-frente-mar': 'Bangalô Frente Mar',
-                    'bangalo-central': 'Bangalô Central',
-                    'sunbed-casal': 'Sunbed Casal',
-                }
-                const namePrefix = slugMap[cabinId] // cabinId is confirmed string
+                const namePrefix = CABIN_PREFIX_BY_SLUG[cabinId] // cabinId is confirmed string
                 if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
 
                 const cabins = await prisma.cabin.findMany({
@@ -60,7 +81,6 @@ export async function GET(request: NextRequest) {
         if (yearParam && monthParam) {
             const year = parseInt(yearParam)
             const month = parseInt(monthParam) - 1
-            const firstDay = new Date(year, month, 1)
             const lastDay = new Date(year, month + 1, 0)
 
             const dayResults = []
@@ -75,11 +95,15 @@ export async function GET(request: NextRequest) {
                 const reservedCount = await prisma.reservation.count({
                     where: {
                         cabinId: { in: cabinPoolIds },
-                        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
-                        OR: [
-                            { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
-                            { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
-                            { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                        AND: [
+                            activeReservationFilter,
+                            {
+                                OR: [
+                                    { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
+                                    { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
+                                    { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                                ],
+                            },
                         ]
                     }
                 })
@@ -105,40 +129,35 @@ export async function GET(request: NextRequest) {
             const startOfDay = new Date(date); startOfDay.setHours(10, 0, 0, 0)
             const endOfDay = new Date(date); endOfDay.setHours(18, 0, 0, 0)
 
-            // Buscar todos os tipos de cabines ativos
+            // Buscar todos os espaços ativos e mapear estoques por tipo
             const allCabins = await prisma.cabin.findMany({
-                where: { isActive: true }
+                where: { isActive: true },
+                select: { name: true }
             })
 
-            // Agrupar IDs por tipo (slug/prefixo)
-            // Mapping mais robusto - normaliza o nome do cabin
-            const getCabinSlug = (cabinName: string): string | null => {
-                const normalized = cabinName.toLowerCase().trim()
-                if (normalized.includes('lateral')) return 'bangalo-lateral'
-                if (normalized.includes('piscina')) return 'bangalo-piscina'
-                if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
-                if (normalized.includes('central')) return 'bangalo-central'
-                if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
-                return null
+            const totalUnitsByType = CABIN_SLUGS.reduce<Record<string, number>>((acc, slug) => {
+                acc[slug] = 0
+                return acc
+            }, {})
+
+            for (const cabin of allCabins) {
+                const slug = resolveCabinSlug(cabin.name)
+                if (!slug) continue
+                totalUnitsByType[slug] = (totalUnitsByType[slug] || 0) + 1
             }
 
-            // Inicializar contadores totais
-            const totalUnitsByType: Record<string, number> = {
-                'bangalo-lateral': 6,
-                'bangalo-piscina': 2,
-                'bangalo-frente-mar': 4,
-                'bangalo-central': 1,
-                'sunbed-casal': 4
-            }
-
-            // Buscar reservas do dia para TODOS os bangalôs
+            // Buscar reservas do dia para TODOS os espaços
             const reservations = await prisma.reservation.findMany({
                 where: {
-                    status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
-                    OR: [
-                        { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
-                        { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
-                        { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                    AND: [
+                        activeReservationFilter,
+                        {
+                            OR: [
+                                { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
+                                { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
+                                { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
+                            ],
+                        },
                     ]
                 },
                 include: { cabin: true }
@@ -148,14 +167,12 @@ export async function GET(request: NextRequest) {
             const availability: Record<string, number> = { ...totalUnitsByType }
 
             reservations.forEach(res => {
-                const slug = getCabinSlug(res.cabin.name)
-                console.log(`[Availability] Cabin: "${res.cabin.name}" -> Slug: ${slug}`)
+                const slug = resolveCabinSlug(res.cabin.name)
                 if (slug && availability[slug] > 0) {
                     availability[slug]--
                 }
             })
 
-            console.log('[Availability] Final counts:', availability)
             return NextResponse.json({ success: true, data: availability })
         }
 
@@ -168,11 +185,15 @@ export async function GET(request: NextRequest) {
             const reservations = await prisma.reservation.findMany({
                 where: {
                     cabinId: { in: cabinPoolIds },
-                    status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
-                    OR: [
-                        { checkIn: { gte: startOfDay, lte: endOfDay } },
-                        { checkOut: { gte: startOfDay, lte: endOfDay } },
-                        { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gte: endOfDay } }] },
+                    AND: [
+                        activeReservationFilter,
+                        {
+                            OR: [
+                                { checkIn: { gte: startOfDay, lte: endOfDay } },
+                                { checkOut: { gte: startOfDay, lte: endOfDay } },
+                                { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gte: endOfDay } }] },
+                            ],
+                        },
                     ]
                 }
             })

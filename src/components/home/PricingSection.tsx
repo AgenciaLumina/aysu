@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Users, Star, Info } from 'lucide-react'
+import { Users, Info } from 'lucide-react'
 
 interface PricingItem {
     title: string
@@ -45,7 +45,7 @@ export default function PricingSection() {
                         : 'text-[#8a5c3f] hover:text-[#8B4513]'
                         }`}
                 >
-                    Carnaval & Feriados
+                    Eventos & Feriados
                 </button>
                 <button
                     onClick={() => setActiveTab('normal')}
@@ -63,8 +63,7 @@ export default function PricingSection() {
                 {activeTab === 'holiday' && (
                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 animate-fade-in">
                         <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#8B4513] text-white text-[10px] md:text-xs font-medium shadow-xl whitespace-nowrap">
-                            <span>🎭</span>
-                            <span>Valores exclusivos para o Carnaval e Feriados</span>
+                            <span>Valores exclusivos para eventos e feriados</span>
                         </div>
                     </div>
                 )}
@@ -123,7 +122,7 @@ export default function PricingSection() {
                 </p>
                 <p className="text-xs text-[#a09080] italic">
                     {activeTab === 'holiday'
-                        ? '* Valores válidos para Feriados e Datas Comemorativas (Carnaval 2026).'
+                        ? '* Valores válidos para Feriados, Eventos e Datas Comemorativas.'
                         : '* Valores válidos para Dias de Semana e Finais de Semana Comuns.'}
                 </p>
             </div>

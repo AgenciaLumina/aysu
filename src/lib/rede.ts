@@ -78,7 +78,7 @@ export class RedeService {
     /**
      * Cria uma transação
      */
-    async createTransaction(payload: any) {
+    async createTransaction(payload: TransactionRequest) {
         const token = await this.getAccessToken()
 
         try {
@@ -93,8 +93,12 @@ export class RedeService {
                 }
             )
             return data
-        } catch (error: any) {
-            console.error('[Rede Transaction Error]', error.response?.data || error.message)
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+                console.error('[Rede Transaction Error]', error.response?.data || error.message)
+            } else {
+                console.error('[Rede Transaction Error]', error)
+            }
             throw error
         }
     }

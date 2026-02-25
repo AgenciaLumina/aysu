@@ -7,6 +7,7 @@ import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse, ReservationWithDetails } from '@/lib/types'
 import { ReservationStatus } from '@prisma/client'
+import { getActiveReservationFilter } from '@/lib/reservation-hold'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -111,17 +112,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             }
 
             // Check conflict
+            const activeReservationFilter = getActiveReservationFilter()
             const conflict = await prisma.reservation.findFirst({
                 where: {
                     id: { not: id },
                     cabinId: existingReservation.cabinId,
-                    status: {
-                        in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'],
-                    },
-                    OR: [
-                        { AND: [{ checkIn: { lte: newCheckIn } }, { checkOut: { gt: newCheckIn } }] },
-                        { AND: [{ checkIn: { lt: newCheckOut } }, { checkOut: { gte: newCheckOut } }] },
-                        { AND: [{ checkIn: { gte: newCheckIn } }, { checkOut: { lte: newCheckOut } }] },
+                    AND: [
+                        activeReservationFilter,
+                        {
+                            OR: [
+                                { AND: [{ checkIn: { lte: newCheckIn } }, { checkOut: { gt: newCheckIn } }] },
+                                { AND: [{ checkIn: { lt: newCheckOut } }, { checkOut: { gte: newCheckOut } }] },
+                                { AND: [{ checkIn: { gte: newCheckIn } }, { checkOut: { lte: newCheckOut } }] },
+                            ],
+                        },
                     ],
                 },
             })

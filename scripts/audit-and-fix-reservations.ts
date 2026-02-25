@@ -5,6 +5,39 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+function hasFlag(flag: string): boolean {
+    return process.argv.includes(flag)
+}
+
+function assertReadSafety() {
+    if (process.env.ALLOW_DB_READ === '1') return
+
+    console.error('⛔ BLOQUEADO: modo seguro ativo para banco.')
+    console.error('Para executar auditoria em leitura, rode:')
+    console.error('   ALLOW_DB_READ=1 npx tsx scripts/audit-and-fix-reservations.ts')
+    throw new Error('READ_BLOCKED')
+}
+
+function assertDatabaseEnv() {
+    if (process.env.DATABASE_URL && process.env.DIRECT_URL) return
+
+    console.error('⛔ BLOQUEADO: variáveis de banco ausentes no ambiente.')
+    console.error('Defina DATABASE_URL e DIRECT_URL antes de executar a auditoria.')
+    throw new Error('DB_ENV_MISSING')
+}
+
+function assertWriteSafety() {
+    const allowWrite = process.env.ALLOW_DB_WRITE === '1'
+    const acknowledged = hasFlag('--i-understand-this-writes')
+
+    if (allowWrite && acknowledged) return
+
+    console.error('⛔ BLOQUEADO: tentativa de escrita sem confirmacao explicita.')
+    console.error('Para aplicar correcoes no banco, rode:')
+    console.error('   ALLOW_DB_READ=1 ALLOW_DB_WRITE=1 npx tsx scripts/audit-and-fix-reservations.ts --apply --i-understand-this-writes')
+    throw new Error('WRITE_BLOCKED')
+}
+
 // ============================================================
 // CONFIGURAÇÃO: Preços corretos por tipo de bangalô
 // ============================================================
@@ -257,6 +290,9 @@ async function main() {
     console.log('\n🏖️  AISSU Beach Lounge - Auditoria de Reservas\n')
 
     try {
+        assertReadSafety()
+        assertDatabaseEnv()
+
         // 1. Auditoria
         const issues = await auditReservations()
 
@@ -275,16 +311,20 @@ async function main() {
         // Pergunta se quer aplicar
         console.log('='.repeat(80))
         console.log('⚠️  ATENÇÃO: Para REALMENTE aplicar as correções, execute:')
-        console.log('   npx tsx scripts/audit-and-fix-reservations.ts --apply')
+        console.log('   ALLOW_DB_READ=1 ALLOW_DB_WRITE=1 npx tsx scripts/audit-and-fix-reservations.ts --apply --i-understand-this-writes')
         console.log('='.repeat(80) + '\n')
 
         // Se passou --apply como argumento
-        if (process.argv.includes('--apply')) {
+        if (hasFlag('--apply')) {
+            assertWriteSafety()
             console.log('\n⚠️  APLICANDO CORREÇÕES NO BANCO DE PRODUÇÃO...\n')
             await fixReservations(issues, false)
         }
 
     } catch (error) {
+        if (error instanceof Error && (error.message === 'READ_BLOCKED' || error.message === 'WRITE_BLOCKED' || error.message === 'DB_ENV_MISSING')) {
+            return
+        }
         console.error('❌ Erro durante execução:', error)
     } finally {
         await prisma.$disconnect()

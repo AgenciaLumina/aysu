@@ -12,6 +12,9 @@ import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import type { DayConfigPayload } from '@/lib/day-config'
+import { getPriceOverrideForSpace } from '@/lib/day-config'
+import DayInfoModal from '@/components/reservas/DayInfoModal'
 
 // ==========================================
 // DADOS DOS ESPAÇOS (Informações reais)
@@ -30,8 +33,8 @@ interface SpaceType {
     holidayConsumable: number
     description: string
     units: number
-    category: 'bangalo' | 'sunbed'
-    tier: 'standard' | 'premium' | 'galera' | 'romantic'
+    category: 'bangalo' | 'sunbed' | 'mesa'
+    tier: 'standard' | 'premium' | 'galera' | 'romantic' | 'social'
 }
 
 const spaceTypes: SpaceType[] = [
@@ -120,6 +123,40 @@ const spaceTypes: SpaceType[] = [
         category: 'sunbed',
         tier: 'romantic',
     },
+    // MESA RESTAURANTE (reservável conforme configuração da data)
+    {
+        id: 'mesa-restaurante',
+        name: 'Mesa Restaurante',
+        slug: 'mesa-restaurante',
+        image: '/espacos/bangalo-lateral.jpg',
+        capacity: '4 a 6 pessoas',
+        capacityNum: 6,
+        dailyPrice: 120,
+        consumable: 100,
+        holidayPrice: 200,
+        holidayConsumable: 150,
+        description: 'Mesa interna com serviço completo para grupo',
+        units: 4,
+        category: 'mesa',
+        tier: 'social',
+    },
+    // MESA PRAIA (reservável conforme configuração da data)
+    {
+        id: 'mesa-praia',
+        name: 'Mesa Praia',
+        slug: 'mesa-praia',
+        image: '/espacos/Sunbeds.jpeg',
+        capacity: '2 a 4 pessoas',
+        capacityNum: 4,
+        dailyPrice: 120,
+        consumable: 100,
+        holidayPrice: 200,
+        holidayConsumable: 150,
+        description: 'Mesa pé na areia com cobertura e atendimento',
+        units: 8,
+        category: 'mesa',
+        tier: 'social',
+    },
 ]
 
 // ==========================================
@@ -134,14 +171,8 @@ const formatDateShort = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 }
 
-const formatDateISO = (date: Date) => {
-    return toLocalISODate(date)
-}
-
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-
-const soldOutDates = ['2026-12-25', '2026-12-31']
 
 const getTierLabel = (tier: SpaceType['tier']) => {
     switch (tier) {
@@ -149,6 +180,7 @@ const getTierLabel = (tier: SpaceType['tier']) => {
         case 'premium': return 'Premium'
         case 'galera': return 'Galera'
         case 'romantic': return 'Romântico'
+        case 'social': return 'Social'
     }
 }
 
@@ -158,6 +190,7 @@ const getTierColor = (tier: SpaceType['tier']) => {
         case 'premium': return 'bg-[#c9a66b] text-white border-[#b8955a]'   // Dourado sólido
         case 'galera': return 'bg-[#8b4513] text-white border-[#7a3c0f]'  // Marrom premium (chocolate)
         case 'romantic': return 'bg-[#b87d6c] text-white border-[#a76c5b]'  // Rosa terroso elegante
+        case 'social': return 'bg-[#4d6a8a] text-white border-[#3f5b79]'
     }
 }
 
@@ -170,22 +203,81 @@ interface ClosedDateInfo {
     reason: string
 }
 
+function getDateFromUrlParam(): Date | null {
+    if (typeof window === 'undefined') return null
+
+    const params = new URLSearchParams(window.location.search)
+    const dateParam = params.get('date')
+    if (!dateParam) return null
+
+    const date = new Date(`${dateParam}T12:00:00`)
+    return Number.isNaN(date.getTime()) ? null : date
+}
+
+function isDateSelectable(
+    date: Date,
+    closedDates: ClosedDateInfo[],
+    dayConfigByDate: Record<string, DayConfigPayload>,
+) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (date < today) return false
+
+    const dateStr = toLocalISODate(date)
+    const config = dayConfigByDate[dateStr]
+    const isClosedDate = closedDates.some((c) => c.date === dateStr)
+    const isBlocked = !!config && (!config.reservationsEnabled || config.status === 'BLOCKED')
+
+    return !isClosedDate && !isBlocked
+}
+
 export default function ReservasPage() {
     const router = useRouter()
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+    const [initialDateFromUrl] = useState<Date | null>(() => getDateFromUrlParam())
+    const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
+        if (!initialDateFromUrl) return null
+
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        return initialDateFromUrl < today ? null : initialDateFromUrl
+    })
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
     const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
+    const [dayConfigs, setDayConfigs] = useState<DayConfigPayload[]>([])
     const [currentMonth, setCurrentMonth] = useState(() => {
-        // Default to February 2026 for Carnaval
-        return new Date(2026, 1, 1)
+        if (initialDateFromUrl) {
+            return new Date(initialDateFromUrl.getFullYear(), initialDateFromUrl.getMonth(), 1)
+        }
+        const now = new Date()
+        return new Date(now.getFullYear(), now.getMonth(), 1)
     })
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
 
+    // Estado do modal de informação de data especial/bloqueada
+    const [dayInfoModal, setDayInfoModal] = useState<{
+        config: DayConfigPayload | null
+        closedReason?: string
+        isPrivate: boolean
+        isClosed: boolean
+        date: Date
+    } | null>(null)
+
+    const dayConfigByDate: Record<string, DayConfigPayload> = {}
+    for (const config of dayConfigs) {
+        dayConfigByDate[config.date] = config
+    }
+
+    const effectiveSelectedDate =
+        selectedDate && isDateSelectable(selectedDate, closedDates, dayConfigByDate)
+            ? selectedDate
+            : null
+
     useEffect(() => {
-        if (selectedDate) {
+        if (effectiveSelectedDate) {
             // Fetch availability for specific date
-            const dateStr = toLocalISODate(selectedDate)
+            const dateStr = toLocalISODate(effectiveSelectedDate)
             fetch(`/api/reservations/availability?date=${dateStr}`)
                 .then(res => res.json())
                 .then(data => {
@@ -194,10 +286,8 @@ export default function ReservasPage() {
                     }
                 })
                 .catch(err => console.error('Erro ao buscar disponibilidade:', err))
-        } else {
-            setAvailabilityCounts({})
         }
-    }, [selectedDate])
+    }, [effectiveSelectedDate])
 
     // Fetch Public Closed Dates
     useEffect(() => {
@@ -211,6 +301,93 @@ export default function ReservasPage() {
             .catch(err => console.error('Erro ao buscar datas fechadas:', err))
     }, [])
 
+    useEffect(() => {
+        const year = currentMonth.getFullYear()
+        const month = currentMonth.getMonth() + 1
+
+        fetch(`/api/day-configs?year=${year}&month=${month}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setDayConfigs(data.data)
+                }
+            })
+            .catch(err => console.error('Erro ao buscar configurações do calendário:', err))
+    }, [currentMonth])
+
+    const getDateConfig = (date: Date) => {
+        const dateStr = toLocalISODate(date)
+        return dayConfigByDate[dateStr] ?? null
+    }
+
+    const getSpacePricing = (space: SpaceType, date: Date | null) => {
+        const isDateHoliday = date ? isHoliday(date) : false
+        const basePrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
+        const baseConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
+
+        if (!date) {
+            return {
+                finalPrice: basePrice,
+                finalConsumable: baseConsumable,
+                isOverride: false,
+            }
+        }
+
+        const config = getDateConfig(date)
+        const override = getPriceOverrideForSpace(config, space.id)
+
+        if (override) {
+            return {
+                finalPrice: override.price,
+                finalConsumable: override.consumable ?? baseConsumable,
+                isOverride: true,
+            }
+        }
+
+        return {
+            finalPrice: basePrice,
+            finalConsumable: baseConsumable,
+            isOverride: false,
+        }
+    }
+
+    const getDayUsePricing = (date: Date | null) => {
+        const isDateHoliday = date ? isHoliday(date) : false
+        const basePrice = isDateHoliday ? 200 : 120
+        const baseConsumable = isDateHoliday ? 150 : 100
+
+        if (!date) {
+            return {
+                finalPrice: basePrice,
+                finalConsumable: baseConsumable,
+                isOverride: false,
+            }
+        }
+
+        const config = getDateConfig(date)
+        const override = getPriceOverrideForSpace(config, 'day-use-praia')
+
+        if (override) {
+            return {
+                finalPrice: override.price,
+                finalConsumable: override.consumable ?? baseConsumable,
+                isOverride: true,
+            }
+        }
+
+        return {
+            finalPrice: basePrice,
+            finalConsumable: baseConsumable,
+            isOverride: false,
+        }
+    }
+
+    const selectedDateConfig = effectiveSelectedDate
+        ? dayConfigByDate[toLocalISODate(effectiveSelectedDate)] ?? null
+        : null
+
+    const dayUsePricing = getDayUsePricing(effectiveSelectedDate)
+
 
 
     const calendarDays = useMemo(() => {
@@ -221,10 +398,19 @@ export default function ReservasPage() {
         const daysInMonth = lastDay.getDate()
         const startWeekday = firstDay.getDay()
 
-        const days: { date: Date | null; isPast: boolean; isHoliday: boolean; holidayName?: string; isSoldOut: boolean; isClosed: boolean; closedReason?: string }[] = []
+        const days: {
+            date: Date | null
+            isPast: boolean
+            isHoliday: boolean
+            holidayName?: string
+            isSoldOut: boolean
+            isClosed: boolean
+            closedReason?: string
+            config?: DayConfigPayload | null
+        }[] = []
 
         for (let i = 0; i < startWeekday; i++) {
-            days.push({ date: null, isPast: true, isHoliday: false, isSoldOut: false, isClosed: false })
+            days.push({ date: null, isPast: true, isHoliday: false, isSoldOut: false, isClosed: false, config: null })
         }
 
         const today = new Date()
@@ -235,20 +421,23 @@ export default function ReservasPage() {
             const dateStr = toLocalISODate(date)
             const holiday = isHoliday(dateStr)
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
+            const dayConfig = dayConfigs.find(config => config.date === dateStr)
+            const isConfigBlocked = !!dayConfig && (!dayConfig.reservationsEnabled || dayConfig.status === 'BLOCKED')
 
             days.push({
                 date,
                 isPast: date < today,
                 isHoliday: !!holiday,
                 holidayName: holiday?.name,
-                isSoldOut: soldOutDates.includes(dateStr),
-                isClosed: !!closedInfo,
-                closedReason: closedInfo?.reason,
+                isSoldOut: false,
+                isClosed: !!closedInfo || isConfigBlocked,
+                closedReason: closedInfo?.reason || dayConfig?.title || dayConfig?.release || undefined,
+                config: dayConfig,
             })
         }
 
         return days
-    }, [currentMonth, closedDates])
+    }, [currentMonth, closedDates, dayConfigs])
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date)
@@ -262,18 +451,21 @@ export default function ReservasPage() {
     }
 
     const handleReserve = () => {
-        if (selectedDate && selectedSpace) {
-            const isDateHoliday = isHoliday(selectedDate)
-            const finalPrice = isDateHoliday ? selectedSpace.holidayPrice : selectedSpace.dailyPrice
-            const finalConsumable = isDateHoliday ? selectedSpace.holidayConsumable : selectedSpace.consumable
+        if (effectiveSelectedDate && selectedSpace) {
+            const { finalPrice, finalConsumable } = getSpacePricing(selectedSpace, effectiveSelectedDate)
 
             const params = new URLSearchParams({
                 cabinId: selectedSpace.id,
                 cabinName: selectedSpace.name,
-                date: toLocalISODate(selectedDate),
+                date: toLocalISODate(effectiveSelectedDate),
                 price: finalPrice.toString(),
                 consumable: finalConsumable.toString(),
             })
+
+            if (selectedDateConfig?.title) {
+                params.set('eventTitle', selectedDateConfig.title)
+            }
+
             router.push(`/checkout?${params.toString()}`)
         }
     }
@@ -328,20 +520,6 @@ export default function ReservasPage() {
                 ========================================== */}
             <section className="max-w-lg mx-auto px-6 -mt-24 relative z-10 pb-16">
                 <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 border border-gray-100">
-                    {/* Carnaval Badge */}
-                    {currentMonth.getMonth() === 1 && (
-                        <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white px-6 py-4 rounded-t-3xl">
-                            <div className="flex items-center justify-center gap-3">
-                                <span className="text-2xl">🎭</span>
-                                <div className="text-center">
-                                    <p className="font-bold text-lg">Carnaval 2026</p>
-                                    <p className="text-sm text-white/90">13 a 18 de Fevereiro • Reserve agora!</p>
-                                </div>
-                                <span className="text-2xl">🎉</span>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Calendar Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--aissu-border)]">
                         <button
@@ -389,14 +567,28 @@ export default function ReservasPage() {
                                 }
 
                                 const dateStr = toLocalISODate(day.date)
-                                const isSelected = selectedDate && toLocalISODate(selectedDate) === dateStr
-                                const isDisabled = day.isPast || day.isSoldOut || day.isClosed
+                                const isSelected = effectiveSelectedDate && toLocalISODate(effectiveSelectedDate) === dateStr
+                                const isDisabled = day.isPast || day.isSoldOut
                                 const isToday = toLocalISODate(new Date()) === dateStr
+                                const hasEventInfo = !!(day.config?.title || day.config?.release)
+                                const isEventDate = day.config?.status === 'EVENT' || day.config?.status === 'PRIVATE_EVENT'
 
                                 return (
                                     <div key={idx} className="relative group">
                                         <button
-                                            onClick={() => !isDisabled && handleDateSelect(day.date!)}
+                                            onClick={() => {
+                                                if (day.isClosed) {
+                                                    setDayInfoModal({
+                                                        config: day.config ?? null,
+                                                        closedReason: day.closedReason,
+                                                        isPrivate: day.config?.status === 'PRIVATE_EVENT',
+                                                        isClosed: true,
+                                                        date: day.date!,
+                                                    })
+                                                } else if (!isDisabled) {
+                                                    handleDateSelect(day.date!)
+                                                }
+                                            }}
                                             disabled={isDisabled}
                                             className={`
                                                 w-full aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all
@@ -408,6 +600,8 @@ export default function ReservasPage() {
                                                             ? 'text-gray-200 cursor-not-allowed'
                                                             : isToday
                                                                 ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                                                                : isEventDate
+                                                                    ? 'text-sky-700 hover:bg-sky-50'
                                                                 : day.isHoliday
                                                                     ? 'text-amber-600 hover:bg-amber-50'
                                                                     : 'text-gray-700 hover:bg-gray-50'
@@ -421,6 +615,9 @@ export default function ReservasPage() {
                                             {day.isHoliday && !day.isClosed && !isSelected && (
                                                 <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
                                             )}
+                                            {hasEventInfo && !day.isClosed && !isSelected && (
+                                                <span className="w-1 h-1 rounded-full bg-sky-500 mt-0.5" />
+                                            )}
                                         </button>
                                         {/* Closed Date Tooltip */}
                                         {day.isClosed && (
@@ -429,8 +626,18 @@ export default function ReservasPage() {
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-red-600" />
                                             </div>
                                         )}
+                                        {/* Event Tooltip */}
+                                        {!day.isClosed && hasEventInfo && (
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-sky-700 text-white text-xs rounded-lg max-w-[240px] text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                                <p className="font-semibold">{day.config?.title}</p>
+                                                {day.config?.release && (
+                                                    <p className="mt-1 text-sky-100 line-clamp-3">{day.config.release}</p>
+                                                )}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-sky-700" />
+                                            </div>
+                                        )}
                                         {/* Holiday Tooltip */}
-                                        {day.holidayName && !day.isClosed && (
+                                        {day.holidayName && !day.isClosed && !hasEventInfo && (
                                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                                 {day.holidayName}
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-gray-900" />
@@ -443,17 +650,61 @@ export default function ReservasPage() {
                     </div>
 
                     {/* Selected Date */}
-                    {selectedDate && (
+                    {effectiveSelectedDate && (
                         <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data selecionada</p>
-                                    <p className="text-lg font-semibold text-gray-900 capitalize">{formatDateBR(selectedDate)}</p>
+                                    <p className="text-lg font-semibold text-gray-900 capitalize">{formatDateBR(effectiveSelectedDate)}</p>
                                 </div>
                                 <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                                     <Check className="h-5 w-5 text-white" />
                                 </div>
                             </div>
+
+                            {(selectedDateConfig?.title || selectedDateConfig?.release || selectedDateConfig?.ticketLots.length) && (
+                                <div className="mt-4 p-4 rounded-xl border border-sky-100 bg-sky-50/60">
+                                    {selectedDateConfig?.title && (
+                                        <p className="font-semibold text-sky-900">{selectedDateConfig.title}</p>
+                                    )}
+                                    {selectedDateConfig?.release && (
+                                        <p className="text-sm text-sky-800 mt-1">{selectedDateConfig.release}</p>
+                                    )}
+                                    {selectedDateConfig?.flyerImageUrl && (
+                                        <div className="mt-3 overflow-hidden rounded-lg border border-sky-200">
+                                            <div
+                                                className="h-40 w-full bg-cover bg-center"
+                                                style={{ backgroundImage: `url(${selectedDateConfig.flyerImageUrl})` }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {selectedDateConfig?.ticketLots.length ? (
+                                        <div className="mt-3 space-y-2">
+                                            {selectedDateConfig.ticketLots.map((lot) => (
+                                                <div key={`${lot.name}-${lot.endsAt}`} className="flex items-center justify-between text-sm">
+                                                    <div>
+                                                        <p className="font-medium text-sky-900">{lot.name}</p>
+                                                        <p className="text-sky-700">até {new Date(`${lot.endsAt}T12:00:00`).toLocaleDateString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        {lot.soldOut ? (
+                                                            <p className="font-semibold text-red-600">Esgotado</p>
+                                                        ) : (
+                                                            <>
+                                                                <p className="font-semibold text-sky-900">{formatCurrency(lot.price)}</p>
+                                                                {lot.consumable !== undefined && (
+                                                                    <p className="text-xs text-sky-700">{formatCurrency(lot.consumable)} consumação</p>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -464,9 +715,9 @@ export default function ReservasPage() {
                 ========================================== */}
             <section id="espacos" className="max-w-7xl mx-auto px-6 py-20">
                 <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-light mb-4" style={{ color: 'var(--aissu-chocolate)', fontFamily: 'var(--font-display)' }}>
-                        {selectedDate ? 'Escolha seu Espaço' : 'Nossos Espaços'}
-                    </h2>
+                        <h2 className="text-3xl md:text-4xl font-light mb-4" style={{ color: 'var(--aissu-chocolate)', fontFamily: 'var(--font-display)' }}>
+                            {effectiveSelectedDate ? 'Escolha seu Espaço' : 'Nossos Espaços'}
+                        </h2>
                     <p className="max-w-xl mx-auto" style={{ color: 'var(--aissu-wood)' }}>
                         Todos os espaços incluem pulseira dourada com acesso VIP e valor em consumação
                     </p>
@@ -475,22 +726,29 @@ export default function ReservasPage() {
                 {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
                     {spaceTypes.map((space) => {
-                        const isDateHoliday = selectedDate ? isHoliday(selectedDate) : false
-                        const finalPrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
-                        const finalConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
+                        const { finalPrice, finalConsumable, isOverride } = getSpacePricing(space, effectiveSelectedDate)
                         const availableCount = availabilityCounts[space.id]
-                        const isSoldOut = selectedDate && availableCount !== undefined && availableCount === 0
+                        const isRestaurantTable = space.id === 'mesa-restaurante'
+                        const isBeachTable = space.id === 'mesa-praia'
+                        const blockedByRule = (
+                            (space.category === 'bangalo' && selectedDateConfig?.reservableItems.bangalos === false) ||
+                            (space.category === 'sunbed' && selectedDateConfig?.reservableItems.sunbeds === false) ||
+                            (isRestaurantTable && !selectedDateConfig?.reservableItems.restaurantTables) ||
+                            (isBeachTable && !selectedDateConfig?.reservableItems.beachTables)
+                        )
+                        const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
+                        const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0) || blockedByRule || isLoadingAvailability
 
                         return (
                             <article
                                 key={space.id}
                                 onClick={() => {
-                                    if (!selectedDate) return
+                                    if (!effectiveSelectedDate) return
                                     if (isSoldOut) return // Block sold-out
                                     handleSpaceSelect(space)
                                 }}
                                 className={`group bg-white rounded-2xl overflow-hidden transition-all duration-500 
-                                        ${!selectedDate
+                                        ${!effectiveSelectedDate
                                         ? 'opacity-50 cursor-not-allowed'
                                         : isSoldOut
                                             ? 'opacity-60 cursor-not-allowed grayscale'
@@ -521,10 +779,23 @@ export default function ReservasPage() {
 
                                     {/* Top Right: Availability */}
                                     <div className="absolute top-4 right-4">
-                                        {selectedDate ? (
+                                        {effectiveSelectedDate ? (
                                             (() => {
                                                 const count = availabilityCounts[space.id]
-                                                if (count === undefined) return <span className="opacity-0">...</span>
+                                                if (count === undefined) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/90 text-gray-700">
+                                                            Carregando...
+                                                        </span>
+                                                    )
+                                                }
+                                                if (blockedByRule) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-slate-700 text-white">
+                                                            Disponível somente em evento
+                                                        </span>
+                                                    )
+                                                }
                                                 if (count === 0) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-red-500/95 text-white">
@@ -573,7 +844,14 @@ export default function ReservasPage() {
                                 {/* Content */}
                                 <div className="p-6">
                                     {/* Title */}
-                                    <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <h3 className="text-xl font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
+                                        {isOverride && (
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-sky-100 text-sky-700">
+                                                Valor de evento
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
 
                                     {/* Pricing */}
@@ -598,7 +876,7 @@ export default function ReservasPage() {
             </section>
 
             {/* ==========================================
-                ÁREAS NÃO-RESERVÁVEIS - Elegante Info Section
+                DAY USE - Elegante Info Section
                 ========================================== */}
             <section className="py-20" style={{ backgroundColor: 'var(--aissu-cream)' }}>
                 <div className="max-w-5xl mx-auto px-6">
@@ -611,12 +889,12 @@ export default function ReservasPage() {
                             Experiência Day Use
                         </h2>
                         <p className="max-w-md mx-auto" style={{ color: 'var(--aissu-wood)' }}>
-                            Sem reserva prévia. Disponibilidade por ordem de chegada, sujeita à lotação.
+                            Entrada por ordem de chegada. Mesas reserváveis aparecem no calendário quando a data/evento liberar.
                         </p>
                     </div>
 
                     {/* Cards elegantes */}
-                    <div className="grid md:grid-cols-2 gap-8">
+                    <div className="max-w-2xl mx-auto">
                         {/* Day Use Praia */}
                         <div className="group bg-white rounded-3xl p-8 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-all duration-300">
                             <div className="flex items-center justify-between mb-6">
@@ -629,7 +907,7 @@ export default function ReservasPage() {
                             </div>
 
                             <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
-                                {selectedDate && isHoliday(selectedDate) ? 'Day Use Carnaval' : 'Day Use Praia'}
+                                {effectiveSelectedDate && isHoliday(effectiveSelectedDate) ? 'Day Use Especial' : 'Day Use Praia'}
                             </h3>
                             <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
                                 Espreguiçadeira + Guarda-sol • Mesas de praia (8)
@@ -638,57 +916,28 @@ export default function ReservasPage() {
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
                                 <div>
                                     <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
+                                        {formatCurrency(dayUsePricing.finalPrice)}
                                     </p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
                                     <span className="text-lg font-semibold text-emerald-600">
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
+                                        {formatCurrency(dayUsePricing.finalConsumable)}
                                     </span>
                                     <span className="text-xs text-emerald-600">consumação</span>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Mesas Restaurante */}
-                        <div className="group bg-white rounded-3xl p-8 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-6">
-                                <span className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 shadow-sm">
-                                    PULSEIRA PRATA
-                                </span>
-                                <span className="text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700">
-                                    4 mesas disponíveis
-                                </span>
-                            </div>
-
-                            <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
-                                Mesas de Restaurante
-                            </h3>
-                            <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
-                                Para 4 a 6 pessoas • 4 mesas
-                            </p>
-
-                            <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
-                                <div>
-                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 200' : 'R$ 120'}
-                                    </p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
-                                </div>
-                                <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                                    <span className="text-lg font-semibold text-emerald-600">
-                                        {selectedDate && isHoliday(selectedDate) ? 'R$ 150' : 'R$ 100'}
-                                    </span>
-                                    <span className="text-xs text-emerald-600">consumação</span>
-                                </div>
-                            </div>
+                            {dayUsePricing.isOverride && (
+                                <p className="mt-3 text-xs font-medium text-sky-700">
+                                    Valor ajustado para este evento/data.
+                                </p>
+                            )}
                         </div>
                     </div>
 
                     {/* Nota informativa */}
                     <p className="text-center text-sm mt-10" style={{ color: 'var(--aissu-text-muted)' }}>
-                        * Valores especiais para temporada de Carnaval 2026
+                        * A reserva de mesas pode ser liberada somente em datas/eventos específicos, conforme calendário.
                     </p>
                 </div>
             </section>
@@ -727,7 +976,7 @@ export default function ReservasPage() {
             {/* ==========================================
                 STICKY BOTTOM BAR
                 ========================================== */}
-            {selectedSpace && selectedDate && (
+            {selectedSpace && effectiveSelectedDate && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-2xl shadow-black/10" style={{ borderColor: 'var(--aissu-border)' }}>
                     <div className="max-w-5xl mx-auto px-6 py-4">
                         <div className="flex items-center justify-between">
@@ -743,19 +992,26 @@ export default function ReservasPage() {
                                 </div>
                                 <div>
                                     <p className="font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{selectedSpace.name}</p>
-                                    <p className="text-sm capitalize" style={{ color: 'var(--aissu-wood)' }}>{formatDateShort(selectedDate)}</p>
+                                    <p className="text-sm capitalize" style={{ color: 'var(--aissu-wood)' }}>{formatDateShort(effectiveSelectedDate)}</p>
                                 </div>
                             </div>
 
                             {/* Right: Price & CTA */}
                             <div className="flex items-center gap-6">
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayPrice : selectedSpace.dailyPrice)}
-                                    </p>
-                                    <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>
-                                        {formatCurrency(isHoliday(selectedDate) ? selectedSpace.holidayConsumable : selectedSpace.consumable)} consumação
-                                    </p>
+                                    {(() => {
+                                        const { finalPrice, finalConsumable } = getSpacePricing(selectedSpace, effectiveSelectedDate)
+                                        return (
+                                            <>
+                                                <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
+                                                    {formatCurrency(finalPrice)}
+                                                </p>
+                                                <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>
+                                                    {formatCurrency(finalConsumable)} consumação
+                                                </p>
+                                            </>
+                                        )
+                                    })()}
                                 </div>
                                 <button
                                     onClick={handleReserve}
@@ -769,6 +1025,24 @@ export default function ReservasPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Modal de informação de data especial/bloqueada */}
+            {dayInfoModal && (
+                <DayInfoModal
+                    isOpen={true}
+                    onClose={() => setDayInfoModal(null)}
+                    config={dayInfoModal.config}
+                    closedReason={dayInfoModal.closedReason}
+                    isPrivate={dayInfoModal.isPrivate}
+                    isClosed={dayInfoModal.isClosed}
+                    date={dayInfoModal.date}
+                    onReserve={
+                        dayInfoModal.config?.reservationsEnabled
+                            ? () => { setDayInfoModal(null); handleDateSelect(dayInfoModal.date) }
+                            : undefined
+                    }
+                />
             )}
 
             {/* Footer */}

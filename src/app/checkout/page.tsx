@@ -74,7 +74,8 @@ function CheckoutContent() {
     })
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { // Updated type to include HTMLTextAreaElement
-        let { name, value } = e.target
+        const { name } = e.target
+        let { value } = e.target
 
         if (name === 'customerPhone') {
             value = maskPhone(value)
