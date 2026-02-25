@@ -148,6 +148,44 @@ function formatCurrencyInput(value: string): string {
     })
 }
 
+const MAX_FLYER_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024
+
+type UploadResponse = {
+    success?: boolean
+    error?: string
+    data?: {
+        url?: string
+    }
+}
+
+async function readUploadResponse(response: Response): Promise<UploadResponse> {
+    const bodyText = await response.text()
+
+    if (!bodyText) {
+        return {
+            success: false,
+            error: `Falha no upload (HTTP ${response.status})`,
+        }
+    }
+
+    try {
+        return JSON.parse(bodyText) as UploadResponse
+    } catch {
+        const normalized = bodyText.toLowerCase()
+        if (response.status === 413 || normalized.includes('request entity too large')) {
+            return {
+                success: false,
+                error: 'Arquivo muito grande. Use uma imagem de até 4 MB.',
+            }
+        }
+
+        return {
+            success: false,
+            error: `Falha no upload (HTTP ${response.status})`,
+        }
+    }
+}
+
 function AdminCalendarioPageContent() {
     const searchParams = useSearchParams()
     const [configs, setConfigs] = useState<DayConfigPayload[]>([])
@@ -296,6 +334,12 @@ function AdminCalendarioPageContent() {
         const file = e.target.files?.[0]
         if (!file) return
 
+        if (file.size > MAX_FLYER_UPLOAD_SIZE_BYTES) {
+            toast.error('Arquivo muito grande. Envie um flyer de até 4 MB.')
+            e.target.value = ''
+            return
+        }
+
         setUploadingFlyer(true)
 
         try {
@@ -308,9 +352,9 @@ function AdminCalendarioPageContent() {
                 credentials: 'include',
                 body: formData,
             })
-            const data = await res.json()
+            const data = await readUploadResponse(res)
 
-            if (!data.success) {
+            if (!res.ok || !data.success || !data.data?.url) {
                 throw new Error(data.error || 'Erro ao enviar flyer')
             }
 
@@ -673,7 +717,15 @@ function AdminCalendarioPageContent() {
 
                         <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                             <h3 className="font-semibold text-[#2a2a2a]">Sobrescrever preços por espaço</h3>
+                            <p className="text-xs text-[#8a5c3f]/80">
+                                Quantidade segue o cadastro em Espaços. Aqui você altera apenas preço e consumação desta data.
+                            </p>
                             <div className="space-y-3">
+                                <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">
+                                    <span />
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
+                                </div>
                                 {SPACE_OVERRIDE_FIELDS.map(space => {
                                     const override = form.priceOverrides[space.id]
                                     return (
@@ -698,7 +750,7 @@ function AdminCalendarioPageContent() {
                                             <Input
                                                 type="text"
                                                 inputMode="decimal"
-                                                placeholder="R$ 0,00"
+                                                placeholder="Preço (R$)"
                                                 value={override.price}
                                                 onChange={(e) => setForm(prev => ({
                                                     ...prev,
@@ -728,7 +780,7 @@ function AdminCalendarioPageContent() {
                                             <Input
                                                 type="text"
                                                 inputMode="decimal"
-                                                placeholder="R$ 0,00"
+                                                placeholder="Consumação (R$)"
                                                 value={override.consumable}
                                                 onChange={(e) => setForm(prev => ({
                                                     ...prev,

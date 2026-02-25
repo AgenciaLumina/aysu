@@ -5,6 +5,8 @@ import { v4 as uuid } from 'uuid'
 import { uploadToR2 } from '@/lib/r2'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
+const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024
+
 export async function POST(request: NextRequest) {
     try {
         const authUser = getAuthUser(request)
@@ -28,10 +30,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Tipo de arquivo não permitido' }, { status: 400 })
         }
 
-        // Valida tamanho (max 10MB antes da conversão)
-        const maxSize = 10 * 1024 * 1024
-        if (file.size > maxSize) {
-            return NextResponse.json({ success: false, error: 'Arquivo muito grande. Máximo 10MB.' }, { status: 400 })
+        // Mantém limite alinhado ao runtime de produção para evitar erro de payload no proxy
+        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+            return NextResponse.json({ success: false, error: 'Arquivo muito grande. Máximo 4MB.' }, { status: 400 })
         }
 
         // Converte para buffer
