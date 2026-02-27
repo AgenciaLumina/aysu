@@ -14,6 +14,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Phone,
+    MessageSquare,
     MoreVertical,
     Loader2,
     Bell
@@ -34,6 +35,7 @@ interface Reservation {
     date: string
     time: string
     totalPrice: number
+    notes?: string | null
     status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
     source: 'online' | 'manual'
 }
@@ -46,6 +48,7 @@ interface PendingReservation {
     date: string
     totalPrice: number
     createdAt: string
+    notes?: string | null
 }
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -465,6 +468,11 @@ export default function FrenteDeCaixaPage() {
                                             </span>
                                             <span className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</span>
                                         </div>
+                                        {reservation.notes && (
+                                            <p className="text-xs text-[#8a5c3f] mt-1 line-clamp-2">
+                                                <span className="font-semibold text-[#6c4531]">Obs:</span> {reservation.notes}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 ml-14 md:ml-0">
@@ -562,6 +570,12 @@ export default function FrenteDeCaixaPage() {
                                                     <Phone className="h-3 w-3" />
                                                     <span>{reservation.customerPhone}</span>
                                                 </div>
+                                                {reservation.notes && (
+                                                    <div className="flex items-start gap-2 text-sm text-[#8a5c3f] mt-1">
+                                                        <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                                        <span className="line-clamp-2">{reservation.notes}</span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Space */}

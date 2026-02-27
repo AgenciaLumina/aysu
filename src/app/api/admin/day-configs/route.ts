@@ -60,28 +60,45 @@ export async function POST(request: NextRequest) {
         }
 
         const payload = validation.data
+        const dbDate = toDbDate(payload.date)
         const ticketLots = parseTicketLots(payload.ticketLots)
 
-        const created = await prisma.reservationDayConfig.create({
-            data: {
-                date: toDbDate(payload.date),
-                status: payload.status,
-                reservationsEnabled: payload.reservationsEnabled,
-                title: payload.title?.trim() || null,
-                release: payload.release?.trim() || null,
-                flyerImageUrl: payload.flyerImageUrl?.trim() || null,
-                highlightOnHome: payload.highlightOnHome,
-                priceOverrides: toJsonValueOrNull(payload.priceOverrides),
-                ticketLots: toJsonValueOrNull(ticketLots),
-                reservableItems: toJsonValueOrNull(payload.reservableItems ?? DEFAULT_RESERVABLE_ITEMS),
-            },
+        const existingConfig = await prisma.reservationDayConfig.findUnique({
+            where: { date: dbDate },
+            select: { id: true },
         })
+
+        const baseData = {
+            status: payload.status,
+            reservationsEnabled: payload.reservationsEnabled,
+            title: payload.title?.trim() || null,
+            release: payload.release?.trim() || null,
+            flyerImageUrl: payload.flyerImageUrl?.trim() || null,
+            highlightOnHome: payload.highlightOnHome,
+            priceOverrides: toJsonValueOrNull(payload.priceOverrides),
+            ticketLots: toJsonValueOrNull(ticketLots),
+            reservableItems: toJsonValueOrNull(payload.reservableItems ?? DEFAULT_RESERVABLE_ITEMS),
+        }
+
+        const saved = existingConfig
+            ? await prisma.reservationDayConfig.update({
+                where: { id: existingConfig.id },
+                data: baseData,
+            })
+            : await prisma.reservationDayConfig.create({
+                data: {
+                    date: dbDate,
+                    ...baseData,
+                },
+            })
 
         return NextResponse.json<ApiResponse>({
             success: true,
-            data: parseDayConfig(created),
-            message: 'Configuração de data criada com sucesso',
-        }, { status: 201 })
+            data: parseDayConfig(saved),
+            message: existingConfig
+                ? 'Configuração desta data atualizada com sucesso'
+                : 'Configuração de data criada com sucesso',
+        }, { status: existingConfig ? 200 : 201 })
     } catch (error: unknown) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             return NextResponse.json<ApiResponse>(

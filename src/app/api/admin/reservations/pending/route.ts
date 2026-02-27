@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
             })(),
             totalPrice: Number(r.totalPrice),
             createdAt: r.createdAt.toISOString(),
+            notes: r.notes,
         }))
 
         return NextResponse.json({ success: true, data: formatted, count: formatted.length })

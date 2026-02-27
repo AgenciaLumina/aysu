@@ -46,15 +46,11 @@ async function main() {
         { name: 'Bangalô Frente Mar 4', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
         // Bangalô Central (Galera) - 1 unidade
         { name: 'Bangalô Central Galera', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)', imageUrl: '/espacos/bangalo10.jpeg' },
-        // Sunbed - 8 unidades
+        // Sunbed - 4 unidades
         { name: 'Sunbed Casal 1', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 3', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 4', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 5', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 6', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 7', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 8', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 1.000)', imageUrl: '/espacos/Sunbeds.jpeg' },
     ]
 
     for (const cabin of cabins) {

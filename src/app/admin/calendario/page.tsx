@@ -436,7 +436,7 @@ function AdminCalendarioPageContent() {
                 throw new Error(data.error || 'Erro ao salvar')
             }
 
-            toast.success(editingConfig ? 'Configuração atualizada' : 'Configuração criada')
+            toast.success(data.message || (editingConfig ? 'Configuração atualizada' : 'Configuração criada'))
             setIsModalOpen(false)
             fetchConfigs()
         } catch (error: unknown) {
