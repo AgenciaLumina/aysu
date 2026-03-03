@@ -51,6 +51,33 @@ async function main() {
         { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 3', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
         { name: 'Sunbed Casal 4', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        // Mesa Restaurante Interno - 4 unidades
+        ...Array.from({ length: 4 }, (_, idx) => ({
+            name: `Mesa Restaurante Interno ${idx + 1}`,
+            capacity: 6,
+            pricePerHour: 160,
+            category: 'MESA' as const,
+            description: 'Mesa interna para 4-6 pessoas. Valor R$ 160 (consumação R$ 100).',
+            imageUrl: '/espacos/bangalo-lateral.jpg',
+        })),
+        // Mesa Praia - 4 unidades
+        ...Array.from({ length: 4 }, (_, idx) => ({
+            name: `Mesa Praia ${idx + 1}`,
+            capacity: 4,
+            pricePerHour: 160,
+            category: 'MESA' as const,
+            description: 'Mesa pé na areia para 2-4 pessoas. Valor R$ 160 (consumação R$ 100).',
+            imageUrl: '/espacos/Sunbeds.jpeg',
+        })),
+        // Day Use Praia com Espreguiçadeira - 20 unidades
+        ...Array.from({ length: 20 }, (_, idx) => ({
+            name: `Day Use Praia com Espreguiçadeira ${idx + 1}`,
+            capacity: 1,
+            pricePerHour: 160,
+            category: 'MESA' as const,
+            description: 'Day Use com espreguiçadeira. Valor R$ 160 (consumação R$ 100).',
+            imageUrl: '/espacos/Sunbeds.jpeg',
+        })),
     ]
 
     for (const cabin of cabins) {

@@ -131,10 +131,10 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/bangalo-lateral.jpg',
         capacity: '4 a 6 pessoas',
         capacityNum: 6,
-        dailyPrice: 120,
+        dailyPrice: 160,
         consumable: 100,
-        holidayPrice: 200,
-        holidayConsumable: 150,
+        holidayPrice: 160,
+        holidayConsumable: 100,
         description: 'Mesa interna com serviço completo para grupo',
         units: 4,
         category: 'mesa',
@@ -148,12 +148,12 @@ const spaceTypes: SpaceType[] = [
         image: '/espacos/Sunbeds.jpeg',
         capacity: '2 a 4 pessoas',
         capacityNum: 4,
-        dailyPrice: 120,
+        dailyPrice: 160,
         consumable: 100,
-        holidayPrice: 200,
-        holidayConsumable: 150,
+        holidayPrice: 160,
+        holidayConsumable: 100,
         description: 'Mesa pé na areia com cobertura e atendimento',
-        units: 8,
+        units: 4,
         category: 'mesa',
         tier: 'social',
     },
@@ -352,9 +352,8 @@ export default function ReservasPage() {
     }
 
     const getDayUsePricing = (date: Date | null) => {
-        const isDateHoliday = date ? isHoliday(date) : false
-        const basePrice = isDateHoliday ? 200 : 120
-        const baseConsumable = isDateHoliday ? 150 : 100
+        const basePrice = 160
+        const baseConsumable = 100
 
         if (!date) {
             return {
@@ -902,15 +901,15 @@ export default function ReservasPage() {
                                     PULSEIRA PRATA
                                 </span>
                                 <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-50 text-amber-700">
-                                    Limite 40 pessoas
+                                    Limite 20 pessoas
                                 </span>
                             </div>
 
                             <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
-                                {effectiveSelectedDate && isHoliday(effectiveSelectedDate) ? 'Day Use Especial' : 'Day Use Praia'}
+                                Day Use Praia com Espreguiçadeira
                             </h3>
                             <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
-                                Espreguiçadeira + Guarda-sol • Mesas de praia (8)
+                                Espreguiçadeira + Guarda-sol • Mesas de praia (4)
                             </p>
 
                             <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>

@@ -34,11 +34,11 @@ export default function AdminDayUsePage() {
     const [configs, setConfigs] = useState<DayUseConfig[]>([
         {
             id: 'day-use-especial',
-            name: 'Day Use Evento/Feriado',
-            description: 'Espreguiçadeira + Guarda-sol • Mesas de praia (8)',
-            price: 200,
-            consumable: 150,
-            limit: '40 pessoas',
+            name: 'Day Use Praia com Espreguiçadeira',
+            description: 'Espreguiçadeira + Guarda-sol • Mesas de praia (4)',
+            price: 160,
+            consumable: 100,
+            limit: '20 pessoas',
             icon: 'beach',
             isActive: true,
         },
@@ -46,8 +46,8 @@ export default function AdminDayUsePage() {
             id: 'mesas-restaurante',
             name: 'Mesas de Restaurante',
             description: 'Para 4 a 6 pessoas • 4 mesas',
-            price: 200,
-            consumable: 150,
+            price: 160,
+            consumable: 100,
             limit: '4 mesas',
             icon: 'restaurant',
             isActive: true,
@@ -57,8 +57,8 @@ export default function AdminDayUsePage() {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        price: '200',
-        consumable: '150',
+        price: '160',
+        consumable: '100',
         limit: '',
         icon: 'beach' as 'beach' | 'restaurant' | 'custom',
     })
@@ -79,8 +79,8 @@ export default function AdminDayUsePage() {
             setFormData({
                 name: '',
                 description: '',
-                price: '200',
-                consumable: '150',
+                price: '160',
+                consumable: '100',
                 limit: '',
                 icon: 'beach',
             })
@@ -346,7 +346,7 @@ export default function AdminDayUsePage() {
                             label="Limite/Disponibilidade"
                             value={formData.limit}
                             onChange={(e) => setFormData(p => ({ ...p, limit: e.target.value }))}
-                            placeholder="Ex: 40 pessoas, 4 mesas..."
+                            placeholder="Ex: 20 pessoas, 4 mesas..."
                             required
                         />
 

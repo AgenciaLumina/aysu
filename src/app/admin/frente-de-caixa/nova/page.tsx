@@ -25,7 +25,7 @@ const SPACES: Space[] = [
     { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', dailyPrice: 720, holidayPrice: 1800, capacity: '6-8 pessoas' },
     { id: 'bangalo-central', name: 'Bangalô Central (Galera)', dailyPrice: 1500, holidayPrice: 2500, capacity: '10 pessoas' },
     { id: 'sunbed-casal', name: 'Sunbed Casal', dailyPrice: 250, holidayPrice: 500, capacity: '2 pessoas' },
-    { id: 'day-use-praia', name: 'Day Use Praia', dailyPrice: 120, holidayPrice: 200, capacity: '1 pessoa' },
+    { id: 'day-use-praia', name: 'Day Use Praia', dailyPrice: 160, holidayPrice: 160, capacity: '1 pessoa' },
 ]
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
