@@ -10,6 +10,7 @@ import {
     Search, Filter, ChevronDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 interface MediaFile {
     key: string
@@ -62,8 +63,15 @@ export default function AdminMediaPage() {
 
         for (const file of Array.from(fileList)) {
             try {
+                const validationError = validateImageUpload(file)
+                if (validationError) {
+                    toast.error(`${file.name}: ${validationError}`)
+                    continue
+                }
+
                 const formData = new FormData()
-                formData.append('file', file)
+                const optimizedFile = await optimizeImageBeforeUpload(file)
+                formData.append('file', optimizedFile)
                 formData.append('folder', selectedFolder.replace('/', ''))
 
                 const res = await fetch('/api/upload', {
@@ -71,12 +79,12 @@ export default function AdminMediaPage() {
                     body: formData,
                 })
 
-                const data = await res.json()
+                const data = await readUploadApiResponse(res)
 
-                if (data.success) {
+                if (res.ok && data.success) {
                     toast.success(`${file.name} convertido e enviado!`)
                 } else {
-                    toast.error(`Erro: ${file.name}`)
+                    toast.error(`Erro (${file.name}): ${data.error || 'falha desconhecida'}`)
                 }
             } catch (error) {
                 console.error('Upload error:', error)

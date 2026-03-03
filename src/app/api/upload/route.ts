@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import { uploadToR2 } from '@/lib/r2'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
-const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,14 +25,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Valida tipo de arquivo
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
-        if (!allowedTypes.includes(file.type)) {
+        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
             return NextResponse.json({ success: false, error: 'Tipo de arquivo não permitido' }, { status: 400 })
-        }
-
-        // Mantém limite alinhado ao runtime de produção para evitar erro de payload no proxy
-        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-            return NextResponse.json({ success: false, error: 'Arquivo muito grande. Máximo 4MB.' }, { status: 400 })
         }
 
         // Converte para buffer
@@ -41,18 +35,24 @@ export async function POST(request: NextRequest) {
 
         // Converte para AVIF otimizado
         const avifBuffer = await sharp(inputBuffer)
-            .resize(1200, 1200, {
+            .rotate()
+            .resize(2200, 2200, {
                 fit: 'inside',
                 withoutEnlargement: true
             })
             .avif({
-                quality: 75,
+                quality: 72,
                 effort: 6
             })
             .toBuffer()
 
         // Gera nome único
-        const folder = formData.get('folder') as string || 'menu'
+        const requestedFolder = formData.get('folder')
+        const normalizedFolder =
+            typeof requestedFolder === 'string'
+                ? requestedFolder.trim().replace(/^\/+|\/+$/g, '')
+                : ''
+        const folder = normalizedFolder && /^[a-zA-Z0-9/_-]+$/.test(normalizedFolder) ? normalizedFolder : 'menu'
         const filename = `${folder}/${uuid()}.avif`
 
         // Upload para R2
@@ -76,8 +76,33 @@ export async function POST(request: NextRequest) {
                 compressionRatio: Math.round((1 - result.size / file.size) * 100),
             },
         })
-    } catch (error) {
-        console.error('[Upload R2 Error]', error)
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : ''
+        console.error('[Upload R2 Error]', message || error)
+
+        const normalizedMessage = message.toLowerCase()
+        if (
+            normalizedMessage.includes('unsupported image format') ||
+            normalizedMessage.includes('input file contains unsupported image format') ||
+            normalizedMessage.includes('unsupported file type')
+        ) {
+            return NextResponse.json(
+                { success: false, error: 'Formato inválido. Use JPG, PNG, WebP, GIF ou AVIF.' },
+                { status: 400 }
+            )
+        }
+
+        if (
+            normalizedMessage.includes('configuração do r2') ||
+            normalizedMessage.includes('credential') ||
+            normalizedMessage.includes('access key')
+        ) {
+            return NextResponse.json(
+                { success: false, error: 'Configuração de storage inválida. Verifique as variáveis do R2.' },
+                { status: 500 }
+            )
+        }
+
         return NextResponse.json({ success: false, error: 'Erro ao fazer upload' }, { status: 500 })
     }
 }

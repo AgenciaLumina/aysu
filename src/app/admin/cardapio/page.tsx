@@ -13,6 +13,7 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 interface MenuItem {
     id: string
@@ -132,16 +133,25 @@ export default function AdminMenuPage() {
         const file = e.target.files?.[0]
         if (!file) return
 
+        const validationError = validateImageUpload(file)
+        if (validationError) {
+            toast.error(validationError)
+            e.target.value = ''
+            return
+        }
+
         setUploading(true)
+        const optimizedFile = await optimizeImageBeforeUpload(file)
         const formDataUpload = new FormData()
-        formDataUpload.append('file', file)
+        formDataUpload.append('file', optimizedFile)
         formDataUpload.append('folder', 'menu')
 
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload })
-            const data = await res.json()
-            if (data.success) {
-                setFormData(p => ({ ...p, imageUrl: data.data.url }))
+            const data = await readUploadApiResponse(res)
+            const imageUrl = data.data?.url
+            if (res.ok && data.success && typeof imageUrl === 'string' && imageUrl) {
+                setFormData(p => ({ ...p, imageUrl }))
                 toast.success('Imagem enviada!')
             } else {
                 toast.error(data.error || 'Erro no upload')
@@ -150,6 +160,7 @@ export default function AdminMenuPage() {
             toast.error('Erro ao enviar imagem')
         } finally {
             setUploading(false)
+            e.target.value = ''
         }
     }
 

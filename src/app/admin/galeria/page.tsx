@@ -8,6 +8,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import toast from 'react-hot-toast'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 interface GalleryImage {
     id: string
@@ -58,19 +59,27 @@ export default function AdminGalleryPage() {
 
         for (const file of Array.from(files)) {
             try {
+                const validationError = validateImageUpload(file)
+                if (validationError) {
+                    toast.error(`${file.name}: ${validationError}`)
+                    continue
+                }
+
                 // 1. Upload to R2
+                const optimizedFile = await optimizeImageBeforeUpload(file)
                 const formData = new FormData()
-                formData.append('file', file)
+                formData.append('file', optimizedFile)
                 formData.append('folder', 'gallery')
 
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData,
                 })
-                const uploadData = await uploadRes.json()
+                const uploadData = await readUploadApiResponse(uploadRes)
 
-                if (!uploadData.success) {
-                    toast.error(`Erro ao fazer upload: ${file.name}`)
+                const imageUrl = uploadData.data?.url
+                if (!uploadRes.ok || !uploadData.success || typeof imageUrl !== 'string' || !imageUrl) {
+                    toast.error(`Erro ao fazer upload (${file.name}): ${uploadData.error || 'falha desconhecida'}`)
                     continue
                 }
 
@@ -79,7 +88,7 @@ export default function AdminGalleryPage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        imageUrl: uploadData.data.url,
+                        imageUrl,
                         caption: '',
                     }),
                 })
@@ -260,7 +269,7 @@ export default function AdminGalleryPage() {
                             Arraste imagens aqui ou clique no botão acima
                         </p>
                         <p className="text-xs text-[#b0a090]">
-                            Suporta JPG, PNG, WebP • Máximo 10MB por imagem
+                            Suporta JPG, PNG, WebP, GIF, AVIF • Otimização automática para AVIF/WebP
                         </p>
                     </div>
                 )}

@@ -15,6 +15,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import type { DayConfigPayload } from '@/lib/day-config'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 const STATUS_OPTIONS = [
     { value: 'NORMAL', label: 'Operação Normal', badge: 'secondary' as const },
@@ -146,44 +147,6 @@ function formatCurrencyInput(value: string): string {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })
-}
-
-const MAX_FLYER_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024
-
-type UploadResponse = {
-    success?: boolean
-    error?: string
-    data?: {
-        url?: string
-    }
-}
-
-async function readUploadResponse(response: Response): Promise<UploadResponse> {
-    const bodyText = await response.text()
-
-    if (!bodyText) {
-        return {
-            success: false,
-            error: `Falha no upload (HTTP ${response.status})`,
-        }
-    }
-
-    try {
-        return JSON.parse(bodyText) as UploadResponse
-    } catch {
-        const normalized = bodyText.toLowerCase()
-        if (response.status === 413 || normalized.includes('request entity too large')) {
-            return {
-                success: false,
-                error: 'Arquivo muito grande. Use uma imagem de até 4 MB.',
-            }
-        }
-
-        return {
-            success: false,
-            error: `Falha no upload (HTTP ${response.status})`,
-        }
-    }
 }
 
 function AdminCalendarioPageContent() {
@@ -334,8 +297,9 @@ function AdminCalendarioPageContent() {
         const file = e.target.files?.[0]
         if (!file) return
 
-        if (file.size > MAX_FLYER_UPLOAD_SIZE_BYTES) {
-            toast.error('Arquivo muito grande. Envie um flyer de até 4 MB.')
+        const validationError = validateImageUpload(file)
+        if (validationError) {
+            toast.error(validationError)
             e.target.value = ''
             return
         }
@@ -343,8 +307,9 @@ function AdminCalendarioPageContent() {
         setUploadingFlyer(true)
 
         try {
+            const optimizedFile = await optimizeImageBeforeUpload(file)
             const formData = new FormData()
-            formData.append('file', file)
+            formData.append('file', optimizedFile)
             formData.append('folder', 'events')
 
             const res = await fetch('/api/upload', {
@@ -352,7 +317,7 @@ function AdminCalendarioPageContent() {
                 credentials: 'include',
                 body: formData,
             })
-            const data = await readUploadResponse(res)
+            const data = await readUploadApiResponse(res)
 
             const uploadedUrl = data.data?.url
             if (!res.ok || !data.success || typeof uploadedUrl !== 'string' || !uploadedUrl) {

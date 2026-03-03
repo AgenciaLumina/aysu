@@ -3,10 +3,11 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Upload, FolderOpen, Check, Loader2, ChevronDown } from 'lucide-react'
+import { Upload, FolderOpen, Check, Loader2 } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from './Modal'
 import { Button } from './Button'
 import toast from 'react-hot-toast'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 interface MediaFile {
     key: string
@@ -72,8 +73,16 @@ export function MediaPicker({ open, onClose, onSelect, defaultFolder = '' }: Med
         const file = fileList[0]
 
         try {
+            const validationError = validateImageUpload(file)
+            if (validationError) {
+                toast.error(validationError)
+                return
+            }
+
+            const optimizedFile = await optimizeImageBeforeUpload(file)
+
             const formData = new FormData()
-            formData.append('file', file)
+            formData.append('file', optimizedFile)
             formData.append('folder', currentFolder.replace('/', '') || 'gallery')
 
             const res = await fetch('/api/upload', {
@@ -81,16 +90,17 @@ export function MediaPicker({ open, onClose, onSelect, defaultFolder = '' }: Med
                 body: formData,
             })
 
-            const data = await res.json()
+            const data = await readUploadApiResponse(res)
 
-            if (data.success) {
+            const uploadedUrl = data.data?.url
+            if (res.ok && data.success && typeof uploadedUrl === 'string' && uploadedUrl) {
                 toast.success('Upload concluído!')
-                onSelect(data.data.url)
+                onSelect(uploadedUrl)
                 onClose()
             } else {
                 toast.error('Erro no upload: ' + (data.error || 'desconhecido'))
             }
-        } catch (error) {
+        } catch {
             toast.error('Erro ao fazer upload')
         } finally {
             setUploading(false)

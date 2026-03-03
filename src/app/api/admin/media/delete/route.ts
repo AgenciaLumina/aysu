@@ -1,19 +1,8 @@
 // AISSU Beach Lounge - API para Deletar Arquivo do R2
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
-
-// Construir endpoint do R2 a partir do account ID
-const R2_ENDPOINT = process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-
-const client = new S3Client({
-    region: 'auto',
-    endpoint: R2_ENDPOINT,
-    credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-})
+import { R2_CONFIG, r2Client } from '@/lib/r2'
 
 export async function DELETE(request: NextRequest) {
     try {
@@ -35,11 +24,11 @@ export async function DELETE(request: NextRequest) {
         }
 
         const command = new DeleteObjectCommand({
-            Bucket: process.env.R2_BUCKET || process.env.R2_BUCKET_NAME!,
+            Bucket: R2_CONFIG.bucket,
             Key: key,
         })
 
-        await client.send(command)
+        await r2Client.send(command)
 
         return NextResponse.json({
             success: true,
