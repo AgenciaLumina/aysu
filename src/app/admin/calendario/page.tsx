@@ -19,9 +19,9 @@ import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload }
 
 const STATUS_OPTIONS = [
     { value: 'NORMAL', label: 'Operação Normal', badge: 'secondary' as const },
-    { value: 'EVENT', label: 'Evento Aberto', badge: 'info' as const },
-    { value: 'PRIVATE_EVENT', label: 'Evento Privado', badge: 'warning' as const },
-    { value: 'BLOCKED', label: 'Bloqueado', badge: 'error' as const },
+    { value: 'EVENT', label: 'Evento da Casa (Ingressos)', badge: 'info' as const },
+    { value: 'PRIVATE_EVENT', label: 'Locação Privada (Fechado)', badge: 'warning' as const },
+    { value: 'BLOCKED', label: 'Bloqueado/Manutenção', badge: 'error' as const },
 ]
 
 const SPACE_OVERRIDE_FIELDS = [

@@ -243,8 +243,17 @@ function isDateSelectable(
 
     const dateStr = toLocalISODate(date)
     const config = dayConfigByDate[dateStr]
+    const isHouseEventOpen = config?.status === 'EVENT' && config.reservationsEnabled !== false
     const isClosedDate = closedDates.some((c) => c.date === dateStr)
-    const isBlocked = !!config && (!config.reservationsEnabled || config.status === 'BLOCKED')
+
+    // Evento da casa continua vendável mesmo com fechamento do público geral no calendário.
+    if (isHouseEventOpen) return true
+
+    const isBlocked = !!config && (
+        !config.reservationsEnabled ||
+        config.status === 'BLOCKED' ||
+        config.status === 'PRIVATE_EVENT'
+    )
 
     return !isClosedDate && !isBlocked
 }
@@ -438,7 +447,13 @@ export default function ReservasPage() {
             const holiday = isHoliday(dateStr)
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
             const dayConfig = dayConfigs.find(config => config.date === dateStr)
-            const isConfigBlocked = !!dayConfig && (!dayConfig.reservationsEnabled || dayConfig.status === 'BLOCKED')
+            const isHouseEventOpen = dayConfig?.status === 'EVENT' && dayConfig.reservationsEnabled !== false
+            const isConfigBlocked = !!dayConfig && (
+                !dayConfig.reservationsEnabled ||
+                dayConfig.status === 'BLOCKED' ||
+                dayConfig.status === 'PRIVATE_EVENT'
+            )
+            const isClosedByCalendar = !!closedInfo && !isHouseEventOpen
 
             days.push({
                 date,
@@ -446,8 +461,8 @@ export default function ReservasPage() {
                 isHoliday: !!holiday,
                 holidayName: holiday?.name,
                 isSoldOut: false,
-                isClosed: !!closedInfo || isConfigBlocked,
-                closedReason: closedInfo?.reason || dayConfig?.title || dayConfig?.release || undefined,
+                isClosed: isClosedByCalendar || isConfigBlocked,
+                closedReason: (isClosedByCalendar ? closedInfo?.reason : undefined) || dayConfig?.title || dayConfig?.release || undefined,
                 config: dayConfig,
             })
         }
