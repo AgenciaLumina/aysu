@@ -194,7 +194,7 @@ export default function UpcomingEventsSection() {
                             <article
                                 key={event.id}
                                 onClick={() => setSelectedEvent(event)}
-                                className={`rounded-2xl overflow-hidden border transition-all ${
+                                className={`rounded-2xl overflow-hidden border transition-all flex h-full flex-col ${
                                     isHighlighted
                                         ? 'bg-white border-[#d4a574] shadow-xl shadow-[#d4a574]/20 md:-translate-y-1 cursor-pointer'
                                         : 'bg-white/90 border-[#e0d5c7] shadow-md shadow-black/5 cursor-pointer'
@@ -226,7 +226,7 @@ export default function UpcomingEventsSection() {
                                     </span>
                                 </div>
 
-                                <div className="p-5">
+                                <div className="p-5 flex flex-1 flex-col">
                                     <div className="inline-flex items-center gap-1 text-xs text-[#8a5c3f] mb-2">
                                         <Calendar className="h-3.5 w-3.5" />
                                         {formatDate(event.startDate)}
@@ -238,42 +238,44 @@ export default function UpcomingEventsSection() {
                                         <p className="text-sm text-[#8a5c3f] line-clamp-3 mb-4">{event.description}</p>
                                     )}
 
-                                    {/* Preço + CTA */}
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#faf7f1] border border-[#efe4d4]">
-                                        <div className="text-xs text-[#8a5c3f]">
-                                            <p className="font-semibold text-[#2a2a2a] inline-flex items-center gap-1">
-                                                <Ticket className="h-3.5 w-3.5" />
-                                                Ingresso / Couvert
-                                            </p>
+                                    <div className="mt-auto pt-4 space-y-3">
+                                        {/* Preço + CTA */}
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#faf7f1] border border-[#efe4d4]">
+                                            <div className="text-xs text-[#8a5c3f]">
+                                                <p className="font-semibold text-[#2a2a2a] inline-flex items-center gap-1">
+                                                    <Ticket className="h-3.5 w-3.5" />
+                                                    Ingresso / Couvert
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-semibold text-[#2a2a2a]">
+                                                    {displayPrice !== null ? formatCurrency(Number(displayPrice)) : 'Consulte'}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-semibold text-[#2a2a2a]">
-                                                {displayPrice !== null ? formatCurrency(Number(displayPrice)) : 'Consulte'}
-                                            </p>
-                                        </div>
-                                    </div>
 
-                                    {/* Botão CTA */}
-                                    <div className="mt-3 grid grid-cols-2 gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                setSelectedEvent(event)
-                                            }}
-                                            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border border-[#d9c7b1] text-[#5c3d2e] bg-[#fffaf4] hover:bg-[#f5ebdf]"
-                                        >
-                                            Ver flyer
-                                        </button>
-                                        <Link
-                                            href={`/reservas?date=${eventDateStr}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
-                                            style={{ background: 'var(--aissu-chocolate, #5c3d2e)' }}
-                                        >
-                                            Reservar
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Link>
+                                        {/* Botão CTA */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setSelectedEvent(event)
+                                                }}
+                                                className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border border-[#d9c7b1] text-[#5c3d2e] bg-[#fffaf4] hover:bg-[#f5ebdf]"
+                                            >
+                                                Ver flyer
+                                            </button>
+                                            <Link
+                                                href={`/reservas?date=${eventDateStr}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
+                                                style={{ background: 'var(--aissu-chocolate, #5c3d2e)' }}
+                                            >
+                                                Reservar
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Link>
+                                        </div>
                                     </div>
                                 </div>
                             </article>
