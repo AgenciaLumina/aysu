@@ -373,6 +373,47 @@ model GalleryImage {
   @@index([displayOrder])
 }
 
+// Portfólio de eventos realizados (Galeria de Eventos pública)
+model EventGallery {
+  id               String             @id @default(uuid())
+  title            String
+  slug             String             @unique
+  eventDate        DateTime?          @db.Date
+  shortDescription String?
+  description      String?
+  coverImageUrl    String?
+  ctaText          String?
+  ctaHref          String?
+  isActive         Boolean            @default(true)
+  displayOrder     Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  images EventGalleryPhoto[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([displayOrder])
+  @@index([eventDate])
+}
+
+model EventGalleryPhoto {
+  id           String   @id @default(uuid())
+  galleryId    String
+  imageUrl     String
+  caption      String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gallery EventGallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@index([galleryId])
+  @@index([displayOrder])
+  @@index([isActive])
+}
+
 // Datas Fechadas (Evento Fechado - sem abertura ao público)
 model ClosedDate {
   id        String   @id @default(uuid())

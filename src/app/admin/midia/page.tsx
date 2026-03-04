@@ -24,6 +24,7 @@ const FOLDERS = [
     { value: 'menu/', label: '🍽️ Cardápio' },
     { value: 'cabins/', label: '🏖️ Bangalôs' },
     { value: 'gallery/', label: '📸 Galeria' },
+    { value: 'galeria-eventos/', label: '🎉 Galeria de Eventos' },
     { value: 'eventos/', label: '🎉 Eventos' },
 ]
 

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
     Calendar, Users, DollarSign, UtensilsCrossed, Music,
-    TrendingUp, CheckCircle, AlertCircle, ChevronRight, ImageIcon, FolderOpen, MessageSquare
+    TrendingUp, CheckCircle, AlertCircle, ChevronRight, ImageIcon, FolderOpen, MessageSquare, Images
 } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
@@ -86,6 +86,7 @@ export default function AdminDashboardPage() {
         { href: '/admin/reservas', icon: Calendar, label: 'Reservas', description: 'Gerenciar reservas' },
         { href: '/admin/cardapio', icon: UtensilsCrossed, label: 'Cardápio', description: 'Gerenciar itens' },
         { href: '/admin/galeria', icon: ImageIcon, label: 'Galeria', description: 'Fotos do Instagram' },
+        { href: '/admin/galeria-eventos', icon: Images, label: 'Galeria de Eventos', description: 'Portfólio de eventos' },
         { href: '/admin/midia', icon: FolderOpen, label: 'Mídia R2', description: 'Arquivos CDN' },
         { href: '/admin/eventos', icon: Music, label: 'Eventos', description: 'Gerenciar programação' },
     ]

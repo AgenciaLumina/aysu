@@ -7,6 +7,7 @@ const footerLinks = {
         { href: '/reservas', label: 'Reservas' },
         { href: '/cardapio', label: 'Cardápio' },
         { href: '/midia', label: 'Na Mídia' },
+        { href: '/galeria-eventos', label: 'Galeria de Eventos' },
         { href: '/eventos', label: 'Faça seu Evento' },
     ],
     legal: [

@@ -176,6 +176,46 @@ export const updateEventSchema = createEventSchema.partial().extend({
 })
 
 // ============================================================
+// EVENT GALLERIES (PORTFÓLIO)
+// ============================================================
+
+const optionalEventGalleryDateSchema = z
+    .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (YYYY-MM-DD)'), z.literal('')])
+    .optional()
+
+const eventGalleryPhotoSchema = z.object({
+    imageUrl: mediaUrlOrPathSchema,
+    caption: z.string().max(300, 'Legenda muito longa').optional().or(z.literal('')),
+    displayOrder: z.number().int().nonnegative().optional(),
+})
+
+const optionalCtaHrefSchema = z
+    .union([z.string().trim(), z.literal('')])
+    .optional()
+    .refine((value) => {
+        if (!value) return true
+        return value.startsWith('/') || isHttpUrl(value)
+    }, {
+        message: 'Link de CTA inválido. Use caminho "/..." ou URL http(s).',
+    })
+
+export const createEventGallerySchema = z.object({
+    title: z.string().trim().min(1, 'Título é obrigatório').max(150, 'Título muito longo'),
+    slug: z.string().trim().min(1, 'Slug é obrigatório').regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido'),
+    eventDate: optionalEventGalleryDateSchema,
+    shortDescription: z.string().max(220, 'Resumo muito longo').optional().or(z.literal('')),
+    description: z.string().max(10000, 'Descrição muito longa').optional().or(z.literal('')),
+    coverImageUrl: optionalMediaUrlOrPathSchema,
+    ctaText: z.string().max(60, 'CTA muito longo').optional().or(z.literal('')),
+    ctaHref: optionalCtaHrefSchema,
+    isActive: z.boolean().default(true),
+    displayOrder: z.number().int().nonnegative().optional(),
+    images: z.array(eventGalleryPhotoSchema).max(200, 'Máximo de 200 fotos').optional(),
+})
+
+export const updateEventGallerySchema = createEventGallerySchema.partial()
+
+// ============================================================
 // DAY CONFIGS (CALENDÁRIO AVANÇADO)
 // ============================================================
 

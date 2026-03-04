@@ -17,6 +17,7 @@ import {
     User,
     CreditCard,
     ImageIcon,
+    Images,
     FolderOpen,
     Music
 } from 'lucide-react'
@@ -47,6 +48,7 @@ const navItems = [
     { href: '/admin/calendario', label: 'Comercial', icon: CalendarDays },
     { href: '/admin/menu-gallery', label: 'Galeria Menu', icon: ImageIcon },
     { href: '/admin/galeria', label: 'Galeria Site', icon: ImageIcon },
+    { href: '/admin/galeria-eventos', label: 'Galeria de Eventos', icon: Images },
     { href: '/admin/midia', label: 'Mídia R2', icon: FolderOpen },
     { href: '/admin/espacos', label: 'Espaços', icon: Home },
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },

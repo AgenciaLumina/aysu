@@ -15,6 +15,7 @@ const navLinks = [
     { href: '/cardapio', label: 'Cardápio' },
     { href: '/experiencias', label: 'Experiências' },
     { href: '/midia', label: 'Na Mídia' },
+    { href: '/galeria-eventos', label: 'Galeria de Eventos' },
     { href: '/eventos', label: 'Faça seu Evento' },
 ]
 
