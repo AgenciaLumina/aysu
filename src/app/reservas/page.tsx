@@ -12,7 +12,7 @@ import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
-import type { DayConfigPayload, ReservationGlobalConfigPayload } from '@/lib/day-config'
+import type { DayConfigPayload, ReservationGlobalConfigPayload, TicketLot } from '@/lib/day-config'
 import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace } from '@/lib/day-config'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
 import { resolveCabinSlug } from '@/lib/space-slugs'
@@ -187,6 +187,46 @@ const formatDateBR = (date: Date) => {
 
 const formatDateShort = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+}
+
+const formatDateOnlyBR = (isoDate: string) => {
+    const [year, month, day] = isoDate.split('-')
+    if (!year || !month || !day) return isoDate
+    return `${day}/${month}/${year}`
+}
+
+const getSaoPauloDateISO = (date: Date = new Date()) =>
+    new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date)
+
+interface LotReservationGate {
+    isBlocked: boolean
+    reason: 'not_started' | 'sold_out' | null
+    nextAvailableDate: string | null
+}
+
+function getLotReservationGate(lots: TicketLot[]): LotReservationGate {
+    if (!lots.length) return { isBlocked: false, reason: null, nextAvailableDate: null }
+
+    const availableLots = lots
+        .filter((lot) => !lot.soldOut)
+        .sort((a, b) => a.endsAt.localeCompare(b.endsAt))
+
+    if (!availableLots.length) return { isBlocked: true, reason: 'sold_out', nextAvailableDate: null }
+
+    const todaySaoPaulo = getSaoPauloDateISO()
+    const activeLot = [...availableLots].reverse().find((lot) => lot.endsAt <= todaySaoPaulo) ?? null
+    const upcomingLot = availableLots.find((lot) => lot.endsAt > todaySaoPaulo) ?? null
+
+    if (!activeLot && upcomingLot) {
+        return { isBlocked: true, reason: 'not_started', nextAvailableDate: upcomingLot.endsAt }
+    }
+
+    return { isBlocked: false, reason: null, nextAvailableDate: null }
 }
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -410,6 +450,7 @@ export default function ReservasPage() {
     const selectedDateConfig = effectiveSelectedDate
         ? dayConfigByDate[toLocalISODate(effectiveSelectedDate)] ?? null
         : null
+    const lotReservationGate = getLotReservationGate(selectedDateConfig?.ticketLots ?? [])
 
 
 
@@ -480,6 +521,8 @@ export default function ReservasPage() {
     }
 
     const handleReserve = () => {
+        if (lotReservationGate.isBlocked) return
+
         if (effectiveSelectedDate && selectedSpace) {
             const { finalPrice, finalConsumable } = getSpacePricing(selectedSpace, effectiveSelectedDate)
 
@@ -503,6 +546,13 @@ export default function ReservasPage() {
         const now = new Date()
         return currentMonth > new Date(now.getFullYear(), now.getMonth(), 1)
     }, [currentMonth])
+
+    const lotBlockMessage =
+        lotReservationGate.reason === 'not_started' && lotReservationGate.nextAvailableDate
+            ? `Ingressos disponíveis a partir de ${formatDateOnlyBR(lotReservationGate.nextAvailableDate)} (horário de Brasília).`
+            : lotReservationGate.reason === 'sold_out'
+                ? 'Ingressos esgotados para esta data.'
+                : null
 
     return (
         <div className="min-h-screen bg-white">
@@ -718,7 +768,7 @@ export default function ReservasPage() {
                                                 <div key={`${lot.name}-${lot.endsAt}`} className="flex items-center justify-between text-sm">
                                                     <div>
                                                         <p className="font-medium text-sky-900">{lot.name}</p>
-                                                        <p className="text-sky-700">até {new Date(`${lot.endsAt}T12:00:00`).toLocaleDateString('pt-BR')}</p>
+                                                        <p className="text-sky-700">a partir de {new Date(`${lot.endsAt}T12:00:00`).toLocaleDateString('pt-BR')}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         {lot.soldOut ? (
@@ -773,7 +823,10 @@ export default function ReservasPage() {
                             (isDayUse && !reservableItems.dayUse)
                         )
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
-                        const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0) || blockedByRule || isLoadingAvailability
+                        const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)
+                            || blockedByRule
+                            || lotReservationGate.isBlocked
+                            || isLoadingAvailability
 
                         return (
                             <article
@@ -829,6 +882,20 @@ export default function ReservasPage() {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-slate-700 text-white">
                                                             Disponível somente em evento
+                                                        </span>
+                                                    )
+                                                }
+                                                if (lotReservationGate.reason === 'not_started' && lotReservationGate.nextAvailableDate) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white">
+                                                            Disponível em {formatDateOnlyBR(lotReservationGate.nextAvailableDate)}
+                                                        </span>
+                                                    )
+                                                }
+                                                if (lotReservationGate.reason === 'sold_out') {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-red-500/95 text-white">
+                                                            🚫 Lotes esgotados
                                                         </span>
                                                     )
                                                 }
@@ -977,14 +1044,27 @@ export default function ReservasPage() {
                                         )
                                     })()}
                                 </div>
-                                <button
-                                    onClick={handleReserve}
-                                    className="px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg"
-                                    style={{ backgroundColor: 'var(--aissu-chocolate)', color: 'white' }}
-                                >
-                                    Continuar
-                                    <ChevronRight className="h-5 w-5" />
-                                </button>
+                                <div className="flex flex-col items-end gap-1.5">
+                                    <button
+                                        onClick={handleReserve}
+                                        disabled={lotReservationGate.isBlocked}
+                                        className={`px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg ${
+                                            lotReservationGate.isBlocked ? 'cursor-not-allowed opacity-70' : ''
+                                        }`}
+                                        style={{
+                                            backgroundColor: lotReservationGate.isBlocked ? '#9ca3af' : 'var(--aissu-chocolate)',
+                                            color: 'white',
+                                        }}
+                                    >
+                                        Continuar
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                    {lotBlockMessage && (
+                                        <p className="text-[11px] text-amber-700 text-right max-w-[240px] leading-snug">
+                                            {lotBlockMessage}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
