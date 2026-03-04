@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { Suspense, useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
@@ -36,6 +36,7 @@ interface SpaceType {
     units: number
     category: 'bangalo' | 'sunbed' | 'mesa' | 'dayuse'
     tier: 'standard' | 'premium' | 'galera' | 'romantic' | 'social'
+    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
 }
 
 const spaceTypes: SpaceType[] = [
@@ -295,6 +296,12 @@ const getTierColor = (tier: SpaceType['tier']) => {
     }
 }
 
+function getVisibilityPriority(status?: SpaceType['visibilityStatus']): number {
+    if (status === 'HIDDEN') return 3
+    if (status === 'UNAVAILABLE') return 2
+    return 1
+}
+
 // ==========================================
 // COMPONENTE PRINCIPAL
 // ==========================================
@@ -342,7 +349,7 @@ function isDateSelectable(
     return !isClosedDate && !isBlocked
 }
 
-export default function ReservasPage() {
+function ReservasPageContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const dateParamFromQuery = searchParams.get('date')
@@ -366,7 +373,11 @@ export default function ReservasPage() {
     })
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
-    const [spaceUnits, setSpaceUnits] = useState<Record<string, number>>({})
+    const [spaceCatalog, setSpaceCatalog] = useState<Record<string, {
+        units: number
+        imageUrl?: string
+        visibilityStatus: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
+    }>>({})
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
 
     // Estado do modal de informação de data especial/bloqueada
@@ -398,19 +409,25 @@ export default function ReservasPage() {
         today.setHours(0, 0, 0, 0)
         if (parsedDate < today) return
 
-        setSelectedDate((prev) => {
-            if (prev && toLocalISODate(prev) === dateParamFromQuery) return prev
-            return parsedDate
+        const frameId = window.requestAnimationFrame(() => {
+            setSelectedDate((prev) => {
+                if (prev && toLocalISODate(prev) === dateParamFromQuery) return prev
+                return parsedDate
+            })
+
+            setCurrentMonth((prev) => {
+                const year = parsedDate.getFullYear()
+                const month = parsedDate.getMonth()
+                if (prev.getFullYear() === year && prev.getMonth() === month) return prev
+                return new Date(year, month, 1)
+            })
+
+            setSelectedSpace(null)
         })
 
-        setCurrentMonth((prev) => {
-            const year = parsedDate.getFullYear()
-            const month = parsedDate.getMonth()
-            if (prev.getFullYear() === year && prev.getMonth() === month) return prev
-            return new Date(year, month, 1)
-        })
-
-        setSelectedSpace(null)
+        return () => {
+            window.cancelAnimationFrame(frameId)
+        }
     }, [dateParamFromQuery])
 
     useEffect(() => {
@@ -455,13 +472,41 @@ export default function ReservasPage() {
             .then(data => {
                 if (!data.success || !Array.isArray(data.data)) return
 
-                const nextUnits: Record<string, number> = {}
-                data.data.forEach((cabin: { name: string; slug?: string | null; units?: number }) => {
+                const nextCatalog: Record<string, {
+                    units: number
+                    imageUrl?: string
+                    visibilityStatus: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
+                }> = {}
+
+                data.data.forEach((cabin: {
+                    name: string
+                    slug?: string | null
+                    units?: number
+                    imageUrl?: string | null
+                    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
+                }) => {
                     const slug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug })
                     if (!slug) return
-                    nextUnits[slug] = (nextUnits[slug] || 0) + Math.max(1, Number(cabin.units || 1))
+
+                    const current = nextCatalog[slug] || {
+                        units: 0,
+                        visibilityStatus: 'AVAILABLE' as const,
+                    }
+                    const nextStatus = cabin.visibilityStatus || 'AVAILABLE'
+
+                    current.units += Math.max(1, Number(cabin.units || 1))
+
+                    if (!current.imageUrl && typeof cabin.imageUrl === 'string' && cabin.imageUrl.trim()) {
+                        current.imageUrl = cabin.imageUrl.trim()
+                    }
+
+                    if (getVisibilityPriority(nextStatus) > getVisibilityPriority(current.visibilityStatus)) {
+                        current.visibilityStatus = nextStatus
+                    }
+
+                    nextCatalog[slug] = current
                 })
-                setSpaceUnits(nextUnits)
+                setSpaceCatalog(nextCatalog)
             })
             .catch(err => console.error('Erro ao buscar espaços ativos:', err))
     }, [])
@@ -521,6 +566,24 @@ export default function ReservasPage() {
         ? dayConfigByDate[toLocalISODate(selectedDate)] ?? null
         : null
     const lotReservationGate = getLotReservationGate(selectedDateConfig?.ticketLots ?? [])
+
+    const displaySpaces = useMemo(
+        () =>
+            spaceTypes
+                .map((space) => {
+                    const catalog = spaceCatalog[space.id]
+                    if (!catalog) return space
+
+                    return {
+                        ...space,
+                        image: catalog.imageUrl || space.image,
+                        units: catalog.units > 0 ? catalog.units : space.units,
+                        visibilityStatus: catalog.visibilityStatus,
+                    }
+                })
+                .filter((space) => space.visibilityStatus !== 'HIDDEN'),
+        [spaceCatalog]
+    )
 
 
 
@@ -913,7 +976,7 @@ export default function ReservasPage() {
 
                 {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {spaceTypes.map((space) => {
+                    {displaySpaces.map((space) => {
                         const { finalPrice, finalConsumable } = getSpacePricing(space, effectiveSelectedDate)
                         const availableCount = availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
@@ -927,9 +990,11 @@ export default function ReservasPage() {
                             (isBeachTable && !reservableItems.beachTables) ||
                             (isDayUse && !reservableItems.dayUse)
                         )
+                        const manuallyUnavailable = space.visibilityStatus === 'UNAVAILABLE'
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
                         const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)
                             || blockedByRule
+                            || manuallyUnavailable
                             || lotReservationGate.isBlocked
                             || isLoadingAvailability
 
@@ -990,6 +1055,13 @@ export default function ReservasPage() {
                                                         </span>
                                                     )
                                                 }
+                                                if (manuallyUnavailable) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-zinc-700 text-white">
+                                                            Indisponível
+                                                        </span>
+                                                    )
+                                                }
                                                 if (lotReservationGate.reason === 'not_started' && lotReservationGate.nextAvailableDate) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white">
@@ -1026,7 +1098,7 @@ export default function ReservasPage() {
                                             })()
                                         ) : (
                                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                                {(spaceUnits[space.id] ?? space.units)} {(spaceUnits[space.id] ?? space.units) === 1 ? 'unidade' : 'unidades'}
+                                                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
                                             </span>
                                         )}
                                     </div>
@@ -1197,5 +1269,13 @@ export default function ReservasPage() {
             {/* Footer */}
             <Footer />
         </div>
+    )
+}
+
+export default function ReservasPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#fdfbf8]" />}>
+            <ReservasPageContent />
+        </Suspense>
     )
 }
