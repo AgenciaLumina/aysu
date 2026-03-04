@@ -407,42 +407,9 @@ export default function ReservasPage() {
         }
     }
 
-    const getDayUsePricing = (date: Date | null) => {
-        const globalOverride = globalConfig?.priceOverrides?.['day-use-praia']
-        const basePrice = globalOverride?.price ?? 160
-        const baseConsumable = globalOverride?.consumable ?? 100
-
-        if (!date) {
-            return {
-                finalPrice: basePrice,
-                finalConsumable: baseConsumable,
-                isOverride: false,
-            }
-        }
-
-        const config = getDateConfig(date)
-        const override = getPriceOverrideForSpace(config, 'day-use-praia')
-
-        if (override) {
-            return {
-                finalPrice: override.price,
-                finalConsumable: override.consumable ?? baseConsumable,
-                isOverride: true,
-            }
-        }
-
-        return {
-            finalPrice: basePrice,
-            finalConsumable: baseConsumable,
-            isOverride: false,
-        }
-    }
-
     const selectedDateConfig = effectiveSelectedDate
         ? dayConfigByDate[toLocalISODate(effectiveSelectedDate)] ?? null
         : null
-
-    const dayUsePricing = getDayUsePricing(effectiveSelectedDate)
 
 
 
@@ -941,73 +908,6 @@ export default function ReservasPage() {
                             </article>
                         )
                     })}
-                </div>
-            </section>
-
-            {/* ==========================================
-                DAY USE - Elegante Info Section
-                ========================================== */}
-            <section className="py-20" style={{ backgroundColor: 'var(--aissu-cream)' }}>
-                <div className="max-w-5xl mx-auto px-6">
-                    {/* Header elegante */}
-                    <div className="text-center mb-16">
-                        <p className="text-sm font-medium tracking-widest uppercase mb-4" style={{ color: 'var(--aissu-terra)' }}>
-                            Ordem de Chegada
-                        </p>
-                        <h2 className="text-3xl md:text-4xl font-light mb-4" style={{ color: 'var(--aissu-chocolate)', fontFamily: 'var(--font-display)' }}>
-                            Experiência Day Use
-                        </h2>
-                        <p className="max-w-md mx-auto" style={{ color: 'var(--aissu-wood)' }}>
-                            Entrada por ordem de chegada. Mesas reserváveis aparecem no calendário quando a data/evento liberar.
-                        </p>
-                    </div>
-
-                    {/* Cards elegantes */}
-                    <div className="max-w-2xl mx-auto">
-                        {/* Day Use Praia */}
-                        <div className="group bg-white rounded-3xl p-8 shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-6">
-                                <span className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 shadow-sm">
-                                    PULSEIRA PRATA
-                                </span>
-                                <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-50 text-amber-700">
-                                    Limite 20 pessoas
-                                </span>
-                            </div>
-
-                            <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>
-                                Day Use Praia com Espreguiçadeira
-                            </h3>
-                            <p className="text-sm mb-8" style={{ color: 'var(--aissu-wood)' }}>
-                                Espreguiçadeira + Guarda-sol • Mesas de praia (4)
-                            </p>
-
-                            <div className="flex items-end gap-4 pt-6 border-t" style={{ borderColor: 'var(--aissu-border)' }}>
-                                <div>
-                                    <p className="text-3xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                        {formatCurrency(dayUsePricing.finalPrice)}
-                                    </p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--aissu-text-muted)' }}>por pessoa</p>
-                                </div>
-                                <div className="flex items-center gap-2 ml-auto px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                                    <span className="text-lg font-semibold text-emerald-600">
-                                        {formatCurrency(dayUsePricing.finalConsumable)}
-                                    </span>
-                                    <span className="text-xs text-emerald-600">consumação</span>
-                                </div>
-                            </div>
-                            {dayUsePricing.isOverride && (
-                                <p className="mt-3 text-xs font-medium text-sky-700">
-                                    Valor ajustado para este evento/data.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Nota informativa */}
-                    <p className="text-center text-sm mt-10" style={{ color: 'var(--aissu-text-muted)' }}>
-                        * A reserva de mesas pode ser liberada somente em datas/eventos específicos, conforme calendário.
-                    </p>
                 </div>
             </section>
 
