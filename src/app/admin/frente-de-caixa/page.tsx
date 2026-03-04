@@ -31,6 +31,7 @@ interface Reservation {
     id: string
     customerName: string
     customerEmail?: string | null
+    customerDocument?: string | null
     customerPhone: string
     spaceName: string
     spaceType: string
@@ -69,7 +70,7 @@ export default function FrenteDeCaixaPage() {
     const [approvalLoading, setApprovalLoading] = useState<string | null>(null)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
     const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
-    const dropdownRef = useRef<HTMLDivElement>(null)
+    const actionMenuRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
     const fetchPendingReservations = async () => {
         try {
@@ -151,7 +152,10 @@ export default function FrenteDeCaixaPage() {
     // Click outside handler
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            if (!isActionsOpen) return
+
+            const activeMenuRef = actionMenuRefs.current[isActionsOpen]
+            if (activeMenuRef && !activeMenuRef.contains(event.target as Node)) {
                 setIsActionsOpen(null)
             }
         }
@@ -582,10 +586,19 @@ export default function FrenteDeCaixaPage() {
                                                     <Phone className="h-3 w-3" />
                                                     <span>{reservation.customerPhone}</span>
                                                 </div>
+                                                {reservation.customerEmail && (
+                                                    <p className="text-xs text-[#8a5c3f] mt-0.5 break-all">
+                                                        {reservation.customerEmail}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-center gap-2 text-xs text-[#8a5c3f] mt-0.5">
+                                                    <CalendarDays className="h-3 w-3" />
+                                                    <span>{formatDateUTC(reservation.date)}</span>
+                                                </div>
                                                 {reservation.notes && (
                                                     <div className="flex items-start gap-2 text-sm text-[#8a5c3f] mt-1">
                                                         <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                                                        <span className="line-clamp-2">{reservation.notes}</span>
+                                                        <span className="whitespace-pre-wrap break-words">{reservation.notes}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -611,7 +624,12 @@ export default function FrenteDeCaixaPage() {
                                         </div>
 
                                         {/* Actions */}
-                                        <div ref={dropdownRef} className="relative">
+                                        <div
+                                            ref={(el) => {
+                                                actionMenuRefs.current[reservation.id] = el
+                                            }}
+                                            className="relative"
+                                        >
                                             <button
                                                 onClick={() => setIsActionsOpen(isActionsOpen === reservation.id ? null : reservation.id)}
                                                 className={`p-2 rounded-lg hover:bg-[#f5f0e8] transition-colors ${isActionsOpen === reservation.id ? 'bg-[#f5f0e8] text-[#d4a574]' : 'text-[#8a5c3f]'}`}
@@ -683,6 +701,9 @@ export default function FrenteDeCaixaPage() {
                                 <p className="text-[#8a5c3f]">{selectedReservation.customerPhone || 'Telefone não informado'}</p>
                                 {selectedReservation.customerEmail && (
                                     <p className="text-[#8a5c3f]">{selectedReservation.customerEmail}</p>
+                                )}
+                                {selectedReservation.customerDocument && (
+                                    <p className="text-[#8a5c3f]">Documento: {selectedReservation.customerDocument}</p>
                                 )}
                             </div>
 

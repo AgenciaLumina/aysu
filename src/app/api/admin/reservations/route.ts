@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
                 customerName: r.customerName,
                 customerPhone: r.customerPhone,
                 customerEmail: r.customerEmail,
+                customerDocument: r.customerDocument,
                 spaceName: r.cabin.name,
                 cabin: { name: r.cabin.name }, // Adicionado para compatibilidade com Dashboard/Reservas
                 spaceType: r.cabin.category.toLowerCase(),
