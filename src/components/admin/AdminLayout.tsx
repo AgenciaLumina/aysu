@@ -62,7 +62,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
     const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-    const isActive = (href: string) => pathname?.startsWith(href)
+    const isActive = (href: string) => {
+        if (!pathname) return false
+        return pathname === href || pathname.startsWith(`${href}/`)
+    }
 
     const clearClientAuth = useCallback(() => {
         document.cookie = 'admin_token=; path=/; max-age=0; SameSite=Lax'

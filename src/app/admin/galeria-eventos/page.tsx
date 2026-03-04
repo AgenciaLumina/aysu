@@ -23,7 +23,13 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { generateSlug } from '@/lib/utils'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 
 interface GalleryPhoto {
     id?: string
@@ -113,6 +119,10 @@ export default function AdminEventGalleryPage() {
     const [saving, setSaving] = useState(false)
     const [uploadingCover, setUploadingCover] = useState(false)
     const [uploadingPhotos, setUploadingPhotos] = useState(false)
+    const [coverUploadStep, setCoverUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
+    const [photosUploadStep, setPhotosUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
+    const [coverDragOver, setCoverDragOver] = useState(false)
+    const [photosDragOver, setPhotosDragOver] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingGallery, setEditingGallery] = useState<EventGallery | null>(null)
     const [form, setForm] = useState<GalleryForm>(createInitialForm)
@@ -192,17 +202,32 @@ export default function AdminEventGalleryPage() {
         })
     }
 
-    const uploadFileToFolder = async (file: File): Promise<string> => {
+    const uploadFileToFolder = async (
+        file: File,
+        setStep?: (step: 'optimizing' | 'uploading') => void
+    ): Promise<string> => {
         const validationError = validateImageUpload(file)
         if (validationError) {
             throw new Error(validationError)
         }
 
+        const largeImageWarning = getLargeImageWarning(file)
+        if (largeImageWarning) {
+            toast(largeImageWarning)
+        }
+
+        if (setStep) setStep('optimizing')
         const optimizedFile = await optimizeImageBeforeUpload(file)
+        const payloadError = getUploadPayloadError(optimizedFile)
+        if (payloadError) {
+            throw new Error(payloadError)
+        }
+
         const formData = new FormData()
         formData.append('file', optimizedFile)
         formData.append('folder', currentFolder)
 
+        if (setStep) setStep('uploading')
         const uploadRes = await fetch('/api/upload', {
             method: 'POST',
             body: formData,
@@ -225,13 +250,14 @@ export default function AdminEventGalleryPage() {
         setUploadingCover(true)
 
         try {
-            const imageUrl = await uploadFileToFolder(file)
+            const imageUrl = await uploadFileToFolder(file, setCoverUploadStep)
             setForm((prev) => ({ ...prev, coverImageUrl: imageUrl }))
             toast.success('Imagem de destaque enviada')
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Erro no upload da capa')
         } finally {
             setUploadingCover(false)
+            setCoverUploadStep('idle')
             if (coverInputRef.current) {
                 coverInputRef.current.value = ''
             }
@@ -247,7 +273,7 @@ export default function AdminEventGalleryPage() {
             const uploadedPhotos: GalleryPhoto[] = []
 
             for (const file of Array.from(fileList)) {
-                const imageUrl = await uploadFileToFolder(file)
+                const imageUrl = await uploadFileToFolder(file, setPhotosUploadStep)
                 uploadedPhotos.push({
                     imageUrl,
                     caption: '',
@@ -269,10 +295,47 @@ export default function AdminEventGalleryPage() {
             toast.error(error instanceof Error ? error.message : 'Erro ao enviar fotos')
         } finally {
             setUploadingPhotos(false)
+            setPhotosUploadStep('idle')
             if (photosInputRef.current) {
                 photosInputRef.current.value = ''
             }
         }
+    }
+
+    const handleCoverDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        if (uploadingCover) return
+        setCoverDragOver(true)
+    }
+
+    const handleCoverDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setCoverDragOver(false)
+    }
+
+    const handleCoverDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setCoverDragOver(false)
+        if (uploadingCover) return
+        await handleCoverUpload(event.dataTransfer.files)
+    }
+
+    const handlePhotosDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        if (uploadingPhotos) return
+        setPhotosDragOver(true)
+    }
+
+    const handlePhotosDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setPhotosDragOver(false)
+    }
+
+    const handlePhotosDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        setPhotosDragOver(false)
+        if (uploadingPhotos) return
+        await handlePhotosUpload(event.dataTransfer.files)
     }
 
     const removePhoto = (index: number) => {
@@ -559,7 +622,16 @@ export default function AdminEventGalleryPage() {
                                         </span>
                                     </label>
                                 </div>
-                                <div className="relative aspect-[4/5] rounded-xl border border-[#e0d5c7] bg-[#f5f0e8] overflow-hidden">
+                                <div
+                                    onDragOver={handleCoverDragOver}
+                                    onDragLeave={handleCoverDragLeave}
+                                    onDrop={handleCoverDrop}
+                                    className={`relative aspect-[4/5] rounded-xl border overflow-hidden transition-colors ${
+                                        coverDragOver
+                                            ? 'border-[#d4a574] bg-[#f9efe5]'
+                                            : 'border-[#e0d5c7] bg-[#f5f0e8]'
+                                    }`}
+                                >
                                     {form.coverImageUrl ? (
                                         <Image
                                             src={form.coverImageUrl}
@@ -573,10 +645,32 @@ export default function AdminEventGalleryPage() {
                                             <span className="text-sm">Sem capa definida</span>
                                         </div>
                                     )}
+                                    {uploadingCover && (
+                                        <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center">
+                                            <div className="flex items-center gap-2 text-white text-sm font-medium">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                {coverUploadStep === 'optimizing'
+                                                    ? 'Otimizando capa...'
+                                                    : 'Enviando capa otimizada...'}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+                                <p className="text-xs text-[#8a5c3f] mt-2">
+                                    Arraste e solte uma imagem aqui ou use o botão de upload.
+                                </p>
                             </div>
 
-                            <div className="rounded-xl border border-[#e0d5c7] p-4 bg-[#fdfbf8]">
+                            <div
+                                onDragOver={handlePhotosDragOver}
+                                onDragLeave={handlePhotosDragLeave}
+                                onDrop={handlePhotosDrop}
+                                className={`rounded-xl border p-4 transition-colors ${
+                                    photosDragOver
+                                        ? 'border-[#d4a574] bg-[#f9efe5]'
+                                        : 'border-[#e0d5c7] bg-[#fdfbf8]'
+                                }`}
+                            >
                                 <div className="flex items-center justify-between mb-3">
                                     <p className="text-sm font-medium text-[#2a2a2a]">Fotos da galeria</p>
                                     <input
@@ -599,6 +693,18 @@ export default function AdminEventGalleryPage() {
                                 <p className="text-xs text-[#8a5c3f] mb-3">
                                     As fotos serão enviadas para <strong>{currentFolder}</strong>
                                 </p>
+                                {uploadingPhotos ? (
+                                    <div className="flex items-center gap-2 text-xs text-[#8a5c3f] mb-3">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        {photosUploadStep === 'optimizing'
+                                            ? 'Otimizando fotos...'
+                                            : 'Enviando fotos otimizadas...'}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-[#8a5c3f] mb-3">
+                                        Arraste e solte uma ou várias imagens nesta área.
+                                    </p>
+                                )}
 
                                 {photos.length === 0 ? (
                                     <div className="rounded-lg border border-dashed border-[#d4a574] p-6 text-center text-sm text-[#8a5c3f]">
