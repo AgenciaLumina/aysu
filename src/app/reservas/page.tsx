@@ -670,11 +670,15 @@ export default function ReservasPage() {
                                         <p className="text-sm text-sky-800 mt-1">{selectedDateConfig.release}</p>
                                     )}
                                     {selectedDateConfig?.flyerImageUrl && (
-                                        <div className="mt-3 overflow-hidden rounded-lg border border-sky-200">
-                                            <div
-                                                className="h-40 w-full bg-cover bg-center"
-                                                style={{ backgroundImage: `url(${selectedDateConfig.flyerImageUrl})` }}
-                                            />
+                                        <div className="mt-3 overflow-hidden rounded-lg border border-sky-200 bg-sky-100/40">
+                                            <div className="relative mx-auto w-full max-w-xs aspect-[4/5]">
+                                                <Image
+                                                    src={selectedDateConfig.flyerImageUrl}
+                                                    alt={`Flyer de ${selectedDateConfig.title || 'evento'}`}
+                                                    fill
+                                                    className="object-contain object-top"
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
@@ -759,12 +763,12 @@ export default function ReservasPage() {
                                     }`}
                             >
                                 {/* Image */}
-                                <div className="relative aspect-[16/10] overflow-hidden">
+                                <div className="relative aspect-[4/5] overflow-hidden bg-[#f3efe8]">
                                     <Image
                                         src={space.image}
                                         alt={space.name}
                                         fill
-                                        className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                        className="object-contain object-center group-hover:scale-105 transition-transform duration-700"
                                     />
                                     {/* Gradient Overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />

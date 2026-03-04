@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { CalendarClock, Clock, Music, Pencil, Plus, Ticket, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CalendarClock, Clock, ImageIcon, Music, Pencil, Plus, Ticket, Trash2, Upload, X } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
+import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 import { formatCurrency, generateSlug } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -50,7 +51,6 @@ interface EventForm {
     startDate: string
     endDate: string
     posterImageUrl: string
-    bannerImageUrl: string
     djName: string
     bandsText: string
     ticketPrice: string
@@ -86,7 +86,6 @@ function createDefaultForm(): EventForm {
         startDate: '',
         endDate: '',
         posterImageUrl: '',
-        bannerImageUrl: '',
         djName: '',
         bandsText: '',
         ticketPrice: '',
@@ -99,9 +98,11 @@ export default function AdminEventsPage() {
     const [events, setEvents] = useState<EventItem[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [uploadingFlyer, setUploadingFlyer] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingEvent, setEditingEvent] = useState<EventItem | null>(null)
     const [form, setForm] = useState<EventForm>(createDefaultForm)
+    const flyerInputRef = useRef<HTMLInputElement>(null)
 
     const fetchEvents = async () => {
         try {
@@ -141,7 +142,6 @@ export default function AdminEventsPage() {
             startDate: toInputDateTime(event.startDate),
             endDate: event.endDate ? toInputDateTime(event.endDate) : '',
             posterImageUrl: event.posterImageUrl || '',
-            bannerImageUrl: event.bannerImageUrl || '',
             djName: event.djName || '',
             bandsText: event.bands?.join(', ') || '',
             ticketPrice: event.ticketPrice?.toString() || '',
@@ -149,6 +149,47 @@ export default function AdminEventsPage() {
             isActive: event.isActive,
         })
         setIsModalOpen(true)
+    }
+
+    const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const validationError = validateImageUpload(file)
+        if (validationError) {
+            toast.error(validationError)
+            e.target.value = ''
+            return
+        }
+
+        setUploadingFlyer(true)
+
+        try {
+            const optimizedFile = await optimizeImageBeforeUpload(file)
+            const formData = new FormData()
+            formData.append('file', optimizedFile)
+            formData.append('folder', 'events')
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+            })
+            const data = await readUploadApiResponse(res)
+            const uploadedUrl = data.data?.url
+
+            if (!res.ok || !data.success || typeof uploadedUrl !== 'string' || !uploadedUrl) {
+                throw new Error(data.error || 'Erro ao enviar flyer')
+            }
+
+            setForm((prev) => ({ ...prev, posterImageUrl: uploadedUrl }))
+            toast.success('Flyer enviado!')
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao enviar flyer')
+        } finally {
+            setUploadingFlyer(false)
+            e.target.value = ''
+        }
     }
 
     const handleDelete = async (event: EventItem) => {
@@ -207,7 +248,6 @@ export default function AdminEventsPage() {
             startDate: startDate.toISOString(),
             endDate: endDate ? endDate.toISOString() : undefined,
             posterImageUrl: form.posterImageUrl || undefined,
-            bannerImageUrl: form.bannerImageUrl || undefined,
             djName: form.djName || undefined,
             bands: form.bandsText
                 .split(',')
@@ -279,6 +319,15 @@ export default function AdminEventsPage() {
                     {events.map(event => (
                         <Card key={event.id} className={!event.isActive ? 'opacity-70' : ''}>
                             <CardContent className="p-5 space-y-4">
+                                {event.posterImageUrl && (
+                                    <div className="w-full max-w-[180px] aspect-[4/5] rounded-xl border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden">
+                                        <div
+                                            className="h-full w-full bg-contain bg-top bg-no-repeat"
+                                            style={{ backgroundImage: `url(${event.posterImageUrl})` }}
+                                        />
+                                    </div>
+                                )}
+
                                 <div className="flex flex-wrap items-center gap-2">
                                     <Badge variant="secondary">{typeLabel(event.eventType)}</Badge>
                                     {event.isFeatured && <Badge variant="info">Destaque</Badge>}
@@ -392,19 +441,60 @@ export default function AdminEventsPage() {
                             placeholder="Detalhes completos do evento"
                         />
 
-                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
                             <Input
                                 label="Flyer (poster URL)"
                                 value={form.posterImageUrl}
                                 onChange={(e) => setForm(prev => ({ ...prev, posterImageUrl: e.target.value }))}
-                                placeholder="https://..."
+                                placeholder="https://... ou /events/arquivo.avif"
                             />
-                            <Input
-                                label="Banner (URL)"
-                                value={form.bannerImageUrl}
-                                onChange={(e) => setForm(prev => ({ ...prev, bannerImageUrl: e.target.value }))}
-                                placeholder="https://..."
+                            <input
+                                ref={flyerInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleFlyerUpload}
+                                disabled={uploadingFlyer}
                             />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => flyerInputRef.current?.click()}
+                                    isLoading={uploadingFlyer}
+                                >
+                                    <Upload className="h-4 w-4" />
+                                    {form.posterImageUrl ? 'Trocar flyer' : 'Enviar flyer'}
+                                </Button>
+                                {form.posterImageUrl && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setForm(prev => ({ ...prev, posterImageUrl: '' }))}
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Remover
+                                    </Button>
+                                )}
+                            </div>
+                            <p className="text-xs text-[#8a5c3f]/70">
+                                Use flyer em retrato para melhor exibição na home e no popup.
+                            </p>
+                        </div>
+
+                        <div className="w-full max-w-[220px] aspect-[4/5] rounded-xl border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden">
+                            {form.posterImageUrl ? (
+                                <div
+                                    className="h-full w-full bg-contain bg-top bg-no-repeat"
+                                    style={{ backgroundImage: `url(${form.posterImageUrl})` }}
+                                />
+                            ) : (
+                                <div className="h-full w-full flex flex-col items-center justify-center text-[#8a5c3f]">
+                                    <ImageIcon className="h-8 w-8 mb-2 opacity-60" />
+                                    <p className="text-xs">Nenhum flyer enviado</p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="grid md:grid-cols-3 gap-4">

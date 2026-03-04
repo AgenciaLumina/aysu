@@ -26,7 +26,13 @@ interface Cabin {
     imageUrl?: string
 }
 
-const categories = ['CABANA', 'LOUNGE', 'VIP', 'MESA', 'ESPREGUICADEIRA']
+const categories = ['CABANA', 'LOUNGE', 'VIP', 'MESA'] as const
+type CabinCategory = (typeof categories)[number]
+
+function normalizeCabinCategory(category: string): CabinCategory {
+    if (category === 'ESPREGUICADEIRA') return 'MESA'
+    return categories.includes(category as CabinCategory) ? (category as CabinCategory) : 'CABANA'
+}
 
 export default function AdminCabinsPage() {
     const [cabins, setCabins] = useState<Cabin[]>([])
@@ -67,7 +73,7 @@ export default function AdminCabinsPage() {
                 capacity: cabin.capacity.toString(),
                 pricePerHour: cabin.pricePerHour.toString(),
                 description: cabin.description || '',
-                category: cabin.category,
+                category: normalizeCabinCategory(cabin.category),
                 imageUrl: cabin.imageUrl || '',
             })
         } else {
@@ -86,7 +92,7 @@ export default function AdminCabinsPage() {
             capacity: parseInt(formData.capacity),
             pricePerHour: parseFloat(formData.pricePerHour),
             description: formData.description,
-            category: formData.category,
+            category: normalizeCabinCategory(formData.category),
             imageUrl: formData.imageUrl || null,
         }
 
@@ -109,7 +115,7 @@ export default function AdminCabinsPage() {
             } else {
                 toast.error(data.error || 'Erro ao salvar')
             }
-        } catch (error) {
+        } catch {
             toast.error('Erro ao salvar bangalô')
         } finally {
             setSaving(false)
@@ -150,13 +156,13 @@ export default function AdminCabinsPage() {
                         <Card key={cabin.id} className={!cabin.isActive ? 'opacity-60' : ''}>
                             <CardContent className="p-0">
                                 {/* Imagem */}
-                                <div className="relative h-40 bg-[#f5f0eb]">
+                                <div className="relative aspect-[4/5] bg-[#f5f0eb]">
                                     {cabin.imageUrl ? (
                                         <Image
                                             src={cabin.imageUrl}
                                             alt={cabin.name}
                                             fill
-                                            className="object-cover"
+                                            className="object-contain object-center"
                                         />
                                     ) : (
                                         <div className="absolute inset-0 flex items-center justify-center">
@@ -208,14 +214,14 @@ export default function AdminCabinsPage() {
                             <label className="block text-sm font-medium text-[#2a2a2a] mb-2">Imagem</label>
                             <div
                                 onClick={() => setShowMediaPicker(true)}
-                                className="relative h-32 bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
+                                className="relative mx-auto w-full max-w-xs aspect-[4/5] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
                             >
                                 {formData.imageUrl ? (
                                     <Image
                                         src={formData.imageUrl}
                                         alt="Preview"
                                         fill
-                                        className="object-cover"
+                                        className="object-contain object-center"
                                     />
                                 ) : (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8a5c3f]">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, ChevronRight, Ticket } from 'lucide-react'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/utils'
 
 // ============================================================
@@ -93,6 +94,16 @@ function getConfigForEvent(event: EventItem, configs: EnrichedDayConfig[]): Enri
     return configs.find((c) => c.date === eventDate) ?? null
 }
 
+function isSameOrAfterToday(isoDate: string): boolean {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const eventDate = new Date(isoDate)
+    eventDate.setHours(0, 0, 0, 0)
+
+    return eventDate >= today
+}
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
@@ -100,6 +111,7 @@ function getConfigForEvent(event: EventItem, configs: EnrichedDayConfig[]): Enri
 export default function UpcomingEventsSection() {
     const [events, setEvents] = useState<EventItem[]>([])
     const [dayConfigs, setDayConfigs] = useState<EnrichedDayConfig[]>([])
+    const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
 
     useEffect(() => {
         fetch('/api/events?isActive=true&limit=100')
@@ -109,9 +121,8 @@ export default function UpcomingEventsSection() {
                     setEvents([])
                     return
                 }
-                const now = new Date()
                 const upcoming = data.data
-                    .filter((event) => new Date(event.startDate) >= now)
+                    .filter((event) => isSameOrAfterToday(event.startDate))
                     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                     .slice(0, 3)
                 setEvents(upcoming)
@@ -129,6 +140,12 @@ export default function UpcomingEventsSection() {
     }, [])
 
     const hasEvents = useMemo(() => events.length > 0, [events])
+    const selectedConfig = selectedEvent ? getConfigForEvent(selectedEvent, dayConfigs) : null
+    const selectedActiveLot = selectedConfig ? getActiveLot(selectedConfig.ticketLots) : null
+    const selectedImageUrl = selectedEvent ? (selectedEvent.posterImageUrl ?? selectedConfig?.flyerImageUrl ?? null) : null
+    const selectedDateStr = selectedEvent ? getDateStr(selectedEvent.startDate) : ''
+    const selectedDisplayPrice = selectedEvent ? (selectedActiveLot ? selectedActiveLot.price : selectedEvent.ticketPrice) : null
+
     if (!hasEvents) return null
 
     return (
@@ -162,20 +179,21 @@ export default function UpcomingEventsSection() {
                         return (
                             <article
                                 key={event.id}
+                                onClick={() => setSelectedEvent(event)}
                                 className={`rounded-2xl overflow-hidden border transition-all ${
                                     isHighlighted
-                                        ? 'bg-white border-[#d4a574] shadow-xl shadow-[#d4a574]/20 md:-translate-y-1'
-                                        : 'bg-white/90 border-[#e0d5c7] shadow-md shadow-black/5'
+                                        ? 'bg-white border-[#d4a574] shadow-xl shadow-[#d4a574]/20 md:-translate-y-1 cursor-pointer'
+                                        : 'bg-white/90 border-[#e0d5c7] shadow-md shadow-black/5 cursor-pointer'
                                 }`}
                             >
                                 {/* Imagem */}
-                                <div className="relative h-48 bg-gradient-to-br from-[#2a2a2a] to-[#4a4a4a]">
+                                <div className="relative aspect-[4/5] bg-gradient-to-br from-[#2a2a2a] to-[#4a4a4a]">
                                     {imageUrl && (
                                         <Image
                                             src={imageUrl}
                                             alt={event.title}
                                             fill
-                                            className="object-cover"
+                                            className="object-contain object-top"
                                         />
                                     )}
                                     {isHighlighted && (
@@ -189,6 +207,9 @@ export default function UpcomingEventsSection() {
                                             {activeLot.name} — até {new Date(`${activeLot.endsAt}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                         </span>
                                     )}
+                                    <span className="absolute bottom-3 right-3 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
+                                        Ver flyer
+                                    </span>
                                 </div>
 
                                 <div className="p-5">
@@ -219,20 +240,102 @@ export default function UpcomingEventsSection() {
                                     </div>
 
                                     {/* Botão CTA */}
-                                    <Link
-                                        href={`/reservas?date=${eventDateStr}`}
-                                        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
-                                        style={{ background: 'var(--aissu-chocolate, #5c3d2e)' }}
-                                    >
-                                        Reservar
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Link>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedEvent(event)
+                                            }}
+                                            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border border-[#d9c7b1] text-[#5c3d2e] bg-[#fffaf4] hover:bg-[#f5ebdf]"
+                                        >
+                                            Ver flyer
+                                        </button>
+                                        <Link
+                                            href={`/reservas?date=${eventDateStr}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
+                                            style={{ background: 'var(--aissu-chocolate, #5c3d2e)' }}
+                                        >
+                                            Reservar
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Link>
+                                    </div>
                                 </div>
                             </article>
                         )
                     })}
                 </div>
             </div>
+
+            <Modal
+                open={!!selectedEvent}
+                onOpenChange={(open) => {
+                    if (!open) setSelectedEvent(null)
+                }}
+            >
+                <ModalContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <ModalHeader>
+                        <ModalTitle>{selectedEvent?.title || 'Detalhes do evento'}</ModalTitle>
+                    </ModalHeader>
+
+                    {selectedEvent && (
+                        <div className="p-4 grid md:grid-cols-[260px,1fr] gap-6">
+                            <div className="w-full max-w-[260px] mx-auto aspect-[4/5] rounded-xl border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden relative">
+                                {selectedImageUrl ? (
+                                    <Image
+                                        src={selectedImageUrl}
+                                        alt={`Flyer de ${selectedEvent.title}`}
+                                        fill
+                                        className="object-contain object-top"
+                                    />
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-sm text-[#8a5c3f]">
+                                        Flyer ainda não enviado
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <p className="inline-flex items-center gap-1 text-xs text-[#8a5c3f] mb-2">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    {formatDate(selectedEvent.startDate)}
+                                </p>
+
+                                {selectedEvent.description && (
+                                    <p className="text-sm text-[#8a5c3f] leading-relaxed mb-4">
+                                        {selectedEvent.description}
+                                    </p>
+                                )}
+
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-[#faf7f1] border border-[#efe4d4] mb-4">
+                                    <div className="text-xs text-[#8a5c3f]">
+                                        <p className="font-semibold text-[#2a2a2a] inline-flex items-center gap-1">
+                                            <Ticket className="h-3.5 w-3.5" />
+                                            Ingresso / Couvert
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-[#2a2a2a]">
+                                            {selectedDisplayPrice !== null ? formatCurrency(Number(selectedDisplayPrice)) : 'Consulte'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Link
+                                    href={`/reservas?date=${selectedDateStr}`}
+                                    onClick={() => setSelectedEvent(null)}
+                                    className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
+                                    style={{ background: 'var(--aissu-chocolate, #5c3d2e)' }}
+                                >
+                                    Reservar
+                                    <ChevronRight className="h-4 w-4" />
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </ModalContent>
+            </Modal>
         </section>
     )
 }

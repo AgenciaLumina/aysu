@@ -3,6 +3,34 @@
 
 import { z } from 'zod'
 
+function isHttpUrl(value: string): boolean {
+    try {
+        const parsed = new URL(value)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+        return false
+    }
+}
+
+const mediaUrlOrPathSchema = z
+    .string()
+    .trim()
+    .refine((value) => value.startsWith('/') || isHttpUrl(value), {
+        message: 'URL inválida. Use um caminho "/..." ou URL http(s).',
+    })
+
+const optionalMediaUrlOrPathSchema = z.union([mediaUrlOrPathSchema, z.literal('')]).optional()
+
+const cabinCategorySchema = z.preprocess(
+    (value) => {
+        if (typeof value === 'string' && value.toUpperCase() === 'ESPREGUICADEIRA') {
+            return 'MESA'
+        }
+        return value
+    },
+    z.enum(['CABANA', 'MESA', 'LOUNGE', 'VIP']).default('CABANA')
+)
+
 // ============================================================
 // AUTH
 // ============================================================
@@ -29,8 +57,8 @@ export const createCabinSchema = z.object({
     capacity: z.number().int().positive('Capacidade deve ser positiva'),
     pricePerHour: z.number().positive('Preço deve ser positivo'),
     description: z.string().optional(),
-    imageUrl: z.string().url().optional().or(z.literal('')),
-    category: z.enum(['CABANA', 'MESA', 'LOUNGE', 'VIP']).default('CABANA'),
+    imageUrl: optionalMediaUrlOrPathSchema,
+    category: cabinCategorySchema,
 })
 
 export const updateCabinSchema = createCabinSchema.partial().extend({
@@ -102,7 +130,7 @@ export const createMenuItemSchema = z.object({
     description: z.string().optional(),
     ingredients: z.string().optional(),
     price: z.number().positive('Preço deve ser positivo'),
-    imageUrl: z.string().url().optional().or(z.literal('')),
+    imageUrl: optionalMediaUrlOrPathSchema,
     preparationTime: z.number().int().positive().optional(),
     allergyInfo: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
@@ -125,9 +153,9 @@ export const createEventSchema = z.object({
     eventType: z.enum(['DJ_NIGHT', 'LIVE_MUSIC', 'THEMED_PARTY', 'WEDDING', 'CORPORATE', 'OTHER']).default('OTHER'),
     startDate: z.string().or(z.date()),
     endDate: z.string().or(z.date()).optional(),
-    bannerImageUrl: z.string().url().optional().or(z.literal('')),
-    posterImageUrl: z.string().url().optional().or(z.literal('')),
-    galleryImages: z.array(z.string().url()).optional(),
+    bannerImageUrl: optionalMediaUrlOrPathSchema,
+    posterImageUrl: optionalMediaUrlOrPathSchema,
+    galleryImages: z.array(mediaUrlOrPathSchema).optional(),
     djName: z.string().optional(),
     bands: z.array(z.string()).optional(),
     specialDrinks: z.array(z.string()).optional(),
@@ -173,7 +201,7 @@ export const createDayConfigSchema = z.object({
     reservationsEnabled: z.boolean().default(true),
     title: z.string().max(150, 'Título muito longo').optional().or(z.literal('')),
     release: z.string().max(5000, 'Release muito longo').optional().or(z.literal('')),
-    flyerImageUrl: z.string().url('URL do flyer inválida').optional().or(z.literal('')),
+    flyerImageUrl: optionalMediaUrlOrPathSchema,
     highlightOnHome: z.boolean().default(false),
     priceOverrides: z.record(z.string(), dayConfigPriceOverrideSchema).optional(),
     ticketLots: z.array(dayConfigTicketLotSchema).max(10, 'Máximo de 10 lotes').optional(),

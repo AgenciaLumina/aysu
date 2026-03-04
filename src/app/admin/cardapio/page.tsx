@@ -5,7 +5,6 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { Plus, Pencil, Trash2, Eye, EyeOff, UtensilsCrossed, Search, Upload, X, Filter, ChevronsUpDown } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
-import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
@@ -403,7 +402,7 @@ export default function AdminMenuPage() {
                                 <div className="flex-1">
                                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                                     <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={uploading}><Upload className="h-4 w-4" /> {formData.imageUrl ? 'Trocar' : 'Enviar'}</Button>
-                                    <p className="text-xs text-[#8a5c3f]/70 mt-2">JPG, PNG ou WebP. Max 5MB.</p>
+                                    <p className="text-xs text-[#8a5c3f]/70 mt-2">JPG, PNG, WebP, AVIF, HEIC ou HEIF. Max 5MB.</p>
                                 </div>
                             </div>
                         </div>

@@ -4,7 +4,23 @@ const ALLOWED_IMAGE_MIME_TYPES = [
     'image/webp',
     'image/gif',
     'image/avif',
+    'image/heic',
+    'image/heif',
+    'image/heic-sequence',
+    'image/heif-sequence',
 ]
+
+const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif']
+
+const BROWSER_OPTIMIZABLE_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+]
+
+const BROWSER_OPTIMIZABLE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']
 
 const MODERN_OUTPUT_FORMATS = [
     { mimeType: 'image/avif', extension: 'avif' },
@@ -27,9 +43,28 @@ export type UploadApiResponse = {
     }
 }
 
+function getFileExtension(filename: string): string {
+    const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
+    return match ? match[1] : ''
+}
+
+function isAcceptedImageFile(file: File): boolean {
+    if (ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) return true
+
+    const extension = getFileExtension(file.name)
+    return ALLOWED_IMAGE_EXTENSIONS.includes(extension)
+}
+
+function isBrowserOptimizableImage(file: File): boolean {
+    if (BROWSER_OPTIMIZABLE_MIME_TYPES.includes(file.type)) return true
+
+    const extension = getFileExtension(file.name)
+    return BROWSER_OPTIMIZABLE_EXTENSIONS.includes(extension)
+}
+
 export function validateImageUpload(file: File): string | null {
-    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) {
-        return 'Formato não suportado. Use JPG, PNG, WebP, GIF ou AVIF.'
+    if (!isAcceptedImageFile(file)) {
+        return 'Formato não suportado. Use JPG, PNG, WebP, GIF, AVIF, HEIC ou HEIF.'
     }
 
     return null
@@ -55,7 +90,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality: numb
 
 export async function optimizeImageBeforeUpload(file: File): Promise<File> {
     if (typeof window === 'undefined') return file
-    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) return file
+    if (!isBrowserOptimizableImage(file)) return file
 
     try {
         const bitmap = await createImageBitmap(file)

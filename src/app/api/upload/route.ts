@@ -5,7 +5,29 @@ import { v4 as uuid } from 'uuid'
 import { uploadToR2 } from '@/lib/r2'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 
-const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+const ALLOWED_FILE_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'image/heic',
+    'image/heif',
+    'image/heic-sequence',
+    'image/heif-sequence',
+]
+const ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif']
+
+function getFileExtension(filename: string): string {
+    const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
+    return match ? match[1] : ''
+}
+
+function isAllowedFile(file: File): boolean {
+    if (ALLOWED_FILE_TYPES.includes(file.type)) return true
+    const extension = getFileExtension(file.name)
+    return ALLOWED_FILE_EXTENSIONS.includes(extension)
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,7 +47,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Valida tipo de arquivo
-        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        if (!isAllowedFile(file)) {
             return NextResponse.json({ success: false, error: 'Tipo de arquivo não permitido' }, { status: 400 })
         }
 
@@ -87,7 +109,7 @@ export async function POST(request: NextRequest) {
             normalizedMessage.includes('unsupported file type')
         ) {
             return NextResponse.json(
-                { success: false, error: 'Formato inválido. Use JPG, PNG, WebP, GIF ou AVIF.' },
+                { success: false, error: 'Formato inválido. Use JPG, PNG, WebP, GIF, AVIF, HEIC ou HEIF.' },
                 { status: 400 }
             )
         }

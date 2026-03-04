@@ -490,7 +490,14 @@ function AdminCalendarioPageContent() {
                                                 <p className="text-sm text-[#8a5c3f] line-clamp-3 max-w-3xl">{config.release}</p>
                                             )}
                                             {config.flyerImageUrl && (
-                                                <div className="mt-2 w-24 h-24 rounded-lg border border-[#e0d5c7] bg-cover bg-center" style={{ backgroundImage: `url(${config.flyerImageUrl})` }} />
+                                                <div className="relative mt-2 w-24 aspect-[4/5] rounded-lg border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden">
+                                                    <Image
+                                                        src={config.flyerImageUrl}
+                                                        alt={`Flyer de ${config.title || formatDateBR(config.date)}`}
+                                                        fill
+                                                        className="object-contain object-top"
+                                                    />
+                                                </div>
                                             )}
 
                                             <div className="flex flex-wrap items-center gap-3 text-xs text-[#8a5c3f]">
@@ -592,13 +599,14 @@ function AdminCalendarioPageContent() {
                                 </div>
                                 {form.flyerImageUrl ? (
                                     <div className="mt-2">
-                                        <Image
-                                            src={form.flyerImageUrl}
-                                            alt="Preview do flyer"
-                                            width={64}
-                                            height={64}
-                                            className="h-16 w-16 rounded-lg border border-[#e0d5c7] object-cover"
-                                        />
+                                        <div className="relative w-24 aspect-[4/5] rounded-lg border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden">
+                                            <Image
+                                                src={form.flyerImageUrl}
+                                                alt="Preview do flyer"
+                                                fill
+                                                className="object-contain object-top"
+                                            />
+                                        </div>
                                     </div>
                                 ) : (
                                     <p className="text-xs text-[#8a5c3f]/70">Nenhum flyer enviado.</p>
