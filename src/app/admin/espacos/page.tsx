@@ -13,12 +13,15 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { Spinner } from '@/components/ui/Spinner'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { formatCurrency } from '@/lib/utils'
+import { getSpacePrefix, isSpaceSlug, resolveCabinSlug } from '@/lib/space-slugs'
 import toast from 'react-hot-toast'
 
 interface Cabin {
     id: string
     name: string
+    slug?: string | null
     capacity: number
+    units: number
     pricePerHour: number
     description: string
     category: string
@@ -34,6 +37,32 @@ function normalizeCabinCategory(category: string): CabinCategory {
     return categories.includes(category as CabinCategory) ? (category as CabinCategory) : 'CABANA'
 }
 
+function groupCabins(rawCabins: Cabin[]): Cabin[] {
+    const grouped = new Map<string, Cabin>()
+
+    rawCabins.forEach((cabin) => {
+        const resolvedSlug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug }) || null
+        const key = resolvedSlug ?? cabin.id
+        const normalizedUnits = Math.max(1, cabin.units || 1)
+        const displayName = resolvedSlug && isSpaceSlug(resolvedSlug) ? getSpacePrefix(resolvedSlug) : cabin.name
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                ...cabin,
+                name: displayName,
+                slug: resolvedSlug,
+                units: normalizedUnits,
+            })
+            return
+        }
+
+        const current = grouped.get(key)!
+        current.units += normalizedUnits
+    })
+
+    return Array.from(grouped.values())
+}
+
 export default function AdminCabinsPage() {
     const [cabins, setCabins] = useState<Cabin[]>([])
     const [loading, setLoading] = useState(true)
@@ -44,6 +73,7 @@ export default function AdminCabinsPage() {
     const [formData, setFormData] = useState({
         name: '',
         capacity: '6',
+        units: '1',
         pricePerHour: '100',
         description: '',
         category: 'CABANA',
@@ -54,9 +84,11 @@ export default function AdminCabinsPage() {
 
     async function fetchCabins() {
         try {
-            const res = await fetch('/api/cabins')
+            const res = await fetch('/api/cabins?isActive=true')
             const data = await res.json()
-            if (data.success) setCabins(data.data)
+            if (data.success) {
+                setCabins(groupCabins(data.data))
+            }
         } catch (error) {
             console.error('Erro:', error)
             toast.error('Erro ao carregar bangalôs')
@@ -71,6 +103,7 @@ export default function AdminCabinsPage() {
             setFormData({
                 name: cabin.name,
                 capacity: cabin.capacity.toString(),
+                units: cabin.units.toString(),
                 pricePerHour: cabin.pricePerHour.toString(),
                 description: cabin.description || '',
                 category: normalizeCabinCategory(cabin.category),
@@ -78,7 +111,7 @@ export default function AdminCabinsPage() {
             })
         } else {
             setEditingCabin(null)
-            setFormData({ name: '', capacity: '6', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
+            setFormData({ name: '', capacity: '6', units: '1', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
         }
         setIsModalOpen(true)
     }
@@ -90,10 +123,12 @@ export default function AdminCabinsPage() {
         const payload = {
             name: formData.name,
             capacity: parseInt(formData.capacity),
+            units: parseInt(formData.units),
             pricePerHour: parseFloat(formData.pricePerHour),
             description: formData.description,
             category: normalizeCabinCategory(formData.category),
             imageUrl: formData.imageUrl || null,
+            slug: editingCabin?.slug || undefined,
         }
 
         try {
@@ -185,6 +220,9 @@ export default function AdminCabinsPage() {
                                             <span>{cabin.capacity} pessoas</span>
                                         </div>
                                         <div className="flex items-center gap-1">
+                                            <Badge variant="secondary">{cabin.units} un.</Badge>
+                                        </div>
+                                        <div className="flex items-center gap-1">
                                             <DollarSign className="h-4 w-4" />
                                             <span>{formatCurrency(cabin.pricePerHour)}/h</span>
                                         </div>
@@ -270,15 +308,24 @@ export default function AdminCabinsPage() {
                                 required
                             />
                             <Input
-                                label="Preço/hora (R$)"
+                                label="Quantidade"
                                 type="number"
-                                step="0.01"
-                                value={formData.pricePerHour}
-                                onChange={(e) => setFormData(p => ({ ...p, pricePerHour: e.target.value }))}
-                                min="0"
+                                value={formData.units}
+                                onChange={(e) => setFormData(p => ({ ...p, units: e.target.value }))}
+                                min="1"
                                 required
                             />
                         </div>
+
+                        <Input
+                            label="Preço/hora (R$)"
+                            type="number"
+                            step="0.01"
+                            value={formData.pricePerHour}
+                            onChange={(e) => setFormData(p => ({ ...p, pricePerHour: e.target.value }))}
+                            min="0"
+                            required
+                        />
 
                         <div>
                             <label className="block text-sm font-medium text-[#2a2a2a] mb-1.5">Categoria</label>

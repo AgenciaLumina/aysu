@@ -28,66 +28,46 @@ async function main() {
     })
     console.log('✅ Admin criado:', admin.email)
 
-    // 2. Criar cabins (Bangalôs conforme especificação)
+    // 2. Criar spaces (1 registro por tipo + quantidade)
     const cabins = [
-        // Bangalô Lateral - 6 unidades
-        { name: 'Bangalô Lateral 1', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        { name: 'Bangalô Lateral 2', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        { name: 'Bangalô Lateral 3', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        { name: 'Bangalô Lateral 4', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        { name: 'Bangalô Lateral 5', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        { name: 'Bangalô Lateral 6', capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
-        // Bangalô Piscina + Frente Mar - 6 unidades
-        { name: 'Bangalô Piscina 1', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-piscina.jpg' },
-        { name: 'Bangalô Piscina 2', capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-piscina.jpg' },
-        { name: 'Bangalô Frente Mar 1', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
-        { name: 'Bangalô Frente Mar 2', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
-        { name: 'Bangalô Frente Mar 3', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
-        { name: 'Bangalô Frente Mar 4', capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
-        // Bangalô Central (Galera) - 1 unidade
-        { name: 'Bangalô Central Galera', capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)', imageUrl: '/espacos/bangalo10.jpeg' },
-        // Sunbed - 4 unidades
-        { name: 'Sunbed Casal 1', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 2', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 3', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        { name: 'Sunbed Casal 4', capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
-        // Mesa Restaurante Interno - 4 unidades
-        ...Array.from({ length: 4 }, (_, idx) => ({
-            name: `Mesa Restaurante Interno ${idx + 1}`,
-            capacity: 6,
-            pricePerHour: 160,
-            category: 'MESA' as const,
-            description: 'Mesa interna para 4-6 pessoas. Valor R$ 160 (consumação R$ 100).',
-            imageUrl: '/espacos/bangalo-lateral.jpg',
-        })),
-        // Mesa Praia - 4 unidades
-        ...Array.from({ length: 4 }, (_, idx) => ({
-            name: `Mesa Praia ${idx + 1}`,
-            capacity: 4,
-            pricePerHour: 160,
-            category: 'MESA' as const,
-            description: 'Mesa pé na areia para 2-4 pessoas. Valor R$ 160 (consumação R$ 100).',
-            imageUrl: '/espacos/Sunbeds.jpeg',
-        })),
-        // Day Use Praia com Espreguiçadeira - 20 unidades
-        ...Array.from({ length: 20 }, (_, idx) => ({
-            name: `Day Use Praia com Espreguiçadeira ${idx + 1}`,
-            capacity: 1,
-            pricePerHour: 160,
-            category: 'MESA' as const,
-            description: 'Day Use com espreguiçadeira. Valor R$ 160 (consumação R$ 100).',
-            imageUrl: '/espacos/Sunbeds.jpeg',
-        })),
+        { name: 'Bangalô Lateral', slug: 'bangalo-lateral', units: 6, capacity: 5, pricePerHour: 166.67, category: 'CABANA' as const, description: 'Ideal para casais + amigos. 4-5 pessoas. Diária R$ 1.000 (100% consumível: R$ 700)', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Bangalô Piscina', slug: 'bangalo-piscina', units: 2, capacity: 6, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Piscina privativa. 6 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-piscina.jpg' },
+        { name: 'Bangalô Frente Mar', slug: 'bangalo-frente-mar', units: 4, capacity: 8, pricePerHour: 300, category: 'LOUNGE' as const, description: 'Vista privilegiada. 6-8 pessoas. Diária R$ 1.800 (100% consumível: R$ 1.300)', imageUrl: '/espacos/bangalo-frente-mar.jpg' },
+        { name: 'Bangalô Central', slug: 'bangalo-central', units: 1, capacity: 10, pricePerHour: 416.67, category: 'VIP' as const, description: 'Espaço icônico. Até 10 pessoas. Diária R$ 2.500 (100% consumível: R$ 2.000)', imageUrl: '/espacos/bangalo10.jpeg' },
+        { name: 'Sunbed Casal', slug: 'sunbed-casal', units: 4, capacity: 2, pricePerHour: 83.33, category: 'MESA' as const, description: 'Cama de praia exclusiva para casais. Diária R$ 500 (100% consumível: R$ 350)', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Mesa Restaurante', slug: 'mesa-restaurante', units: 4, capacity: 6, pricePerHour: 160, category: 'MESA' as const, description: 'Mesa interna para 4-6 pessoas. Valor R$ 160 (consumação R$ 100).', imageUrl: '/espacos/bangalo-lateral.jpg' },
+        { name: 'Mesa Praia', slug: 'mesa-praia', units: 4, capacity: 4, pricePerHour: 160, category: 'MESA' as const, description: 'Mesa pé na areia para 2-4 pessoas. Valor R$ 160 (consumação R$ 100).', imageUrl: '/espacos/Sunbeds.jpeg' },
+        { name: 'Day Use Praia com Espreguiçadeira', slug: 'day-use-praia', units: 20, capacity: 1, pricePerHour: 160, category: 'MESA' as const, description: 'Day Use com espreguiçadeira. Valor R$ 160 (consumação R$ 100).', imageUrl: '/espacos/Sunbeds.jpeg' },
     ]
 
     for (const cabin of cabins) {
         await prisma.cabin.upsert({
             where: { name: cabin.name },
-            update: {},
+            update: {
+                slug: cabin.slug,
+                units: cabin.units,
+            },
             create: cabin,
         })
     }
     console.log('✅ Cabins criados:', cabins.length)
+
+    await prisma.reservationGlobalConfig.upsert({
+        where: { id: 'default' },
+        update: {},
+        create: {
+            id: 'default',
+            reservableItems: {
+                bangalos: true,
+                sunbeds: true,
+                restaurantTables: false,
+                beachTables: false,
+                dayUse: true,
+            },
+            priceOverrides: {},
+        },
+    })
+    console.log('✅ Configuração global de reservas criada')
 
     // 3. Criar categorias do cardápio (slugs únicos)
     const categories = [

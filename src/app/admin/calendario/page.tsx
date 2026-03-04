@@ -14,12 +14,13 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
-import type { DayConfigPayload } from '@/lib/day-config'
+import type { DayConfigPayload, ReservationGlobalConfigPayload } from '@/lib/day-config'
+import { DEFAULT_RESERVABLE_ITEMS } from '@/lib/day-config'
 import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
 
 const STATUS_OPTIONS = [
     { value: 'NORMAL', label: 'Operação Normal', badge: 'secondary' as const },
-    { value: 'EVENT', label: 'Evento da Casa (Ingressos)', badge: 'info' as const },
+    { value: 'EVENT', label: 'Programação Especial (Ingressos)', badge: 'info' as const },
     { value: 'PRIVATE_EVENT', label: 'Locação Privada (Fechado)', badge: 'warning' as const },
     { value: 'BLOCKED', label: 'Bloqueado/Manutenção', badge: 'error' as const },
 ]
@@ -75,6 +76,11 @@ interface DayConfigForm {
     ticketLots: TicketLotForm[]
 }
 
+interface GlobalConfigForm {
+    reservableItems: DayConfigForm['reservableItems']
+    priceOverrides: SpaceOverrideForm
+}
+
 const createEmptyPriceOverrides = (): SpaceOverrideForm => {
     return SPACE_OVERRIDE_FIELDS.reduce((acc, field) => {
         acc[field.id] = {
@@ -94,16 +100,29 @@ const createDefaultForm = (): DayConfigForm => ({
     release: '',
     flyerImageUrl: '',
     highlightOnHome: false,
-    reservableItems: {
-        bangalos: true,
-        sunbeds: true,
-        restaurantTables: false,
-        beachTables: false,
-        dayUse: false,
-    },
+    reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
     priceOverrides: createEmptyPriceOverrides(),
     ticketLots: DEFAULT_TICKET_LOTS.map(lot => ({ ...lot })),
 })
+
+const createDefaultGlobalForm = (): GlobalConfigForm => ({
+    reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
+    priceOverrides: createEmptyPriceOverrides(),
+})
+
+function applyPriceOverridesToForm(
+    base: SpaceOverrideForm,
+    overrides: Record<string, { price: number; consumable?: number }>,
+) {
+    for (const [spaceId, override] of Object.entries(overrides || {})) {
+        if (!base[spaceId]) continue
+        base[spaceId] = {
+            enabled: true,
+            price: formatCurrencyInput(override.price.toString()),
+            consumable: override.consumable !== undefined ? formatCurrencyInput(override.consumable.toString()) : '',
+        }
+    }
+}
 
 function formatDateBR(date: string) {
     return new Date(`${date}T12:00:00`).toLocaleDateString('pt-BR', {
@@ -152,12 +171,16 @@ function formatCurrencyInput(value: string): string {
 function AdminCalendarioPageContent() {
     const searchParams = useSearchParams()
     const [configs, setConfigs] = useState<DayConfigPayload[]>([])
+    const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
     const [loading, setLoading] = useState(true)
+    const [loadingGlobal, setLoadingGlobal] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [savingGlobal, setSavingGlobal] = useState(false)
     const [uploadingFlyer, setUploadingFlyer] = useState(false)
     const [editingConfig, setEditingConfig] = useState<DayConfigPayload | null>(null)
     const [form, setForm] = useState<DayConfigForm>(createDefaultForm)
+    const [globalForm, setGlobalForm] = useState<GlobalConfigForm>(createDefaultGlobalForm)
     const [prefillDone, setPrefillDone] = useState(false)
     const flyerInputRef = useRef<HTMLInputElement>(null)
 
@@ -187,8 +210,34 @@ function AdminCalendarioPageContent() {
         }
     }
 
+    const fetchGlobalConfig = async () => {
+        try {
+            const res = await fetch('/api/admin/day-configs/default', {
+                credentials: 'include',
+            })
+            const data = await res.json()
+
+            if (!data.success) {
+                throw new Error(data.error || 'Erro ao carregar configuração padrão')
+            }
+
+            const config = data.data as ReservationGlobalConfigPayload
+            setGlobalConfig(config)
+
+            const nextForm = createDefaultGlobalForm()
+            nextForm.reservableItems = config.reservableItems
+            applyPriceOverridesToForm(nextForm.priceOverrides, config.priceOverrides || {})
+            setGlobalForm(nextForm)
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao carregar configuração padrão')
+        } finally {
+            setLoadingGlobal(false)
+        }
+    }
+
     useEffect(() => {
         fetchConfigs()
+        fetchGlobalConfig()
     }, [])
 
     useEffect(() => {
@@ -235,14 +284,7 @@ function AdminCalendarioPageContent() {
         nextForm.highlightOnHome = config.highlightOnHome
         nextForm.reservableItems = config.reservableItems
 
-        for (const [spaceId, override] of Object.entries(config.priceOverrides || {})) {
-            if (!nextForm.priceOverrides[spaceId]) continue
-            nextForm.priceOverrides[spaceId] = {
-                enabled: true,
-                price: formatCurrencyInput(override.price.toString()),
-                consumable: override.consumable !== undefined ? formatCurrencyInput(override.consumable.toString()) : '',
-            }
-        }
+        applyPriceOverridesToForm(nextForm.priceOverrides, config.priceOverrides || {})
 
         config.ticketLots.forEach((lot, index) => {
             if (!nextForm.ticketLots[index]) {
@@ -411,6 +453,56 @@ function AdminCalendarioPageContent() {
         }
     }
 
+    const handleSaveGlobalConfig = async () => {
+        const enabledOverrides = Object.entries(globalForm.priceOverrides).reduce<Record<string, { price: number; consumable?: number }>>((acc, [spaceId, value]) => {
+            if (!value.enabled) return acc
+
+            const parsedPrice = parseCurrencyInput(value.price)
+            if (parsedPrice === null || !Number.isFinite(parsedPrice) || parsedPrice < 0) return acc
+
+            const parsedConsumable = value.consumable.trim() === '' ? null : parseCurrencyInput(value.consumable)
+            acc[spaceId] = {
+                price: parsedPrice,
+                ...(parsedConsumable !== null && Number.isFinite(parsedConsumable) && parsedConsumable >= 0
+                    ? { consumable: parsedConsumable }
+                    : {}),
+            }
+            return acc
+        }, {})
+
+        setSavingGlobal(true)
+        try {
+            const res = await fetch('/api/admin/day-configs/default', {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reservableItems: globalForm.reservableItems,
+                    priceOverrides: enabledOverrides,
+                }),
+            })
+            const data = await res.json()
+
+            if (!data.success) {
+                throw new Error(data.error || 'Erro ao salvar configuração padrão')
+            }
+
+            const config = data.data as ReservationGlobalConfigPayload
+            setGlobalConfig(config)
+
+            const normalizedForm = createDefaultGlobalForm()
+            normalizedForm.reservableItems = config.reservableItems
+            applyPriceOverridesToForm(normalizedForm.priceOverrides, config.priceOverrides || {})
+            setGlobalForm(normalizedForm)
+
+            toast.success('Configuração padrão atualizada')
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao salvar configuração padrão')
+        } finally {
+            setSavingGlobal(false)
+        }
+    }
+
     return (
         <AdminLayout>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -452,6 +544,180 @@ function AdminCalendarioPageContent() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Card className="mb-8">
+                <CardContent className="p-6 space-y-5">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-[#2a2a2a]">Configuração padrão (dia a dia)</h2>
+                            <p className="text-sm text-[#8a5c3f]">
+                                Vale para datas sem regra específica no calendário. Em datas configuradas, a regra da data tem prioridade.
+                            </p>
+                        </div>
+                        <Button onClick={handleSaveGlobalConfig} isLoading={savingGlobal} disabled={loadingGlobal}>
+                            Salvar padrão
+                        </Button>
+                    </div>
+
+                    {loadingGlobal ? (
+                        <div className="flex justify-center py-8">
+                            <Spinner size="md" />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
+                                <h3 className="font-semibold text-[#2a2a2a]">Produtos liberados no dia a dia</h3>
+                                <div className="grid md:grid-cols-3 gap-3 text-sm">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalForm.reservableItems.bangalos}
+                                            onChange={(e) => setGlobalForm(prev => ({ ...prev, reservableItems: { ...prev.reservableItems, bangalos: e.target.checked } }))}
+                                        />
+                                        Bangalôs
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalForm.reservableItems.sunbeds}
+                                            onChange={(e) => setGlobalForm(prev => ({ ...prev, reservableItems: { ...prev.reservableItems, sunbeds: e.target.checked } }))}
+                                        />
+                                        Sunbeds
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalForm.reservableItems.restaurantTables}
+                                            onChange={(e) => setGlobalForm(prev => ({ ...prev, reservableItems: { ...prev.reservableItems, restaurantTables: e.target.checked } }))}
+                                        />
+                                        Mesas restaurante
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalForm.reservableItems.beachTables}
+                                            onChange={(e) => setGlobalForm(prev => ({ ...prev, reservableItems: { ...prev.reservableItems, beachTables: e.target.checked } }))}
+                                        />
+                                        Mesas de praia
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={globalForm.reservableItems.dayUse}
+                                            onChange={(e) => setGlobalForm(prev => ({ ...prev, reservableItems: { ...prev.reservableItems, dayUse: e.target.checked } }))}
+                                        />
+                                        Day Use
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
+                                <h3 className="font-semibold text-[#2a2a2a]">Sobrescrever preços padrão</h3>
+                                <p className="text-xs text-[#8a5c3f]/80">
+                                    Use para definir preços fixos do dia a dia. Datas com configuração própria continuam sobrescrevendo estes valores.
+                                </p>
+                                <div className="space-y-3">
+                                    <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">
+                                        <span />
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
+                                    </div>
+                                    {SPACE_OVERRIDE_FIELDS.map(space => {
+                                        const override = globalForm.priceOverrides[space.id]
+                                        return (
+                                            <div key={space.id} className="grid md:grid-cols-4 gap-3 items-center">
+                                                <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={override.enabled}
+                                                        onChange={(e) => setGlobalForm(prev => ({
+                                                            ...prev,
+                                                            priceOverrides: {
+                                                                ...prev.priceOverrides,
+                                                                [space.id]: {
+                                                                    ...prev.priceOverrides[space.id],
+                                                                    enabled: e.target.checked,
+                                                                },
+                                                            },
+                                                        }))}
+                                                    />
+                                                    {space.label}
+                                                </label>
+                                                <Input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    placeholder="Preço (R$)"
+                                                    value={override.price}
+                                                    onChange={(e) => setGlobalForm(prev => ({
+                                                        ...prev,
+                                                        priceOverrides: {
+                                                            ...prev.priceOverrides,
+                                                            [space.id]: {
+                                                                ...prev.priceOverrides[space.id],
+                                                                price: sanitizeCurrencyTyping(e.target.value),
+                                                            },
+                                                        },
+                                                    }))}
+                                                    onBlur={(e) => {
+                                                        const formatted = formatCurrencyInput(e.target.value)
+                                                        setGlobalForm(prev => ({
+                                                            ...prev,
+                                                            priceOverrides: {
+                                                                ...prev.priceOverrides,
+                                                                [space.id]: {
+                                                                    ...prev.priceOverrides[space.id],
+                                                                    price: formatted,
+                                                                },
+                                                            },
+                                                        }))
+                                                    }}
+                                                    disabled={!override.enabled}
+                                                />
+                                                <Input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    placeholder="Consumação (R$)"
+                                                    value={override.consumable}
+                                                    onChange={(e) => setGlobalForm(prev => ({
+                                                        ...prev,
+                                                        priceOverrides: {
+                                                            ...prev.priceOverrides,
+                                                            [space.id]: {
+                                                                ...prev.priceOverrides[space.id],
+                                                                consumable: sanitizeCurrencyTyping(e.target.value),
+                                                            },
+                                                        },
+                                                    }))}
+                                                    onBlur={(e) => {
+                                                        const formatted = formatCurrencyInput(e.target.value)
+                                                        setGlobalForm(prev => ({
+                                                            ...prev,
+                                                            priceOverrides: {
+                                                                ...prev.priceOverrides,
+                                                                [space.id]: {
+                                                                    ...prev.priceOverrides[space.id],
+                                                                    consumable: formatted,
+                                                                },
+                                                            },
+                                                        }))
+                                                    }}
+                                                    disabled={!override.enabled}
+                                                />
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {globalConfig && (
+                                <p className="text-xs text-[#8a5c3f]/70">
+                                    Última atualização: {new Date(globalConfig.updatedAt).toLocaleString('pt-BR')}
+                                </p>
+                            )}
+                        </>
+                    )}
+                </CardContent>
+            </Card>
 
             {loading ? (
                 <div className="flex justify-center py-16">

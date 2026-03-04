@@ -8,31 +8,106 @@ import { createReservationSchema, paginationSchema, reservationFiltersSchema } f
 import { getHoursDifference } from '@/lib/utils'
 import type { ApiResponse, PaginatedResponse, ReservationWithDetails } from '@/lib/types'
 import { Prisma, ReservationStatus } from '@prisma/client'
-import { getPriceOverrideForSpace, parseDayConfig } from '@/lib/day-config'
+import { getPriceOverrideForSpace, parseDayConfig, parseReservationGlobalConfig, type ReservableItems } from '@/lib/day-config'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
+import { getSpacePrefix, isSpaceSlug, resolveCabinSlug, type SpaceSlug } from '@/lib/space-slugs'
 
-const CABIN_SLUG_PREFIX: Record<string, string> = {
-    'bangalo-lateral': 'Bangalô Lateral',
-    'bangalo-piscina': 'Bangalô Piscina',
-    'bangalo-frente-mar': 'Bangalô Frente Mar',
-    'bangalo-central': 'Bangalô Central',
-    'sunbed-casal': 'Sunbed Casal',
-    'mesa-restaurante': 'Mesa Restaurante',
-    'mesa-praia': 'Mesa Praia',
-    'day-use-praia': 'Day Use Praia',
+function buildSlugCabinWhere(slug: SpaceSlug): Prisma.CabinWhereInput {
+    const prefix = getSpacePrefix(slug)
+    return {
+        OR: [
+            { slug },
+            { slug: null, name: { startsWith: prefix } },
+        ],
+    }
 }
 
-function getSpaceSlugByCabinName(cabinName: string): string | null {
-    const normalized = cabinName.toLowerCase().trim()
-    if (normalized.includes('lateral')) return 'bangalo-lateral'
-    if (normalized.includes('piscina')) return 'bangalo-piscina'
-    if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
-    if (normalized.includes('central')) return 'bangalo-central'
-    if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
-    if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
-    if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
-    if (normalized.includes('day use') && normalized.includes('praia')) return 'day-use-praia'
-    return null
+async function getActiveUnitsForSlug(slug: SpaceSlug): Promise<number> {
+    const cabins = await prisma.cabin.findMany({
+        where: {
+            isActive: true,
+            ...buildSlugCabinWhere(slug),
+        },
+        select: { units: true },
+    })
+
+    return cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
+}
+
+async function countConflictsForSlug(
+    slug: SpaceSlug,
+    checkIn: Date,
+    checkOut: Date,
+    excludeReservationId?: string,
+): Promise<number> {
+    const activeReservationFilter = getActiveReservationFilter()
+
+    const reservations = await prisma.reservation.findMany({
+        where: {
+            ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
+            AND: [
+                activeReservationFilter,
+                {
+                    OR: [
+                        { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
+                        { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
+                        { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
+                    ],
+                },
+            ],
+        },
+        include: {
+            cabin: {
+                select: {
+                    name: true,
+                    slug: true,
+                },
+            },
+        },
+    })
+
+    return reservations.filter((reservation) => resolveCabinSlug(reservation.cabin) === slug).length
+}
+
+async function countConflictsForCabinId(
+    cabinId: string,
+    checkIn: Date,
+    checkOut: Date,
+    excludeReservationId?: string,
+): Promise<number> {
+    const activeReservationFilter = getActiveReservationFilter()
+
+    return prisma.reservation.count({
+        where: {
+            ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
+            cabinId,
+            AND: [
+                activeReservationFilter,
+                {
+                    OR: [
+                        { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
+                        { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
+                        { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
+                    ],
+                },
+            ],
+        },
+    })
+}
+
+function isSpaceReservableForDate(
+    spaceSlug: SpaceSlug | null,
+    reservableItems: ReservableItems,
+): boolean {
+    if (!spaceSlug) return true
+
+    if (spaceSlug.startsWith('bangalo-')) return reservableItems.bangalos
+    if (spaceSlug === 'sunbed-casal') return reservableItems.sunbeds
+    if (spaceSlug === 'mesa-restaurante') return reservableItems.restaurantTables
+    if (spaceSlug === 'mesa-praia') return reservableItems.beachTables
+    if (spaceSlug === 'day-use-praia') return reservableItems.dayUse
+
+    return true
 }
 
 // GET - Lista reservas (com filtros e paginação)
@@ -162,27 +237,22 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const activeReservationFilter = getActiveReservationFilter()
-
-        // Lógica de Atribuição Inteligente de Bangalô
+        // Lógica de atribuição com suporte a quantidade por tipo
         let cabinId = data.cabinId
-        let cabin
-        let resolvedSpaceSlug: string | null = null
+        let cabin: Awaited<ReturnType<typeof prisma.cabin.findUnique>> | null = null
+        let resolvedSpaceSlug: SpaceSlug | null = null
+        let availableUnitsForType = 1
 
-        // Se for UUID, busca direto
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId)
 
         if (isUuid) {
             cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
             if (cabin) {
-                resolvedSpaceSlug = getSpaceSlugByCabinName(cabin.name)
+                resolvedSpaceSlug = resolveCabinSlug(cabin)
+                availableUnitsForType = Math.max(1, cabin.units || 1)
             }
         } else {
-            // Se for Slug, busca uma unidade disponível do tipo
-            // Mapeamento Slug -> Prefixo do Nome no Banco (ver seed.ts)
-            const namePrefix = CABIN_SLUG_PREFIX[cabinId]
-
-            if (!namePrefix) {
+            if (!isSpaceSlug(cabinId)) {
                 return NextResponse.json<ApiResponse>(
                     { success: false, error: 'Tipo de acomodação inválido' },
                     { status: 400 }
@@ -190,53 +260,28 @@ export async function POST(request: NextRequest) {
             }
 
             resolvedSpaceSlug = cabinId
+            availableUnitsForType = await getActiveUnitsForSlug(resolvedSpaceSlug)
 
-            // 1. Busca todas as unidades desse tipo
-            const candidates = await prisma.cabin.findMany({
-                where: {
-                    name: { startsWith: namePrefix },
-                    isActive: true
-                }
-            })
-
-            if (candidates.length === 0) {
+            if (availableUnitsForType <= 0) {
                 return NextResponse.json<ApiResponse>(
                     { success: false, error: 'Nenhuma unidade encontrada para este tipo' },
                     { status: 404 }
                 )
             }
 
-            // 2. Para cada candidato, verifica se está livre
-            for (const candidate of candidates) {
-                const conflicts = await prisma.reservation.count({
-                    where: {
-                        cabinId: candidate.id,
-                        AND: [
-                            activeReservationFilter,
-                            {
-                                OR: [
-                                    { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
-                                    { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
-                                    { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
-                                ],
-                            },
-                        ]
-                    }
-                })
+            cabin = await prisma.cabin.findFirst({
+                where: {
+                    isActive: true,
+                    ...buildSlugCabinWhere(resolvedSpaceSlug),
+                },
+                orderBy: [
+                    { updatedAt: 'desc' },
+                    { createdAt: 'desc' },
+                ],
+            })
 
-                if (conflicts === 0) {
-                    cabin = candidate
-                    cabinId = candidate.id
-                    break // Encontrou um livre!
-                }
-            }
-
-            // Se cabin ainda é null, significa que todos estão ocupados
-            if (!cabin) {
-                return NextResponse.json<ApiResponse>(
-                    { success: false, error: 'Não há disponibilidade para este tipo de acomodação na data selecionada.' },
-                    { status: 409 }
-                )
+            if (cabin) {
+                cabinId = cabin.id
             }
         }
 
@@ -247,27 +292,26 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Verifica conflito de horário (double-booking)
-        const conflictingReservation = await prisma.reservation.findFirst({
-            where: {
-                cabinId: cabinId, // Agora usa o ID resolvido (UUID)
-                AND: [
-                    activeReservationFilter,
-                    {
-                        OR: [
-                            // Nova reserva começa durante outra
-                            { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
-                            // Nova reserva termina durante outra
-                            { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
-                            // Nova reserva engloba outra
-                            { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
-                        ],
-                    },
-                ],
-            },
-        })
+        if (!resolvedSpaceSlug) {
+            resolvedSpaceSlug = resolveCabinSlug(cabin)
+        }
 
-        if (conflictingReservation) {
+        // Conflito considerando estoque agregado por tipo
+        let maxAllowedUnits = availableUnitsForType
+        let conflictCount = 0
+
+        if (resolvedSpaceSlug) {
+            maxAllowedUnits = await getActiveUnitsForSlug(resolvedSpaceSlug)
+            if (maxAllowedUnits <= 0) {
+                maxAllowedUnits = Math.max(1, cabin.units || 1)
+            }
+            conflictCount = await countConflictsForSlug(resolvedSpaceSlug, checkIn, checkOut)
+        } else {
+            maxAllowedUnits = Math.max(1, cabin.units || 1)
+            conflictCount = await countConflictsForCabinId(cabinId, checkIn, checkOut)
+        }
+
+        if (conflictCount >= maxAllowedUnits) {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Horário indisponível. Já existe uma reserva neste período.' },
                 { status: 409 }
@@ -278,11 +322,16 @@ export async function POST(request: NextRequest) {
         const hoursBooked = getHoursDifference(checkIn, checkOut)
 
         // Verifica regras/configuração avançada por data
-        const dayConfig = await prisma.reservationDayConfig.findUnique({
-            where: {
-                date: new Date(`${checkIn.toISOString().split('T')[0]}T12:00:00Z`),
-            },
-        })
+        const [dayConfig, globalConfigRaw] = await Promise.all([
+            prisma.reservationDayConfig.findUnique({
+                where: {
+                    date: new Date(`${checkIn.toISOString().split('T')[0]}T12:00:00Z`),
+                },
+            }),
+            prisma.reservationGlobalConfig.findUnique({
+                where: { id: 'default' },
+            }),
+        ])
 
         if (dayConfig && (!dayConfig.reservationsEnabled || dayConfig.status === 'BLOCKED')) {
             return NextResponse.json<ApiResponse>(
@@ -292,11 +341,25 @@ export async function POST(request: NextRequest) {
         }
 
         const parsedDayConfig = dayConfig ? parseDayConfig(dayConfig) : null
-        const priceOverride = getPriceOverrideForSpace(parsedDayConfig, resolvedSpaceSlug || '')
+        const parsedGlobalConfig = parseReservationGlobalConfig(globalConfigRaw)
+        const effectiveReservableItems = parsedDayConfig?.reservableItems ?? parsedGlobalConfig.reservableItems
+
+        if (!isSpaceReservableForDate(resolvedSpaceSlug, effectiveReservableItems)) {
+            return NextResponse.json<ApiResponse>(
+                { success: false, error: 'Este espaço não está disponível para reserva nesta data.' },
+                { status: 409 }
+            )
+        }
+
+        const dayPriceOverride = getPriceOverrideForSpace(parsedDayConfig, resolvedSpaceSlug || '')
+        const globalPriceOverride = parsedGlobalConfig.priceOverrides[resolvedSpaceSlug || ''] ?? null
 
         // Se o frontend enviou totalPrice, usa ele (day use com preço fixo)
         // Senão, calcula por hora (fallback para casos especiais)
-        const totalPrice = priceOverride?.price ?? data.totalPrice ?? (Number(cabin.pricePerHour) * hoursBooked)
+        const totalPrice = dayPriceOverride?.price
+            ?? globalPriceOverride?.price
+            ?? data.totalPrice
+            ?? (Number(cabin.pricePerHour) * hoursBooked)
 
         // Verifica se veio de usuário autenticado (OFFLINE) ou público (ONLINE)
         const authUser = getAuthUser(request)

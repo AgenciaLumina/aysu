@@ -12,9 +12,10 @@ import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
-import type { DayConfigPayload } from '@/lib/day-config'
-import { getPriceOverrideForSpace } from '@/lib/day-config'
+import type { DayConfigPayload, ReservationGlobalConfigPayload } from '@/lib/day-config'
+import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace } from '@/lib/day-config'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
+import { resolveCabinSlug } from '@/lib/space-slugs'
 
 // ==========================================
 // DADOS DOS ESPAÇOS (Informações reais)
@@ -280,6 +281,8 @@ export default function ReservasPage() {
     })
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
+    const [spaceUnits, setSpaceUnits] = useState<Record<string, number>>({})
+    const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
 
     // Estado do modal de informação de data especial/bloqueada
     const [dayInfoModal, setDayInfoModal] = useState<{
@@ -328,6 +331,32 @@ export default function ReservasPage() {
     }, [])
 
     useEffect(() => {
+        fetch('/api/day-configs/default')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setGlobalConfig(data.data)
+                }
+            })
+            .catch(err => console.error('Erro ao buscar configuração padrão:', err))
+
+        fetch('/api/cabins?isActive=true')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success || !Array.isArray(data.data)) return
+
+                const nextUnits: Record<string, number> = {}
+                data.data.forEach((cabin: { name: string; slug?: string | null; units?: number }) => {
+                    const slug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug })
+                    if (!slug) return
+                    nextUnits[slug] = (nextUnits[slug] || 0) + Math.max(1, Number(cabin.units || 1))
+                })
+                setSpaceUnits(nextUnits)
+            })
+            .catch(err => console.error('Erro ao buscar espaços ativos:', err))
+    }, [])
+
+    useEffect(() => {
         const year = currentMonth.getFullYear()
         const month = currentMonth.getMonth() + 1
 
@@ -348,8 +377,9 @@ export default function ReservasPage() {
 
     const getSpacePricing = (space: SpaceType, date: Date | null) => {
         const isDateHoliday = date ? isHoliday(date) : false
-        const basePrice = isDateHoliday ? space.holidayPrice : space.dailyPrice
-        const baseConsumable = isDateHoliday ? space.holidayConsumable : space.consumable
+        const globalOverride = globalConfig?.priceOverrides?.[space.id]
+        const basePrice = globalOverride?.price ?? (isDateHoliday ? space.holidayPrice : space.dailyPrice)
+        const baseConsumable = globalOverride?.consumable ?? (isDateHoliday ? space.holidayConsumable : space.consumable)
 
         if (!date) {
             return {
@@ -378,8 +408,9 @@ export default function ReservasPage() {
     }
 
     const getDayUsePricing = (date: Date | null) => {
-        const basePrice = 160
-        const baseConsumable = 100
+        const globalOverride = globalConfig?.priceOverrides?.['day-use-praia']
+        const basePrice = globalOverride?.price ?? 160
+        const baseConsumable = globalOverride?.consumable ?? 100
 
         if (!date) {
             return {
@@ -763,15 +794,16 @@ export default function ReservasPage() {
                     {spaceTypes.map((space) => {
                         const { finalPrice, finalConsumable, isOverride } = getSpacePricing(space, effectiveSelectedDate)
                         const availableCount = availabilityCounts[space.id]
+                        const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isRestaurantTable = space.id === 'mesa-restaurante'
                         const isBeachTable = space.id === 'mesa-praia'
                         const isDayUse = space.id === 'day-use-praia'
                         const blockedByRule = (
-                            (space.category === 'bangalo' && selectedDateConfig?.reservableItems.bangalos === false) ||
-                            (space.category === 'sunbed' && selectedDateConfig?.reservableItems.sunbeds === false) ||
-                            (isRestaurantTable && !selectedDateConfig?.reservableItems.restaurantTables) ||
-                            (isBeachTable && !selectedDateConfig?.reservableItems.beachTables) ||
-                            (isDayUse && selectedDateConfig?.reservableItems.dayUse === false)
+                            (space.category === 'bangalo' && !reservableItems.bangalos) ||
+                            (space.category === 'sunbed' && !reservableItems.sunbeds) ||
+                            (isRestaurantTable && !reservableItems.restaurantTables) ||
+                            (isBeachTable && !reservableItems.beachTables) ||
+                            (isDayUse && !reservableItems.dayUse)
                         )
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
                         const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0) || blockedByRule || isLoadingAvailability
@@ -855,7 +887,7 @@ export default function ReservasPage() {
                                             })()
                                         ) : (
                                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
+                                                {(spaceUnits[space.id] ?? space.units)} {(spaceUnits[space.id] ?? space.units) === 1 ? 'unidade' : 'unidades'}
                                             </span>
                                         )}
                                     </div>

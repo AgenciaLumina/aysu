@@ -6,11 +6,69 @@ import { prisma } from '@/lib/db'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse, ReservationWithDetails } from '@/lib/types'
-import { ReservationStatus } from '@prisma/client'
+import { Prisma, ReservationStatus } from '@prisma/client'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
+import { getSpacePrefix, resolveCabinSlug, type SpaceSlug } from '@/lib/space-slugs'
 
 interface RouteParams {
     params: Promise<{ id: string }>
+}
+
+function buildSlugCabinWhere(slug: SpaceSlug): Prisma.CabinWhereInput {
+    const prefix = getSpacePrefix(slug)
+    return {
+        OR: [
+            { slug },
+            { slug: null, name: { startsWith: prefix } },
+        ],
+    }
+}
+
+async function getActiveUnitsForSlug(slug: SpaceSlug): Promise<number> {
+    const cabins = await prisma.cabin.findMany({
+        where: {
+            isActive: true,
+            ...buildSlugCabinWhere(slug),
+        },
+        select: { units: true },
+    })
+
+    return cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
+}
+
+async function countConflictsForSlug(
+    slug: SpaceSlug,
+    checkIn: Date,
+    checkOut: Date,
+    excludeReservationId: string,
+): Promise<number> {
+    const activeReservationFilter = getActiveReservationFilter()
+
+    const reservations = await prisma.reservation.findMany({
+        where: {
+            id: { not: excludeReservationId },
+            AND: [
+                activeReservationFilter,
+                {
+                    OR: [
+                        { AND: [{ checkIn: { lte: checkIn } }, { checkOut: { gt: checkIn } }] },
+                        { AND: [{ checkIn: { lt: checkOut } }, { checkOut: { gte: checkOut } }] },
+                        { AND: [{ checkIn: { gte: checkIn } }, { checkOut: { lte: checkOut } }] },
+                    ],
+                },
+            ],
+        },
+        include: {
+            cabin: {
+                select: {
+                    name: true,
+                    slug: true,
+                },
+            },
+        },
+    })
+
+    return reservations.filter((reservation) => resolveCabinSlug(reservation.cabin) === slug).length
 }
 
 // GET - Detalhes da reserva
@@ -89,6 +147,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         // Verifica se reserva existe
         const existingReservation = await prisma.reservation.findUnique({
             where: { id },
+            include: {
+                cabin: {
+                    select: {
+                        name: true,
+                        slug: true,
+                        units: true,
+                    },
+                },
+            },
         })
 
         if (!existingReservation) {
@@ -111,26 +178,37 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 )
             }
 
-            // Check conflict
-            const activeReservationFilter = getActiveReservationFilter()
-            const conflict = await prisma.reservation.findFirst({
-                where: {
-                    id: { not: id },
-                    cabinId: existingReservation.cabinId,
-                    AND: [
-                        activeReservationFilter,
-                        {
-                            OR: [
-                                { AND: [{ checkIn: { lte: newCheckIn } }, { checkOut: { gt: newCheckIn } }] },
-                                { AND: [{ checkIn: { lt: newCheckOut } }, { checkOut: { gte: newCheckOut } }] },
-                                { AND: [{ checkIn: { gte: newCheckIn } }, { checkOut: { lte: newCheckOut } }] },
-                            ],
-                        },
-                    ],
-                },
-            })
+            const slug = resolveCabinSlug(existingReservation.cabin)
+            let conflictCount = 0
+            let maxAllowedUnits = Math.max(1, existingReservation.cabin.units || 1)
 
-            if (conflict) {
+            if (slug) {
+                maxAllowedUnits = await getActiveUnitsForSlug(slug)
+                if (maxAllowedUnits <= 0) {
+                    maxAllowedUnits = Math.max(1, existingReservation.cabin.units || 1)
+                }
+                conflictCount = await countConflictsForSlug(slug, newCheckIn, newCheckOut, id)
+            } else {
+                const activeReservationFilter = getActiveReservationFilter()
+                conflictCount = await prisma.reservation.count({
+                    where: {
+                        id: { not: id },
+                        cabinId: existingReservation.cabinId,
+                        AND: [
+                            activeReservationFilter,
+                            {
+                                OR: [
+                                    { AND: [{ checkIn: { lte: newCheckIn } }, { checkOut: { gt: newCheckIn } }] },
+                                    { AND: [{ checkIn: { lt: newCheckOut } }, { checkOut: { gte: newCheckOut } }] },
+                                    { AND: [{ checkIn: { gte: newCheckIn } }, { checkOut: { lte: newCheckOut } }] },
+                                ],
+                            },
+                        ],
+                    },
+                })
+            }
+
+            if (conflictCount >= maxAllowedUnits) {
                 return NextResponse.json<ApiResponse>(
                     { success: false, error: 'Data indisponível (conflito de agenda)' },
                     { status: 409 }

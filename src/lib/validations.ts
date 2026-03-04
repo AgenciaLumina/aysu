@@ -54,7 +54,9 @@ export const registerSchema = z.object({
 
 export const createCabinSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório'),
+    slug: z.string().trim().min(1, 'Slug é obrigatório').optional(),
     capacity: z.number().int().positive('Capacidade deve ser positiva'),
+    units: z.number().int().positive('Quantidade deve ser positiva').default(1),
     pricePerHour: z.number().positive('Preço deve ser positivo'),
     description: z.string().optional(),
     imageUrl: optionalMediaUrlOrPathSchema,
@@ -209,6 +211,11 @@ export const createDayConfigSchema = z.object({
 })
 
 export const updateDayConfigSchema = createDayConfigSchema.partial()
+
+export const updateReservationGlobalConfigSchema = z.object({
+    reservableItems: dayConfigReservableItemsSchema.optional(),
+    priceOverrides: z.record(z.string(), dayConfigPriceOverrideSchema).optional(),
+})
 
 // ============================================================
 // PDV

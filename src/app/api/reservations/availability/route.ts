@@ -5,39 +5,99 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
+import { getSpacePrefix, isSpaceSlug, resolveCabinSlug, SPACE_SLUGS, type SpaceSlug } from '@/lib/space-slugs'
 
-const CABIN_PREFIX_BY_SLUG: Record<string, string> = {
-    'bangalo-lateral': 'Bangalô Lateral',
-    'bangalo-piscina': 'Bangalô Piscina',
-    'bangalo-frente-mar': 'Bangalô Frente Mar',
-    'bangalo-central': 'Bangalô Central',
-    'sunbed-casal': 'Sunbed Casal',
-    'mesa-restaurante': 'Mesa Restaurante',
-    'mesa-praia': 'Mesa Praia',
-    'day-use-praia': 'Day Use Praia',
+interface ReservationLite {
+    cabinId: string
+    checkIn: Date
+    checkOut: Date
+    cabin: {
+        name: string
+        slug: string | null
+    }
 }
 
-const CABIN_SLUGS = Object.keys(CABIN_PREFIX_BY_SLUG)
+function overlaps(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
+    return startA < endB && endA > startB
+}
 
-function resolveCabinSlug(cabinName: string): string | null {
-    const normalized = cabinName.toLowerCase().trim()
-    if (normalized.includes('lateral')) return 'bangalo-lateral'
-    if (normalized.includes('piscina')) return 'bangalo-piscina'
-    if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
-    if (normalized.includes('central')) return 'bangalo-central'
-    if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
-    if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
-    if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
-    if (normalized.includes('day use') && normalized.includes('praia')) return 'day-use-praia'
-    return null
+function formatLocalDate(date: Date): string {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+function getDayRange(date: Date): { start: Date; end: Date } {
+    const start = new Date(date)
+    start.setHours(10, 0, 0, 0)
+    const end = new Date(date)
+    end.setHours(18, 0, 0, 0)
+    return { start, end }
+}
+
+function getCalendarDayRange(date: Date): { start: Date; end: Date } {
+    const start = new Date(date)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(date)
+    end.setHours(23, 59, 59, 999)
+    return { start, end }
+}
+
+function buildSlugFilter(slug: SpaceSlug) {
+    const prefix = getSpacePrefix(slug)
+    return {
+        OR: [
+            { slug },
+            { slug: null, name: { startsWith: prefix } },
+        ],
+    }
+}
+
+async function getActiveUnitsBySlug(slug: SpaceSlug): Promise<number> {
+    const cabins = await prisma.cabin.findMany({
+        where: {
+            isActive: true,
+            ...buildSlugFilter(slug),
+        },
+        select: { units: true },
+    })
+
+    return cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
+}
+
+async function getRelevantReservations(
+    rangeStart: Date,
+    rangeEnd: Date,
+): Promise<ReservationLite[]> {
+    return prisma.reservation.findMany({
+        where: {
+            AND: [
+                getActiveReservationFilter(),
+                {
+                    OR: [
+                        { checkIn: { gte: rangeStart, lte: rangeEnd } },
+                        { checkOut: { gte: rangeStart, lte: rangeEnd } },
+                        { AND: [{ checkIn: { lte: rangeStart } }, { checkOut: { gte: rangeEnd } }] },
+                    ],
+                },
+            ],
+        },
+        include: {
+            cabin: {
+                select: {
+                    name: true,
+                    slug: true,
+                },
+            },
+        },
+    })
 }
 
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const cabinId = searchParams.get('cabinId')
-
-        // Suporte para data única ou mês completo
         const dateParam = searchParams.get('date')
         const yearParam = searchParams.get('year')
         const monthParam = searchParams.get('month')
@@ -49,181 +109,176 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        const activeReservationFilter = getActiveReservationFilter()
-
-        // Resolvendo o(s) Bangalô(s) - UUID ou Slug
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId || '')
-        let cabinPoolIds: string[] = []
+
+        let targetSlug: SpaceSlug | null = null
+        let targetUuid: string | null = null
+        let totalUnits = 0
         let nameToReturn = ''
 
         if (cabinId) {
             if (isUuid) {
-                const cabin = await prisma.cabin.findUnique({ where: { id: cabinId } })
-                if (!cabin) return NextResponse.json({ success: false, error: 'Bangalô não encontrado' }, { status: 404 })
-                cabinPoolIds = [cabin.id]
-                nameToReturn = cabin.name
-            } else {
-                const namePrefix = CABIN_PREFIX_BY_SLUG[cabinId] // cabinId is confirmed string
-                if (!namePrefix) return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
-
-                const cabins = await prisma.cabin.findMany({
-                    where: { name: { startsWith: namePrefix }, isActive: true },
-                    select: { id: true }
+                const cabin = await prisma.cabin.findUnique({
+                    where: { id: cabinId },
+                    select: { id: true, name: true, slug: true, units: true },
                 })
-                cabinPoolIds = cabins.map(c => c.id)
-                nameToReturn = namePrefix
+
+                if (!cabin) {
+                    return NextResponse.json({ success: false, error: 'Espaço não encontrado' }, { status: 404 })
+                }
+
+                targetSlug = resolveCabinSlug(cabin)
+                if (targetSlug) {
+                    totalUnits = await getActiveUnitsBySlug(targetSlug)
+                    if (totalUnits <= 0) {
+                        totalUnits = Math.max(1, cabin.units || 1)
+                    }
+                    nameToReturn = getSpacePrefix(targetSlug)
+                } else {
+                    targetUuid = cabin.id
+                    totalUnits = Math.max(1, cabin.units || 1)
+                    nameToReturn = cabin.name
+                }
+            } else {
+                if (!isSpaceSlug(cabinId)) {
+                    return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
+                }
+
+                targetSlug = cabinId
+                totalUnits = await getActiveUnitsBySlug(cabinId)
+                nameToReturn = getSpacePrefix(cabinId)
             }
         }
 
-        const totalUnits = cabinPoolIds.length
+        // Disponibilidade mensal de um tipo específico (para calendário no admin)
+        if (cabinId && yearParam && monthParam) {
+            const year = Number(yearParam)
+            const month = Number(monthParam) - 1
 
-        // LÓGICA MENSAL
-        if (yearParam && monthParam) {
-            const year = parseInt(yearParam)
-            const month = parseInt(monthParam) - 1
+            if (!Number.isInteger(year) || !Number.isInteger(month + 1) || month < 0 || month > 11) {
+                return NextResponse.json({ success: false, error: 'Parâmetros year/month inválidos' }, { status: 400 })
+            }
+
             const lastDay = new Date(year, month + 1, 0)
+            const monthStart = new Date(year, month, 1, 0, 0, 0, 0)
+            const monthEnd = new Date(year, month, lastDay.getDate(), 23, 59, 59, 999)
+
+            const reservations = await getRelevantReservations(monthStart, monthEnd)
+
+            const relevantReservations = reservations.filter((reservation) => {
+                if (targetUuid) return reservation.cabinId === targetUuid
+                const slug = resolveCabinSlug(reservation.cabin)
+                return slug === targetSlug
+            })
 
             const dayResults = []
-            for (let d = 1; d <= lastDay.getDate(); d++) {
-                const currentDay = new Date(year, month, d)
-                const startOfDay = new Date(currentDay)
-                startOfDay.setHours(10, 0, 0, 0)
-                const endOfDay = new Date(currentDay)
-                endOfDay.setHours(18, 0, 0, 0)
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const currentDay = new Date(year, month, day)
+                const { start, end } = getDayRange(currentDay)
 
-                // Conta quantas reservas existem para este tipo no dia
-                const reservedCount = await prisma.reservation.count({
-                    where: {
-                        cabinId: { in: cabinPoolIds },
-                        AND: [
-                            activeReservationFilter,
-                            {
-                                OR: [
-                                    { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
-                                    { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
-                                    { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
-                                ],
-                            },
-                        ]
-                    }
-                })
-
-                // Formata YYYY-MM-DD usando data local (seguro contra fuso horário do servidor)
-                const yearStr = currentDay.getFullYear()
-                const monthStr = String(currentDay.getMonth() + 1).padStart(2, '0')
-                const dayStr = String(currentDay.getDate()).padStart(2, '0')
-                const dateStr = `${yearStr}-${monthStr}-${dayStr}`
+                const reservedCount = relevantReservations.filter((reservation) =>
+                    overlaps(start, end, reservation.checkIn, reservation.checkOut)
+                ).length
 
                 dayResults.push({
-                    date: dateStr,
-                    available: reservedCount < totalUnits
+                    date: formatLocalDate(currentDay),
+                    available: reservedCount < totalUnits,
                 })
             }
 
             return NextResponse.json({ success: true, data: dayResults })
         }
 
-        // LÓGICA DE CONTAGEM DIÁRIA (Todos os bangalôs)
+        // Disponibilidade por tipo para uma data (home/reservas)
         if (!cabinId && dateParam) {
             const date = new Date(dateParam)
-            const startOfDay = new Date(date); startOfDay.setHours(10, 0, 0, 0)
-            const endOfDay = new Date(date); endOfDay.setHours(18, 0, 0, 0)
+            const { start, end } = getDayRange(date)
 
-            // Buscar todos os espaços ativos e mapear estoques por tipo
-            const allCabins = await prisma.cabin.findMany({
+            const activeCabins = await prisma.cabin.findMany({
                 where: { isActive: true },
-                select: { name: true }
+                select: { id: true, name: true, slug: true, units: true },
             })
 
-            const totalUnitsByType = CABIN_SLUGS.reduce<Record<string, number>>((acc, slug) => {
+            const totalUnitsByType = SPACE_SLUGS.reduce<Record<string, number>>((acc, slug) => {
                 acc[slug] = 0
                 return acc
             }, {})
 
-            for (const cabin of allCabins) {
-                const slug = resolveCabinSlug(cabin.name)
-                if (!slug) continue
-                totalUnitsByType[slug] = (totalUnitsByType[slug] || 0) + 1
-            }
-
-            // Buscar reservas do dia para TODOS os espaços
-            const reservations = await prisma.reservation.findMany({
-                where: {
-                    AND: [
-                        activeReservationFilter,
-                        {
-                            OR: [
-                                { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gt: startOfDay } }] },
-                                { AND: [{ checkIn: { lt: endOfDay } }, { checkOut: { gte: endOfDay } }] },
-                                { AND: [{ checkIn: { gte: startOfDay } }, { checkOut: { lte: endOfDay } }] },
-                            ],
-                        },
-                    ]
-                },
-                include: { cabin: true }
+            activeCabins.forEach((cabin) => {
+                const slug = resolveCabinSlug(cabin)
+                if (!slug) return
+                totalUnitsByType[slug] += Math.max(1, cabin.units || 1)
             })
 
-            // Calcular disponibilidade
-            const availability: Record<string, number> = { ...totalUnitsByType }
+            const reservations = await getRelevantReservations(start, end)
+            const reservedByType = SPACE_SLUGS.reduce<Record<string, number>>((acc, slug) => {
+                acc[slug] = 0
+                return acc
+            }, {})
 
-            reservations.forEach(res => {
-                const slug = resolveCabinSlug(res.cabin.name)
-                if (slug && availability[slug] > 0) {
-                    availability[slug]--
-                }
+            reservations.forEach((reservation) => {
+                const slug = resolveCabinSlug(reservation.cabin)
+                if (!slug) return
+                if (!overlaps(start, end, reservation.checkIn, reservation.checkOut)) return
+                reservedByType[slug] += 1
+            })
+
+            const availability: Record<string, number> = {}
+            SPACE_SLUGS.forEach((slug) => {
+                const available = totalUnitsByType[slug] - reservedByType[slug]
+                availability[slug] = available > 0 ? available : 0
             })
 
             return NextResponse.json({ success: true, data: availability })
         }
 
-        // LÓGICA DE DATA ÚNICA (Slots)
-        if (dateParam) {
+        // Slots horários de um tipo específico em uma data
+        if (cabinId && dateParam) {
             const date = new Date(dateParam)
-            const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0)
-            const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999)
+            const { start, end } = getCalendarDayRange(date)
 
-            const reservations = await prisma.reservation.findMany({
-                where: {
-                    cabinId: { in: cabinPoolIds },
-                    AND: [
-                        activeReservationFilter,
-                        {
-                            OR: [
-                                { checkIn: { gte: startOfDay, lte: endOfDay } },
-                                { checkOut: { gte: startOfDay, lte: endOfDay } },
-                                { AND: [{ checkIn: { lte: startOfDay } }, { checkOut: { gte: endOfDay } }] },
-                            ],
-                        },
-                    ]
-                }
+            const reservations = await getRelevantReservations(start, end)
+            const relevantReservations = reservations.filter((reservation) => {
+                if (targetUuid) return reservation.cabinId === targetUuid
+                const slug = resolveCabinSlug(reservation.cabin)
+                return slug === targetSlug
             })
 
             const slots = []
             for (let hour = 10; hour < 18; hour++) {
-                const slotStart = new Date(date); slotStart.setHours(hour, 0, 0, 0)
-                const slotEnd = new Date(date); slotEnd.setHours(hour + 1, 0, 0, 0)
+                const slotStart = new Date(date)
+                slotStart.setHours(hour, 0, 0, 0)
+                const slotEnd = new Date(date)
+                slotEnd.setHours(hour + 1, 0, 0, 0)
 
-                // Ocupado se o número de reservas no slot for >= número de unidades
-                const countAtSlot = reservations.filter(r => slotStart < r.checkOut && slotEnd > r.checkIn).length
+                const countAtSlot = relevantReservations.filter((reservation) =>
+                    overlaps(slotStart, slotEnd, reservation.checkIn, reservation.checkOut)
+                ).length
+
                 const isOccupied = countAtSlot >= totalUnits || slotStart < new Date()
 
                 slots.push({
                     start: slotStart.toISOString(),
                     end: slotEnd.toISOString(),
-                    isOccupied
+                    isOccupied,
                 })
             }
 
             return NextResponse.json({
                 success: true,
-                data: { cabinId, cabinName: nameToReturn, date: dateParam, slots }
+                data: { cabinId, cabinName: nameToReturn, date: dateParam, slots },
             })
         }
 
-        return NextResponse.json({ success: false, error: 'Parâmetros insuficientes (date ou year/month)' }, { status: 400 })
-
+        return NextResponse.json(
+            { success: false, error: 'Parâmetros insuficientes (date ou year/month)' },
+            { status: 400 }
+        )
     } catch (error) {
         console.error('[Availability Error]', error)
-        return NextResponse.json({ success: false, error: 'Erro ao verificar disponibilidade' }, { status: 500 })
+        return NextResponse.json(
+            { success: false, error: 'Erro ao verificar disponibilidade' },
+            { status: 500 }
+        )
     }
 }

@@ -3,11 +3,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
 import { createCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 import type { Cabin } from '@prisma/client'
 import { CabinCategory, Prisma } from '@prisma/client'
+import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 
 // GET - Lista cabins (público)
 export async function GET(request: NextRequest) {
@@ -83,8 +83,33 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        const inferredSlug = validation.data.slug?.trim() || resolveCabinSlugFromName(validation.data.name) || null
+
+        if (inferredSlug && isSpaceSlug(inferredSlug)) {
+            const existingSameType = await prisma.cabin.findFirst({
+                where: {
+                    isActive: true,
+                    OR: [
+                        { slug: inferredSlug },
+                        { slug: null, name: { startsWith: getSpacePrefix(inferredSlug) } },
+                    ],
+                },
+                select: { id: true },
+            })
+
+            if (existingSameType) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Este tipo de espaço já existe. Edite a quantidade no cadastro existente.' },
+                    { status: 409 }
+                )
+            }
+        }
+
         const cabin = await prisma.cabin.create({
-            data: validation.data,
+            data: {
+                ...validation.data,
+                slug: inferredSlug,
+            },
         })
 
         console.log({

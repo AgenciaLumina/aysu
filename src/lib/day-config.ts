@@ -1,4 +1,4 @@
-import { DayConfigStatus, type ReservationDayConfig } from '@prisma/client'
+import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@prisma/client'
 
 export interface PriceOverride {
     price: number
@@ -44,7 +44,17 @@ export const DEFAULT_RESERVABLE_ITEMS: ReservableItems = {
     sunbeds: true,
     restaurantTables: false,
     beachTables: false,
-    dayUse: false,
+    dayUse: true,
+}
+
+export const DEFAULT_GLOBAL_PRICE_OVERRIDES: PriceOverrides = {}
+
+export interface ReservationGlobalConfigPayload {
+    id: string
+    reservableItems: ReservableItems
+    priceOverrides: PriceOverrides
+    createdAt: string
+    updatedAt: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -143,6 +153,29 @@ export function parseDayConfig(config: ReservationDayConfig): DayConfigPayload {
         priceOverrides: parsePriceOverrides(config.priceOverrides),
         ticketLots: parseTicketLots(config.ticketLots),
         reservableItems: parseReservableItems(config.reservableItems),
+        createdAt: config.createdAt.toISOString(),
+        updatedAt: config.updatedAt.toISOString(),
+    }
+}
+
+export function parseReservationGlobalConfig(
+    config: ReservationGlobalConfig | null | undefined
+): ReservationGlobalConfigPayload {
+    if (!config) {
+        const nowIso = new Date().toISOString()
+        return {
+            id: 'default',
+            reservableItems: DEFAULT_RESERVABLE_ITEMS,
+            priceOverrides: DEFAULT_GLOBAL_PRICE_OVERRIDES,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+        }
+    }
+
+    return {
+        id: config.id,
+        reservableItems: parseReservableItems(config.reservableItems),
+        priceOverrides: parsePriceOverrides(config.priceOverrides),
         createdAt: config.createdAt.toISOString(),
         updatedAt: config.updatedAt.toISOString(),
     }

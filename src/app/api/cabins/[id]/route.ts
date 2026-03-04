@@ -3,10 +3,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getAuthUser, isAdmin } from '@/lib/auth'
 import { updateCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 import type { Cabin } from '@prisma/client'
+import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -87,9 +87,55 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             }
         }
 
+        const nextName = validation.data.name ?? existing.name
+        const inferredSlug = validation.data.slug?.trim() || resolveCabinSlugFromName(nextName) || existing.slug || null
+
+        let mergedUnits = validation.data.units ?? existing.units
+
+        if (inferredSlug) {
+            const siblingWhere = isSpaceSlug(inferredSlug)
+                ? {
+                    OR: [
+                        { slug: inferredSlug },
+                        { slug: null, name: { startsWith: getSpacePrefix(inferredSlug) } },
+                    ],
+                }
+                : { slug: inferredSlug }
+
+            const siblings = await prisma.cabin.findMany({
+                where: {
+                    id: { not: id },
+                    isActive: true,
+                    ...siblingWhere,
+                },
+                select: {
+                    id: true,
+                    units: true,
+                },
+            })
+
+            if (siblings.length > 0) {
+                const siblingUnits = siblings.reduce((sum, sibling) => sum + Math.max(1, sibling.units || 1), 0)
+
+                // Se o admin não definiu explicitamente a quantidade, preserva o estoque total ao consolidar.
+                if (validation.data.units === undefined) {
+                    mergedUnits = Math.max(1, mergedUnits) + siblingUnits
+                }
+
+                await prisma.cabin.updateMany({
+                    where: { id: { in: siblings.map(sibling => sibling.id) } },
+                    data: { isActive: false },
+                })
+            }
+        }
+
         const cabin = await prisma.cabin.update({
             where: { id },
-            data: validation.data,
+            data: {
+                ...validation.data,
+                slug: inferredSlug,
+                units: mergedUnits,
+            },
         })
 
         console.log({

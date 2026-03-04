@@ -120,6 +120,7 @@ function CheckoutContent() {
                     customerEmail: formData.customerEmail,
                     customerPhone: formData.customerPhone,
                     customerDocument: formData.customerDocument,
+                    notes: formData.notes?.trim() || undefined,
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
                     totalPrice: price, // Preço da diária (não multiplica por horas!)
