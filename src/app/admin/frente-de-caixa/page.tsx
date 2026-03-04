@@ -703,7 +703,7 @@ export default function FrenteDeCaixaPage() {
                                     <p className="text-[#8a5c3f]">{selectedReservation.customerEmail}</p>
                                 )}
                                 {selectedReservation.customerDocument && (
-                                    <p className="text-[#8a5c3f]">Documento: {selectedReservation.customerDocument}</p>
+                                    <p className="text-[#8a5c3f]">CPF: {selectedReservation.customerDocument}</p>
                                 )}
                             </div>
 

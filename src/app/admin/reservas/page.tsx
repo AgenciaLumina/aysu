@@ -3,12 +3,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Users, Search, Plus, Check, X, XCircle, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare, Edit } from 'lucide-react'
+import { Calendar, Users, Search, Plus, Check, X, XCircle, Ban, Trash2, ChevronLeft, ChevronRight, MessageSquare, Edit, Eye } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { formatCurrency, formatDateUTC, formatTime } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -22,12 +23,13 @@ interface Reservation {
     id: string
     customerName: string
     customerEmail: string
+    customerDocument?: string | null
     checkIn: string
     checkOut: string
     status: string
     totalPrice: number
     cabin: { name: string }
-    notes?: string
+    notes?: string | null
 }
 
 export default function AdminReservasPage() {
@@ -46,6 +48,8 @@ export default function AdminReservasPage() {
     const [editingReservation, setEditingReservation] = useState<Reservation | null>(null)
     const [newDate, setNewDate] = useState('')
     const [editLoading, setEditLoading] = useState(false)
+    const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
     const getAdminToken = () => {
         const tokenFromCookie = document.cookie
@@ -254,6 +258,11 @@ export default function AdminReservasPage() {
         setEditingReservation(reservation)
         // Extract YYYY-MM-DD from checkIn string (ISO)
         setNewDate(reservation.checkIn.split('T')[0])
+    }
+
+    const openDetailsModal = (reservation: Reservation) => {
+        setSelectedReservation(reservation)
+        setIsDetailsOpen(true)
     }
 
     const handleSaveDate = async () => {
@@ -468,6 +477,12 @@ export default function AdminReservasPage() {
                                         <div>
                                             <h3 className="font-medium text-[#2a2a2a]">{reservation.customerName}</h3>
                                             <p className="text-sm text-[#8a5c3f]">{reservation.cabin?.name}</p>
+                                            {reservation.customerEmail && (
+                                                <p className="text-xs text-[#8a5c3f]">{reservation.customerEmail}</p>
+                                            )}
+                                            {reservation.customerDocument && (
+                                                <p className="text-xs text-[#8a5c3f]">CPF: {reservation.customerDocument}</p>
+                                            )}
                                         </div>
                                     </div>
 
@@ -485,6 +500,14 @@ export default function AdminReservasPage() {
 
                                         {/* Actions */}
                                         <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => openDetailsModal(reservation)}
+                                                title="Ver detalhes"
+                                                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors"
+                                            >
+                                                <Eye className="h-5 w-5" />
+                                            </button>
+
                                             {reservation.status === 'PENDING' && (
                                                 <>
                                                     <button
@@ -553,6 +576,63 @@ export default function AdminReservasPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <Modal open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                <ModalContent className="max-w-lg">
+                    <ModalHeader>
+                        <ModalTitle>Detalhes da Reserva</ModalTitle>
+                    </ModalHeader>
+
+                    {selectedReservation && (
+                        <div className="space-y-4 text-sm">
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-2">
+                                <p className="font-semibold text-[#2a2a2a]">{selectedReservation.customerName}</p>
+                                <p className="text-[#8a5c3f]">
+                                    Email: {selectedReservation.customerEmail || 'Não informado'}
+                                </p>
+                                <p className="text-[#8a5c3f]">
+                                    CPF: {selectedReservation.customerDocument || 'Não informado'}
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Espaço</p>
+                                    <p className="font-medium text-[#2a2a2a]">{selectedReservation.cabin?.name || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Data</p>
+                                    <p className="font-medium text-[#2a2a2a]">{formatDateUTC(selectedReservation.checkIn)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Horário</p>
+                                    <p className="font-medium text-[#2a2a2a]">{formatTime(selectedReservation.checkIn)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Total</p>
+                                    <p className="font-medium text-[#2a2a2a]">{formatCurrency(selectedReservation.totalPrice)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Status</p>
+                                    <div className="mt-1">
+                                        <Badge variant={getReservationStatusVariant(selectedReservation.status)}>
+                                            {getReservationStatusLabel(selectedReservation.status)}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-[#e0d5c7] p-4">
+                                <p className="text-xs uppercase tracking-wide text-[#8a5c3f] mb-1">Observações</p>
+                                <p className="text-[#2a2a2a] whitespace-pre-wrap">
+                                    {selectedReservation.notes?.trim() || 'Sem observações.'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </ModalContent>
+            </Modal>
+
             {/* Modal Editar */}
             {editingReservation && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
