@@ -33,7 +33,7 @@ interface SpaceType {
     holidayConsumable: number
     description: string
     units: number
-    category: 'bangalo' | 'sunbed' | 'mesa'
+    category: 'bangalo' | 'sunbed' | 'mesa' | 'dayuse'
     tier: 'standard' | 'premium' | 'galera' | 'romantic' | 'social'
 }
 
@@ -155,6 +155,23 @@ const spaceTypes: SpaceType[] = [
         description: 'Mesa pé na areia com cobertura e atendimento',
         units: 4,
         category: 'mesa',
+        tier: 'social',
+    },
+    // DAY USE PRAIA COM ESPREGUIÇADEIRA
+    {
+        id: 'day-use-praia',
+        name: 'Day Use Praia com Espreguiçadeira',
+        slug: 'day-use-praia',
+        image: '/espacos/Sunbeds.jpeg',
+        capacity: '1 pessoa',
+        capacityNum: 1,
+        dailyPrice: 160,
+        consumable: 100,
+        holidayPrice: 160,
+        holidayConsumable: 100,
+        description: 'Espreguiçadeira + guarda-sol',
+        units: 20,
+        category: 'dayuse',
         tier: 'social',
     },
 ]
@@ -733,11 +750,13 @@ export default function ReservasPage() {
                         const availableCount = availabilityCounts[space.id]
                         const isRestaurantTable = space.id === 'mesa-restaurante'
                         const isBeachTable = space.id === 'mesa-praia'
+                        const isDayUse = space.id === 'day-use-praia'
                         const blockedByRule = (
                             (space.category === 'bangalo' && selectedDateConfig?.reservableItems.bangalos === false) ||
                             (space.category === 'sunbed' && selectedDateConfig?.reservableItems.sunbeds === false) ||
                             (isRestaurantTable && !selectedDateConfig?.reservableItems.restaurantTables) ||
-                            (isBeachTable && !selectedDateConfig?.reservableItems.beachTables)
+                            (isBeachTable && !selectedDateConfig?.reservableItems.beachTables) ||
+                            (isDayUse && selectedDateConfig?.reservableItems.dayUse === false)
                         )
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
                         const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0) || blockedByRule || isLoadingAvailability
@@ -763,7 +782,7 @@ export default function ReservasPage() {
                                     }`}
                             >
                                 {/* Image */}
-                                <div className="relative aspect-[4/5] overflow-hidden bg-[#f3efe8]">
+                                <div className="relative aspect-[5/6] overflow-hidden bg-[#f3efe8]">
                                     <Image
                                         src={space.image}
                                         alt={space.name}

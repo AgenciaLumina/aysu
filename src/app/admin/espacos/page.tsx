@@ -156,7 +156,7 @@ export default function AdminCabinsPage() {
                         <Card key={cabin.id} className={!cabin.isActive ? 'opacity-60' : ''}>
                             <CardContent className="p-0">
                                 {/* Imagem */}
-                                <div className="relative aspect-[4/5] bg-[#f5f0eb]">
+                                <div className="relative aspect-[5/6] bg-[#f5f0eb]">
                                     {cabin.imageUrl ? (
                                         <Image
                                             src={cabin.imageUrl}
@@ -214,7 +214,7 @@ export default function AdminCabinsPage() {
                             <label className="block text-sm font-medium text-[#2a2a2a] mb-2">Imagem</label>
                             <div
                                 onClick={() => setShowMediaPicker(true)}
-                                className="relative mx-auto w-full max-w-[220px] aspect-[4/5] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
+                                className="relative mx-auto w-full max-w-[220px] aspect-[5/6] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
                             >
                                 {formData.imageUrl ? (
                                     <Image
