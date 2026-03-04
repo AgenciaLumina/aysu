@@ -38,15 +38,18 @@ function formatDateFull(date: Date): string {
 }
 
 function getActiveLot(lots: TicketLot[]): TicketLot | null {
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-    return (
-        lots.find((lot) => {
-            if (lot.soldOut) return false
-            const endsAt = new Date(`${lot.endsAt}T23:59:59Z`)
-            return endsAt >= today
-        }) ?? null
-    )
+    const todayIso = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date())
+
+    const availableLots = [...lots]
+        .filter((lot) => !lot.soldOut)
+        .sort((a, b) => a.endsAt.localeCompare(b.endsAt))
+
+    return [...availableLots].reverse().find((lot) => lot.endsAt <= todayIso) ?? null
 }
 
 // ============================================================
@@ -87,7 +90,7 @@ function StatusBadge({ isPrivate, isClosed, status }: { isPrivate: boolean; isCl
 
 function LotCard({ lot, isActive }: { lot: TicketLot; isActive: boolean }) {
     const endsAt = new Date(`${lot.endsAt}T12:00:00`)
-    const endsLabel = endsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    const startsLabel = endsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 
     return (
         <div
@@ -108,7 +111,7 @@ function LotCard({ lot, isActive }: { lot: TicketLot; isActive: boolean }) {
                         </span>
                     )}
                 </div>
-                <p className="text-xs text-[#8a5c3f] mt-0.5">até {endsLabel}</p>
+                <p className="text-xs text-[#8a5c3f] mt-0.5">a partir de {startsLabel}</p>
             </div>
             <div className="text-right shrink-0 ml-4">
                 {lot.soldOut ? (

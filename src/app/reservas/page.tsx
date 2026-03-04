@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
 import { formatCurrency, toLocalISODate } from '@/lib/utils'
 import { isHoliday } from '@/lib/holidays'
@@ -203,30 +203,73 @@ const getSaoPauloDateISO = (date: Date = new Date()) =>
         day: '2-digit',
     }).format(date)
 
+function getDaysDiff(fromIso: string, toIso: string): number {
+    const [fromYear, fromMonth, fromDay] = fromIso.split('-').map(Number)
+    const [toYear, toMonth, toDay] = toIso.split('-').map(Number)
+    const fromUtc = Date.UTC(fromYear, fromMonth - 1, fromDay)
+    const toUtc = Date.UTC(toYear, toMonth - 1, toDay)
+    return Math.max(0, Math.round((toUtc - fromUtc) / 86400000))
+}
+
 interface LotReservationGate {
     isBlocked: boolean
     reason: 'not_started' | 'sold_out' | null
     nextAvailableDate: string | null
+    nextLotName: string | null
+    activeLotName: string | null
+    daysUntilNext: number | null
 }
 
 function getLotReservationGate(lots: TicketLot[]): LotReservationGate {
-    if (!lots.length) return { isBlocked: false, reason: null, nextAvailableDate: null }
+    if (!lots.length) {
+        return {
+            isBlocked: false,
+            reason: null,
+            nextAvailableDate: null,
+            nextLotName: null,
+            activeLotName: null,
+            daysUntilNext: null,
+        }
+    }
 
     const availableLots = lots
         .filter((lot) => !lot.soldOut)
         .sort((a, b) => a.endsAt.localeCompare(b.endsAt))
 
-    if (!availableLots.length) return { isBlocked: true, reason: 'sold_out', nextAvailableDate: null }
+    if (!availableLots.length) {
+        return {
+            isBlocked: true,
+            reason: 'sold_out',
+            nextAvailableDate: null,
+            nextLotName: null,
+            activeLotName: null,
+            daysUntilNext: null,
+        }
+    }
 
     const todaySaoPaulo = getSaoPauloDateISO()
     const activeLot = [...availableLots].reverse().find((lot) => lot.endsAt <= todaySaoPaulo) ?? null
     const upcomingLot = availableLots.find((lot) => lot.endsAt > todaySaoPaulo) ?? null
 
     if (!activeLot && upcomingLot) {
-        return { isBlocked: true, reason: 'not_started', nextAvailableDate: upcomingLot.endsAt }
+        return {
+            isBlocked: true,
+            reason: 'not_started',
+            nextAvailableDate: upcomingLot.endsAt,
+            nextLotName: upcomingLot.name,
+            activeLotName: null,
+            daysUntilNext: getDaysDiff(todaySaoPaulo, upcomingLot.endsAt),
+        }
     }
 
-    return { isBlocked: false, reason: null, nextAvailableDate: null }
+    return {
+        isBlocked: false,
+        reason: null,
+        nextAvailableDate: null,
+        nextLotName: null,
+        activeLotName: activeLot?.name ?? null,
+        daysUntilNext: null,
+    }
 }
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -266,7 +309,7 @@ function getDateFromUrlParam(): Date | null {
 
     const params = new URLSearchParams(window.location.search)
     const dateParam = params.get('date')
-    if (!dateParam) return null
+    if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return null
 
     const date = new Date(`${dateParam}T12:00:00`)
     return Number.isNaN(date.getTime()) ? null : date
@@ -301,6 +344,8 @@ function isDateSelectable(
 
 export default function ReservasPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const dateParamFromQuery = searchParams.get('date')
     const [initialDateFromUrl] = useState<Date | null>(() => getDateFromUrlParam())
     const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
         if (!initialDateFromUrl) return null
@@ -342,6 +387,31 @@ export default function ReservasPage() {
         selectedDate && isDateSelectable(selectedDate, closedDates, dayConfigByDate)
             ? selectedDate
             : null
+
+    useEffect(() => {
+        if (!dateParamFromQuery || !/^\d{4}-\d{2}-\d{2}$/.test(dateParamFromQuery)) return
+
+        const parsedDate = new Date(`${dateParamFromQuery}T12:00:00`)
+        if (Number.isNaN(parsedDate.getTime())) return
+
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        if (parsedDate < today) return
+
+        setSelectedDate((prev) => {
+            if (prev && toLocalISODate(prev) === dateParamFromQuery) return prev
+            return parsedDate
+        })
+
+        setCurrentMonth((prev) => {
+            const year = parsedDate.getFullYear()
+            const month = parsedDate.getMonth()
+            if (prev.getFullYear() === year && prev.getMonth() === month) return prev
+            return new Date(year, month, 1)
+        })
+
+        setSelectedSpace(null)
+    }, [dateParamFromQuery])
 
     useEffect(() => {
         if (effectiveSelectedDate) {
@@ -447,8 +517,8 @@ export default function ReservasPage() {
         }
     }
 
-    const selectedDateConfig = effectiveSelectedDate
-        ? dayConfigByDate[toLocalISODate(effectiveSelectedDate)] ?? null
+    const selectedDateConfig = selectedDate
+        ? dayConfigByDate[toLocalISODate(selectedDate)] ?? null
         : null
     const lotReservationGate = getLotReservationGate(selectedDateConfig?.ticketLots ?? [])
 
@@ -549,7 +619,7 @@ export default function ReservasPage() {
 
     const lotBlockMessage =
         lotReservationGate.reason === 'not_started' && lotReservationGate.nextAvailableDate
-            ? `Ingressos disponíveis a partir de ${formatDateOnlyBR(lotReservationGate.nextAvailableDate)} (horário de Brasília).`
+            ? `${lotReservationGate.nextLotName || 'Próximo lote'} disponível a partir de ${formatDateOnlyBR(lotReservationGate.nextAvailableDate)} (horário de Brasília).`
             : lotReservationGate.reason === 'sold_out'
                 ? 'Ingressos esgotados para esta data.'
                 : null
@@ -646,7 +716,7 @@ export default function ReservasPage() {
                                 }
 
                                 const dateStr = toLocalISODate(day.date)
-                                const isSelected = effectiveSelectedDate && toLocalISODate(effectiveSelectedDate) === dateStr
+                                const isSelected = selectedDate && toLocalISODate(selectedDate) === dateStr
                                 const isDisabled = day.isPast || day.isSoldOut
                                 const isToday = toLocalISODate(new Date()) === dateStr
                                 const hasEventInfo = !!(day.config?.title || day.config?.release)
@@ -729,12 +799,12 @@ export default function ReservasPage() {
                     </div>
 
                     {/* Selected Date */}
-                    {effectiveSelectedDate && (
+                    {selectedDate && (
                         <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data selecionada</p>
-                                    <p className="text-lg font-semibold text-gray-900 capitalize">{formatDateBR(effectiveSelectedDate)}</p>
+                                    <p className="text-lg font-semibold text-gray-900 capitalize">{formatDateBR(selectedDate)}</p>
                                 </div>
                                 <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                                     <Check className="h-5 w-5 text-white" />
@@ -746,6 +816,41 @@ export default function ReservasPage() {
                                     {selectedDateConfig?.title && (
                                         <p className="font-semibold text-sky-900">{selectedDateConfig.title}</p>
                                     )}
+                                    {selectedDateConfig?.ticketLots.length ? (
+                                        <div
+                                            className={`mt-3 p-3 rounded-xl border-2 ${
+                                                lotReservationGate.reason === 'not_started'
+                                                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                                    : lotReservationGate.reason === 'sold_out'
+                                                        ? 'bg-red-50 border-red-300 text-red-800'
+                                                        : 'bg-green-50 border-green-300 text-green-900'
+                                            }`}
+                                        >
+                                            {lotReservationGate.reason === 'not_started' && lotReservationGate.nextAvailableDate ? (
+                                                <>
+                                                    <p className="text-[11px] font-black uppercase tracking-[0.08em]">Lote antecipado</p>
+                                                    <p className="text-2xl leading-none font-black mt-1">
+                                                        ABRE EM {lotReservationGate.daysUntilNext === 0 ? 'HOJE' : `${lotReservationGate.daysUntilNext} DIAS`}
+                                                    </p>
+                                                    <p className="text-sm font-bold mt-1">
+                                                        {lotReservationGate.nextLotName} • {formatDateOnlyBR(lotReservationGate.nextAvailableDate)}
+                                                    </p>
+                                                </>
+                                            ) : lotReservationGate.reason === 'sold_out' ? (
+                                                <>
+                                                    <p className="text-[11px] font-black uppercase tracking-[0.08em]">Ingressos</p>
+                                                    <p className="text-xl leading-none font-black mt-1">ESGOTADOS</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="text-[11px] font-black uppercase tracking-[0.08em]">Lote liberado</p>
+                                                    <p className="text-lg leading-none font-black mt-1">
+                                                        {lotReservationGate.activeLotName || 'Disponível para reserva'}
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+                                    ) : null}
                                     {selectedDateConfig?.release && (
                                         <p className="text-sm text-sky-800 mt-1">{selectedDateConfig.release}</p>
                                     )}

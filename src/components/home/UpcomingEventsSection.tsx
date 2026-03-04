@@ -73,21 +73,82 @@ function formatDate(date: string) {
     })
 }
 
+function formatDateOnly(isoDate: string) {
+    const [, month, day] = isoDate.split('-')
+    if (!month || !day) return isoDate
+    return `${day}/${month}`
+}
+
 /** Extrai YYYY-MM-DD de uma string ISO sem conversão de timezone */
 function getDateStr(isoDate: string): string {
     return isoDate.substring(0, 10)
 }
 
-function getActiveLot(lots: TicketLot[]): TicketLot | null {
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-    return (
-        lots.find((lot) => {
-            if (lot.soldOut) return false
-            const endsAt = new Date(`${lot.endsAt}T23:59:59Z`)
-            return endsAt >= today
-        }) ?? null
-    )
+function getSaoPauloDateISO(date: Date = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date)
+}
+
+function getDaysDiff(fromIso: string, toIso: string): number {
+    const [fromYear, fromMonth, fromDay] = fromIso.split('-').map(Number)
+    const [toYear, toMonth, toDay] = toIso.split('-').map(Number)
+    const fromUtc = Date.UTC(fromYear, fromMonth - 1, fromDay)
+    const toUtc = Date.UTC(toYear, toMonth - 1, toDay)
+    return Math.max(0, Math.round((toUtc - fromUtc) / 86400000))
+}
+
+interface LotState {
+    status: 'none' | 'upcoming' | 'active' | 'sold_out'
+    activeLot: TicketLot | null
+    nextLot: TicketLot | null
+    daysUntilNext: number | null
+}
+
+const EMPTY_LOT_STATE: LotState = {
+    status: 'none',
+    activeLot: null,
+    nextLot: null,
+    daysUntilNext: null,
+}
+
+function getLotState(lots: TicketLot[]): LotState {
+    if (!lots.length) return EMPTY_LOT_STATE
+
+    const availableLots = [...lots]
+        .filter((lot) => !lot.soldOut)
+        .sort((a, b) => a.endsAt.localeCompare(b.endsAt))
+
+    if (!availableLots.length) {
+        return {
+            status: 'sold_out',
+            activeLot: null,
+            nextLot: null,
+            daysUntilNext: null,
+        }
+    }
+
+    const todayIso = getSaoPauloDateISO()
+    const activeLot = [...availableLots].reverse().find((lot) => lot.endsAt <= todayIso) ?? null
+    if (activeLot) {
+        return {
+            status: 'active',
+            activeLot,
+            nextLot: null,
+            daysUntilNext: null,
+        }
+    }
+
+    const nextLot = availableLots[0]
+    return {
+        status: 'upcoming',
+        activeLot: null,
+        nextLot,
+        daysUntilNext: getDaysDiff(todayIso, nextLot.endsAt),
+    }
 }
 
 function getConfigForEvent(event: EventItem, configs: EnrichedDayConfig[]): EnrichedDayConfig | null {
@@ -155,10 +216,12 @@ export default function UpcomingEventsSection() {
 
     const hasEvents = useMemo(() => events.length > 0, [events])
     const selectedConfig = selectedEvent ? getConfigForEvent(selectedEvent, dayConfigs) : null
-    const selectedActiveLot = selectedConfig ? getActiveLot(selectedConfig.ticketLots) : null
+    const selectedLotState = selectedConfig ? getLotState(selectedConfig.ticketLots) : EMPTY_LOT_STATE
     const selectedImageUrl = selectedEvent ? (selectedEvent.posterImageUrl ?? selectedConfig?.flyerImageUrl ?? null) : null
     const selectedDateStr = selectedEvent ? getDateStr(selectedEvent.startDate) : ''
-    const selectedDisplayPrice = selectedEvent ? (selectedActiveLot ? selectedActiveLot.price : selectedEvent.ticketPrice) : null
+    const selectedDisplayPrice = selectedEvent
+        ? (selectedLotState.activeLot?.price ?? selectedLotState.nextLot?.price ?? selectedEvent.ticketPrice)
+        : null
 
     if (!hasEvents) return null
 
@@ -181,14 +244,14 @@ export default function UpcomingEventsSection() {
                     {events.map((event, index) => {
                         const isHighlighted = index === 0
                         const config = getConfigForEvent(event, dayConfigs)
-                        const activeLot = config ? getActiveLot(config.ticketLots) : null
+                        const lotState = config ? getLotState(config.ticketLots) : EMPTY_LOT_STATE
                         const eventDateStr = getDateStr(event.startDate)
 
                         // Imagem: posterImageUrl do Event → flyerImageUrl do DayConfig → gradient
                         const imageUrl = event.posterImageUrl ?? config?.flyerImageUrl ?? null
 
                         // Preço: lote ativo do DayConfig → ticketPrice do Event → null
-                        const displayPrice = activeLot ? activeLot.price : event.ticketPrice
+                        const displayPrice = lotState.activeLot?.price ?? lotState.nextLot?.price ?? event.ticketPrice
 
                         return (
                             <article
@@ -215,11 +278,31 @@ export default function UpcomingEventsSection() {
                                             Mais próximo
                                         </span>
                                     )}
-                                    {/* Badge de lote ativo */}
-                                    {activeLot && (
-                                        <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-green-600 text-white text-[10px] font-bold">
-                                            {activeLot.name} — até {new Date(`${activeLot.endsAt}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                        </span>
+                                    {lotState.status === 'active' && lotState.activeLot && (
+                                        <div className="absolute top-3 right-3 px-3 py-2 rounded-xl bg-green-700 text-white shadow-2xl border border-green-300">
+                                            <p className="text-[10px] uppercase tracking-[0.08em] font-black opacity-95">Lote ativo</p>
+                                            <p className="text-sm leading-tight font-black">{lotState.activeLot.name}</p>
+                                            <p className="text-[10px] opacity-90">
+                                                desde {formatDateOnly(lotState.activeLot.endsAt)}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {lotState.status === 'upcoming' && lotState.nextLot && (
+                                        <div className="absolute top-3 right-3 px-3 py-2 rounded-xl bg-amber-500 text-white shadow-2xl border border-amber-200">
+                                            <p className="text-[10px] uppercase tracking-[0.08em] font-black">Lote abre em</p>
+                                            <p className="text-lg leading-none font-black">
+                                                {lotState.daysUntilNext === 0 ? 'HOJE' : `${lotState.daysUntilNext} DIAS`}
+                                            </p>
+                                            <p className="text-[10px] opacity-95">
+                                                {lotState.nextLot.name} • {formatDateOnly(lotState.nextLot.endsAt)}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {lotState.status === 'sold_out' && (
+                                        <div className="absolute top-3 right-3 px-3 py-2 rounded-xl bg-red-600 text-white shadow-2xl border border-red-300">
+                                            <p className="text-[10px] uppercase tracking-[0.08em] font-black">Ingressos</p>
+                                            <p className="text-sm leading-tight font-black">Esgotados</p>
+                                        </div>
                                     )}
                                     <span className="absolute bottom-3 right-3 px-2 py-1 rounded-full bg-black/60 text-white text-[10px] font-medium">
                                         Ver flyer
@@ -253,6 +336,16 @@ export default function UpcomingEventsSection() {
                                                 </p>
                                             </div>
                                         </div>
+                                        {lotState.status === 'upcoming' && lotState.nextLot && (
+                                            <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                                                <p className="text-xs font-extrabold uppercase tracking-[0.08em]">
+                                                    {lotState.nextLot.name} abre em {lotState.daysUntilNext === 0 ? 'hoje' : `${lotState.daysUntilNext} dias`}
+                                                </p>
+                                                <p className="text-[11px] font-semibold mt-0.5">
+                                                    Liberação: {formatDateOnly(lotState.nextLot.endsAt)}
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* Botão CTA */}
                                         <div className="grid grid-cols-2 gap-2">
@@ -317,6 +410,27 @@ export default function UpcomingEventsSection() {
                                     <Calendar className="h-3.5 w-3.5" />
                                     {formatDate(selectedEvent.startDate)}
                                 </p>
+
+                                {selectedLotState.status === 'upcoming' && selectedLotState.nextLot && (
+                                    <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                                        <p className="text-xs font-extrabold uppercase tracking-[0.08em]">
+                                            {selectedLotState.nextLot.name} abre em {selectedLotState.daysUntilNext === 0 ? 'hoje' : `${selectedLotState.daysUntilNext} dias`}
+                                        </p>
+                                        <p className="text-[11px] font-semibold mt-0.5">
+                                            Liberação: {formatDateOnly(selectedLotState.nextLot.endsAt)}
+                                        </p>
+                                    </div>
+                                )}
+                                {selectedLotState.status === 'active' && selectedLotState.activeLot && (
+                                    <div className="mb-4 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-800">
+                                        <p className="text-xs font-extrabold uppercase tracking-[0.08em]">
+                                            {selectedLotState.activeLot.name} liberado
+                                        </p>
+                                        <p className="text-[11px] font-semibold mt-0.5">
+                                            Desde {formatDateOnly(selectedLotState.activeLot.endsAt)}
+                                        </p>
+                                    </div>
+                                )}
 
                                 {selectedEvent.description && (
                                     <p className="text-sm text-[#8a5c3f] leading-relaxed mb-4">

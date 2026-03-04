@@ -485,7 +485,7 @@ export default function FrenteDeCaixaPage() {
                                             <span className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</span>
                                         </div>
                                         {reservation.notes && (
-                                            <p className="text-xs text-[#8a5c3f] mt-1 line-clamp-2">
+                                            <p className="text-xs text-[#8a5c3f] mt-1 whitespace-pre-wrap break-words">
                                                 <span className="font-semibold text-[#6c4531]">Obs:</span> {reservation.notes}
                                             </p>
                                         )}
