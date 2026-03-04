@@ -31,6 +31,12 @@ enum CabinCategory {
   VIP
 }
 
+enum CabinVisibilityStatus {
+  AVAILABLE
+  UNAVAILABLE
+  HIDDEN
+}
+
 enum ReservationStatus {
   PENDING
   CONFIRMED
@@ -144,6 +150,7 @@ model Cabin {
   description  String?
   imageUrl     String?
   category     CabinCategory @default(CABANA)
+  visibilityStatus CabinVisibilityStatus @default(AVAILABLE)
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -154,6 +161,7 @@ model Cabin {
   @@index([category])
   @@index([isActive])
   @@index([slug])
+  @@index([visibilityStatus])
 }
 
 // Reservas (Online + Offline sincronizadas)

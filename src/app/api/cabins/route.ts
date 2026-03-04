@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db'
 import { createCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 import type { Cabin } from '@prisma/client'
-import { CabinCategory, Prisma } from '@prisma/client'
+import { CabinCategory, CabinVisibilityStatus, Prisma } from '@prisma/client'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 
 const ENSURE_CABIN_COLUMNS_SQL = `
@@ -15,7 +15,21 @@ ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
 `
 
+const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
+DO $$ BEGIN
+  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+`
+
+const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
+`
+
 const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
+const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
 
 const DEFAULT_CABINS: Array<{
     name: string
@@ -26,6 +40,7 @@ const DEFAULT_CABINS: Array<{
     description: string
     imageUrl: string
     category: CabinCategory
+    visibilityStatus: CabinVisibilityStatus
 }> = [
     {
         name: 'Bangalô Lateral',
@@ -36,6 +51,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.CABANA,
         description: 'Ideal para casais + amigos. 4-5 pessoas.',
         imageUrl: '/espacos/bangalo-lateral.jpg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Bangalô Piscina',
@@ -46,6 +62,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.LOUNGE,
         description: 'Piscina privativa. 6 pessoas.',
         imageUrl: '/espacos/bangalo-piscina.jpg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Bangalô Frente Mar',
@@ -56,6 +73,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.LOUNGE,
         description: 'Vista privilegiada. 6-8 pessoas.',
         imageUrl: '/espacos/bangalo-frente-mar.jpg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Bangalô Central',
@@ -66,6 +84,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.VIP,
         description: 'Espaço icônico. Até 10 pessoas.',
         imageUrl: '/espacos/bangalo10.jpeg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Sunbed Casal',
@@ -76,6 +95,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.MESA,
         description: 'Cama de praia exclusiva para casais.',
         imageUrl: '/espacos/Sunbeds.jpeg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Mesa Restaurante',
@@ -86,6 +106,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.MESA,
         description: 'Mesa interna para 4-6 pessoas.',
         imageUrl: '/espacos/bangalo-lateral.jpg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Mesa Praia',
@@ -96,6 +117,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.MESA,
         description: 'Mesa pé na areia para 2-4 pessoas.',
         imageUrl: '/espacos/Sunbeds.jpeg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
     {
         name: 'Day Use Praia com Espreguiçadeira',
@@ -106,6 +128,7 @@ const DEFAULT_CABINS: Array<{
         category: CabinCategory.MESA,
         description: 'Day Use com espreguiçadeira.',
         imageUrl: '/espacos/Sunbeds.jpeg',
+        visibilityStatus: CabinVisibilityStatus.AVAILABLE,
     },
 ]
 
@@ -113,16 +136,19 @@ function isMissingCabinColumnError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code !== 'P2022') return false
         const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
-        return column.includes('slug') || column.includes('units') || column.includes('cabin')
+        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('cabin')
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : ''
-    return message.includes('column') && (message.includes('slug') || message.includes('units'))
+    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus'))
 }
 
 async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
 }
 
 async function bootstrapDefaultCabinsIfEmpty() {
@@ -141,6 +167,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const isActive = searchParams.get('isActive')
         const category = searchParams.get('category')
+        const visibilityStatus = searchParams.get('visibilityStatus')
 
         // Filtros
         const where: Prisma.CabinWhereInput = {}
@@ -151,6 +178,10 @@ export async function GET(request: NextRequest) {
 
         if (category && Object.values(CabinCategory).includes(category as CabinCategory)) {
             where.category = category as CabinCategory
+        }
+
+        if (visibilityStatus && Object.values(CabinVisibilityStatus).includes(visibilityStatus as CabinVisibilityStatus)) {
+            where.visibilityStatus = visibilityStatus as CabinVisibilityStatus
         }
 
         const fetchCabins = () => prisma.cabin.findMany({

@@ -31,6 +31,8 @@ const cabinCategorySchema = z.preprocess(
     z.enum(['CABANA', 'MESA', 'LOUNGE', 'VIP']).default('CABANA')
 )
 
+const cabinVisibilityStatusSchema = z.enum(['AVAILABLE', 'UNAVAILABLE', 'HIDDEN']).default('AVAILABLE')
+
 // ============================================================
 // AUTH
 // ============================================================
@@ -61,6 +63,7 @@ export const createCabinSchema = z.object({
     description: z.string().optional(),
     imageUrl: optionalMediaUrlOrPathSchema,
     category: cabinCategorySchema,
+    visibilityStatus: cabinVisibilityStatusSchema.optional(),
 })
 
 export const updateCabinSchema = createCabinSchema.partial().extend({

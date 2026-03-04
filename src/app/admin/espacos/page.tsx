@@ -22,6 +22,7 @@ interface Cabin {
     slug?: string | null
     capacity: number
     units: number
+    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
     pricePerHour: number
     description: string
     category: string
@@ -35,6 +36,12 @@ type CabinCategory = (typeof categories)[number]
 function normalizeCabinCategory(category: string): CabinCategory {
     if (category === 'ESPREGUICADEIRA') return 'MESA'
     return categories.includes(category as CabinCategory) ? (category as CabinCategory) : 'CABANA'
+}
+
+function getVisibilityPriority(status?: Cabin['visibilityStatus']): number {
+    if (status === 'HIDDEN') return 3
+    if (status === 'UNAVAILABLE') return 2
+    return 1
 }
 
 function groupCabins(rawCabins: Cabin[]): Cabin[] {
@@ -52,6 +59,7 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
                 name: displayName,
                 slug: resolvedSlug,
                 units: normalizedUnits,
+                visibilityStatus: cabin.visibilityStatus || 'AVAILABLE',
             })
             return
         }
@@ -59,6 +67,9 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
         const current = grouped.get(key)!
         current.units += normalizedUnits
         current.isActive = current.isActive || cabin.isActive
+        if (getVisibilityPriority(cabin.visibilityStatus) > getVisibilityPriority(current.visibilityStatus)) {
+            current.visibilityStatus = cabin.visibilityStatus || 'AVAILABLE'
+        }
     })
 
     return Array.from(grouped.values())
@@ -75,6 +86,7 @@ export default function AdminCabinsPage() {
         name: '',
         capacity: '6',
         units: '1',
+        visibilityStatus: 'AVAILABLE' as 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN',
         pricePerHour: '100',
         description: '',
         category: 'CABANA',
@@ -122,6 +134,7 @@ export default function AdminCabinsPage() {
                 name: cabin.name,
                 capacity: cabin.capacity.toString(),
                 units: cabin.units.toString(),
+                visibilityStatus: cabin.visibilityStatus || 'AVAILABLE',
                 pricePerHour: cabin.pricePerHour.toString(),
                 description: cabin.description || '',
                 category: normalizeCabinCategory(cabin.category),
@@ -129,7 +142,7 @@ export default function AdminCabinsPage() {
             })
         } else {
             setEditingCabin(null)
-            setFormData({ name: '', capacity: '6', units: '1', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
+            setFormData({ name: '', capacity: '6', units: '1', visibilityStatus: 'AVAILABLE', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
         }
         setIsModalOpen(true)
     }
@@ -142,6 +155,7 @@ export default function AdminCabinsPage() {
             name: formData.name,
             capacity: parseInt(formData.capacity),
             units: parseInt(formData.units),
+            visibilityStatus: formData.visibilityStatus,
             pricePerHour: parseFloat(formData.pricePerHour),
             description: formData.description,
             category: normalizeCabinCategory(formData.category),
@@ -206,7 +220,7 @@ export default function AdminCabinsPage() {
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {cabins.map(cabin => (
-                        <Card key={cabin.id} className={!cabin.isActive ? 'opacity-60' : ''}>
+                        <Card key={cabin.id} className={!cabin.isActive || cabin.visibilityStatus === 'HIDDEN' ? 'opacity-60' : ''}>
                             <CardContent className="p-0">
                                 {/* Imagem */}
                                 <div className="relative aspect-[5/6] bg-[#f5f0eb]">
@@ -227,6 +241,9 @@ export default function AdminCabinsPage() {
                                 <div className="p-4">
                                     <div className="flex justify-between items-start mb-2">
                                         <Badge variant="secondary">{cabin.category}</Badge>
+                                        {cabin.visibilityStatus === 'AVAILABLE' && <Badge variant="success">Disponível</Badge>}
+                                        {cabin.visibilityStatus === 'UNAVAILABLE' && <Badge variant="warning">Indisponível</Badge>}
+                                        {cabin.visibilityStatus === 'HIDDEN' && <Badge variant="outline">Oculto</Badge>}
                                         {!cabin.isActive && <Badge variant="warning">Inativo</Badge>}
                                     </div>
                                     <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
@@ -333,6 +350,19 @@ export default function AdminCabinsPage() {
                                 min="1"
                                 required
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-[#2a2a2a] mb-1.5">Status na Reserva</label>
+                            <select
+                                value={formData.visibilityStatus}
+                                onChange={(e) => setFormData(p => ({ ...p, visibilityStatus: e.target.value as 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN' }))}
+                                className="w-full h-11 px-4 rounded-lg border border-[#e0d5c7] text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a574]"
+                            >
+                                <option value="AVAILABLE">Disponível</option>
+                                <option value="UNAVAILABLE">Indisponível</option>
+                                <option value="HIDDEN">Oculto</option>
+                            </select>
                         </div>
 
                         <Input

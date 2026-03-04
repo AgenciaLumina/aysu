@@ -18,22 +18,39 @@ ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
 `
 
+const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
+DO $$ BEGIN
+  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+`
+
+const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
+`
+
 const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
+const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
 
 function isMissingCabinColumnError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code !== 'P2022') return false
         const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
-        return column.includes('slug') || column.includes('units') || column.includes('cabin')
+        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('cabin')
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : ''
-    return message.includes('column') && (message.includes('slug') || message.includes('units'))
+    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus'))
 }
 
 async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
 }
 
 // GET - Detalhes do cabin
