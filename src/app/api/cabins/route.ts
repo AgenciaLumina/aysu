@@ -17,6 +17,98 @@ ALTER TABLE "Cabin"
 
 const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
 
+const DEFAULT_CABINS: Array<{
+    name: string
+    slug: string
+    units: number
+    capacity: number
+    pricePerHour: number
+    description: string
+    imageUrl: string
+    category: CabinCategory
+}> = [
+    {
+        name: 'Bangalô Lateral',
+        slug: 'bangalo-lateral',
+        units: 6,
+        capacity: 5,
+        pricePerHour: 166.67,
+        category: CabinCategory.CABANA,
+        description: 'Ideal para casais + amigos. 4-5 pessoas.',
+        imageUrl: '/espacos/bangalo-lateral.jpg',
+    },
+    {
+        name: 'Bangalô Piscina',
+        slug: 'bangalo-piscina',
+        units: 2,
+        capacity: 6,
+        pricePerHour: 300,
+        category: CabinCategory.LOUNGE,
+        description: 'Piscina privativa. 6 pessoas.',
+        imageUrl: '/espacos/bangalo-piscina.jpg',
+    },
+    {
+        name: 'Bangalô Frente Mar',
+        slug: 'bangalo-frente-mar',
+        units: 4,
+        capacity: 8,
+        pricePerHour: 300,
+        category: CabinCategory.LOUNGE,
+        description: 'Vista privilegiada. 6-8 pessoas.',
+        imageUrl: '/espacos/bangalo-frente-mar.jpg',
+    },
+    {
+        name: 'Bangalô Central',
+        slug: 'bangalo-central',
+        units: 1,
+        capacity: 10,
+        pricePerHour: 416.67,
+        category: CabinCategory.VIP,
+        description: 'Espaço icônico. Até 10 pessoas.',
+        imageUrl: '/espacos/bangalo10.jpeg',
+    },
+    {
+        name: 'Sunbed Casal',
+        slug: 'sunbed-casal',
+        units: 4,
+        capacity: 2,
+        pricePerHour: 83.33,
+        category: CabinCategory.MESA,
+        description: 'Cama de praia exclusiva para casais.',
+        imageUrl: '/espacos/Sunbeds.jpeg',
+    },
+    {
+        name: 'Mesa Restaurante',
+        slug: 'mesa-restaurante',
+        units: 4,
+        capacity: 6,
+        pricePerHour: 160,
+        category: CabinCategory.MESA,
+        description: 'Mesa interna para 4-6 pessoas.',
+        imageUrl: '/espacos/bangalo-lateral.jpg',
+    },
+    {
+        name: 'Mesa Praia',
+        slug: 'mesa-praia',
+        units: 4,
+        capacity: 4,
+        pricePerHour: 160,
+        category: CabinCategory.MESA,
+        description: 'Mesa pé na areia para 2-4 pessoas.',
+        imageUrl: '/espacos/Sunbeds.jpeg',
+    },
+    {
+        name: 'Day Use Praia com Espreguiçadeira',
+        slug: 'day-use-praia',
+        units: 20,
+        capacity: 1,
+        pricePerHour: 160,
+        category: CabinCategory.MESA,
+        description: 'Day Use com espreguiçadeira.',
+        imageUrl: '/espacos/Sunbeds.jpeg',
+    },
+]
+
 function isMissingCabinColumnError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code !== 'P2022') return false
@@ -31,6 +123,16 @@ function isMissingCabinColumnError(error: unknown): boolean {
 async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+}
+
+async function bootstrapDefaultCabinsIfEmpty() {
+    const totalCabins = await prisma.cabin.count()
+    if (totalCabins > 0) return
+
+    await prisma.cabin.createMany({
+        data: DEFAULT_CABINS,
+        skipDuplicates: true,
+    })
 }
 
 // GET - Lista cabins (público)
@@ -61,10 +163,12 @@ export async function GET(request: NextRequest) {
 
         let cabins: Cabin[]
         try {
+            await bootstrapDefaultCabinsIfEmpty()
             cabins = await fetchCabins()
         } catch (error) {
             if (!isMissingCabinColumnError(error)) throw error
             await ensureCabinColumns()
+            await bootstrapDefaultCabinsIfEmpty()
             cabins = await fetchCabins()
         }
 
