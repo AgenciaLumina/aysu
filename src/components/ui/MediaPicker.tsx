@@ -27,6 +27,7 @@ interface MediaPickerProps {
     onClose: () => void
     onSelect: (url: string) => void
     defaultFolder?: string
+    initialMode?: 'upload' | 'browse'
 }
 
 const FOLDERS = [
@@ -37,13 +38,26 @@ const FOLDERS = [
     { value: 'galeria-eventos/', label: '🎉 Galeria de Eventos' },
 ]
 
-export function MediaPicker({ open, onClose, onSelect, defaultFolder = '' }: MediaPickerProps) {
-    const [mode, setMode] = useState<'upload' | 'browse'>('upload')
+export function MediaPicker({
+    open,
+    onClose,
+    onSelect,
+    defaultFolder = '',
+    initialMode = 'upload',
+}: MediaPickerProps) {
+    const [mode, setMode] = useState<'upload' | 'browse'>(initialMode)
     const [files, setFiles] = useState<MediaFile[]>([])
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
     const [currentFolder, setCurrentFolder] = useState(defaultFolder)
+
+    useEffect(() => {
+        if (!open) return
+        setMode(initialMode)
+        setCurrentFolder(defaultFolder)
+        setSelectedUrl(null)
+    }, [open, defaultFolder, initialMode])
 
     useEffect(() => {
         if (open && mode === 'browse') {
@@ -98,9 +112,10 @@ export function MediaPicker({ open, onClose, onSelect, defaultFolder = '' }: Med
                 return
             }
 
+            const normalizedFolder = currentFolder.trim().replace(/^\/+|\/+$/g, '')
             const formData = new FormData()
             formData.append('file', optimizedFile)
-            formData.append('folder', currentFolder.replace('/', '') || 'gallery')
+            formData.append('folder', normalizedFolder || 'gallery')
 
             const res = await fetch('/api/upload', {
                 method: 'POST',

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
     CalendarDays,
     Eye,
+    FolderOpen,
     Images,
     Loader2,
     Pencil,
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
+import { MediaPicker } from '@/components/ui/MediaPicker'
 import { generateSlug } from '@/lib/utils'
 import {
     getLargeImageWarning,
@@ -123,6 +125,8 @@ export default function AdminEventGalleryPage() {
     const [photosUploadStep, setPhotosUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
     const [coverDragOver, setCoverDragOver] = useState(false)
     const [photosDragOver, setPhotosDragOver] = useState(false)
+    const [showCoverPicker, setShowCoverPicker] = useState(false)
+    const [showPhotosPicker, setShowPhotosPicker] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingGallery, setEditingGallery] = useState<EventGallery | null>(null)
     const [form, setForm] = useState<GalleryForm>(createInitialForm)
@@ -268,18 +272,20 @@ export default function AdminEventGalleryPage() {
         if (!fileList || fileList.length === 0) return
 
         setUploadingPhotos(true)
+        setPhotosUploadStep('optimizing')
 
         try {
-            const uploadedPhotos: GalleryPhoto[] = []
-
-            for (const file of Array.from(fileList)) {
-                const imageUrl = await uploadFileToFolder(file, setPhotosUploadStep)
-                uploadedPhotos.push({
-                    imageUrl,
-                    caption: '',
-                    displayOrder: photos.length + uploadedPhotos.length,
+            const files = Array.from(fileList)
+            const uploadedPhotos = await Promise.all(
+                files.map(async (file, index): Promise<GalleryPhoto> => {
+                    const imageUrl = await uploadFileToFolder(file, setPhotosUploadStep)
+                    return {
+                        imageUrl,
+                        caption: '',
+                        displayOrder: photos.length + index,
+                    }
                 })
-            }
+            )
 
             setPhotos((prev) => [
                 ...prev,
@@ -300,6 +306,25 @@ export default function AdminEventGalleryPage() {
                 photosInputRef.current.value = ''
             }
         }
+    }
+
+    const addPhotoFromR2 = (imageUrl: string) => {
+        setPhotos((prev) => (
+            [
+                ...prev,
+                {
+                    imageUrl,
+                    caption: '',
+                    displayOrder: prev.length,
+                },
+            ].map((image, displayOrder) => ({ ...image, displayOrder }))
+        ))
+
+        if (!form.coverImageUrl) {
+            setForm((prev) => ({ ...prev, coverImageUrl: imageUrl }))
+        }
+
+        toast.success('Foto adicionada do R2')
     }
 
     const handleCoverDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -621,6 +646,16 @@ export default function AdminEventGalleryPage() {
                                             Upload capa
                                         </span>
                                     </label>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-8 px-3 text-xs"
+                                        onClick={() => setShowCoverPicker(true)}
+                                    >
+                                        <FolderOpen className="h-3.5 w-3.5" />
+                                        Selecionar do R2
+                                    </Button>
                                 </div>
                                 <div
                                     onDragOver={handleCoverDragOver}
@@ -688,6 +723,16 @@ export default function AdminEventGalleryPage() {
                                             Adicionar fotos
                                         </span>
                                     </label>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-8 px-3 text-xs"
+                                        onClick={() => setShowPhotosPicker(true)}
+                                    >
+                                        <FolderOpen className="h-3.5 w-3.5" />
+                                        Selecionar do R2
+                                    </Button>
                                 </div>
 
                                 <p className="text-xs text-[#8a5c3f] mb-3">
@@ -763,6 +808,25 @@ export default function AdminEventGalleryPage() {
                     </form>
                 </ModalContent>
             </Modal>
+
+            <MediaPicker
+                open={showCoverPicker}
+                onClose={() => setShowCoverPicker(false)}
+                onSelect={(url) => {
+                    setForm((prev) => ({ ...prev, coverImageUrl: url }))
+                    toast.success('Capa selecionada do R2')
+                }}
+                defaultFolder={currentFolder}
+                initialMode="browse"
+            />
+
+            <MediaPicker
+                open={showPhotosPicker}
+                onClose={() => setShowPhotosPicker(false)}
+                onSelect={addPhotoFromR2}
+                defaultFolder={currentFolder}
+                initialMode="browse"
+            />
         </AdminLayout>
     )
 }
