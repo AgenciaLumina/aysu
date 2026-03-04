@@ -203,18 +203,18 @@ export default function AdminCabinsPage() {
 
             {/* Modal de Edição */}
             <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <ModalContent className="max-w-lg">
+                <ModalContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <ModalHeader>
                         <ModalTitle>{editingCabin ? 'Editar Bangalô' : 'Novo Bangalô'}</ModalTitle>
                     </ModalHeader>
 
-                    <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                    <form onSubmit={handleSubmit} className="p-4 space-y-4 pb-2">
                         {/* Imagem */}
                         <div>
                             <label className="block text-sm font-medium text-[#2a2a2a] mb-2">Imagem</label>
                             <div
                                 onClick={() => setShowMediaPicker(true)}
-                                className="relative mx-auto w-full max-w-xs aspect-[4/5] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
+                                className="relative mx-auto w-full max-w-[220px] aspect-[4/5] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
                             >
                                 {formData.imageUrl ? (
                                     <Image
