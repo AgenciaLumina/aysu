@@ -58,6 +58,7 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
 
         const current = grouped.get(key)!
         current.units += normalizedUnits
+        current.isActive = current.isActive || cabin.isActive
     })
 
     return Array.from(grouped.values())
@@ -84,11 +85,27 @@ export default function AdminCabinsPage() {
 
     async function fetchCabins() {
         try {
-            const res = await fetch('/api/cabins?isActive=true')
-            const data = await res.json()
-            if (data.success) {
-                setCabins(groupCabins(data.data))
+            setLoading(true)
+
+            const activeRes = await fetch('/api/cabins?isActive=true', { cache: 'no-store' })
+            const activeData = await activeRes.json()
+
+            if (activeData.success && Array.isArray(activeData.data) && activeData.data.length > 0) {
+                setCabins(groupCabins(activeData.data))
+                return
             }
+
+            // Fallback de segurança: se por algum motivo não houver ativos no backend,
+            // carregamos todos para não deixar o admin vazio.
+            const allRes = await fetch('/api/cabins', { cache: 'no-store' })
+            const allData = await allRes.json()
+
+            if (allData.success && Array.isArray(allData.data)) {
+                setCabins(groupCabins(allData.data))
+                return
+            }
+
+            setCabins([])
         } catch (error) {
             console.error('Erro:', error)
             toast.error('Erro ao carregar bangalôs')
