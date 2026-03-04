@@ -207,7 +207,7 @@ export default function UpcomingEventsSection() {
                                             src={imageUrl}
                                             alt={event.title}
                                             fill
-                                            className="object-contain object-top"
+                                            className="object-cover object-center"
                                         />
                                     )}
                                     {isHighlighted && (
@@ -303,7 +303,7 @@ export default function UpcomingEventsSection() {
                                         src={selectedImageUrl}
                                         alt={`Flyer de ${selectedEvent.title}`}
                                         fill
-                                        className="object-contain object-top"
+                                        className="object-cover object-center"
                                     />
                                 ) : (
                                     <div className="h-full w-full flex items-center justify-center text-sm text-[#8a5c3f]">
