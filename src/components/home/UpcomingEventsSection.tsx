@@ -18,6 +18,7 @@ interface EventItem {
     startDate: string
     posterImageUrl: string | null
     ticketPrice: number | null
+    isFeatured?: boolean
 }
 
 interface TicketLot {
@@ -122,8 +123,21 @@ export default function UpcomingEventsSection() {
                     return
                 }
                 const upcoming = data.data
-                    .filter((event) => isSameOrAfterToday(event.startDate))
-                    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                    .filter((event) => isSameOrAfterToday(event.startDate) || Boolean(event.isFeatured))
+                    .sort((a, b) => {
+                        const aIsUpcoming = isSameOrAfterToday(a.startDate)
+                        const bIsUpcoming = isSameOrAfterToday(b.startDate)
+
+                        if (aIsUpcoming !== bIsUpcoming) {
+                            return aIsUpcoming ? -1 : 1
+                        }
+
+                        const aTime = new Date(a.startDate).getTime()
+                        const bTime = new Date(b.startDate).getTime()
+
+                        // Futuro: mais próximo primeiro | Passado (destaque): mais recente primeiro
+                        return aIsUpcoming ? aTime - bTime : bTime - aTime
+                    })
                     .slice(0, 3)
                 setEvents(upcoming)
             })
