@@ -23,18 +23,22 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge, getReservationStatusVariant, getReservationStatusLabel } from '@/components/ui/Badge'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { formatCurrency, formatDateUTC } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface Reservation {
     id: string
     customerName: string
+    customerEmail?: string | null
     customerPhone: string
     spaceName: string
     spaceType: string
     date: string
     time: string
     totalPrice: number
+    paymentStatus?: string | null
+    checkIn?: string
     notes?: string | null
     status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
     source: 'online' | 'manual'
@@ -63,6 +67,8 @@ export default function FrenteDeCaixaPage() {
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
     const [approvalLoading, setApprovalLoading] = useState<string | null>(null)
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+    const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     const fetchPendingReservations = async () => {
@@ -309,8 +315,14 @@ export default function FrenteDeCaixaPage() {
     }
 
     const handleViewDetails = (id: string) => {
-        // TODO: Open details modal
-        console.log('View details for:', id)
+        const reservation = reservations.find(r => r.id === id)
+        if (!reservation) {
+            toast.error('Reserva não encontrada')
+            return
+        }
+
+        setSelectedReservation(reservation)
+        setIsDetailsOpen(true)
         setIsActionsOpen(null)
     }
 
@@ -657,6 +669,66 @@ export default function FrenteDeCaixaPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Modal open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                <ModalContent className="max-w-lg">
+                    <ModalHeader>
+                        <ModalTitle>Detalhes da Reserva</ModalTitle>
+                    </ModalHeader>
+
+                    {selectedReservation && (
+                        <div className="space-y-4 text-sm">
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-2">
+                                <p className="font-semibold text-[#2a2a2a]">{selectedReservation.customerName}</p>
+                                <p className="text-[#8a5c3f]">{selectedReservation.customerPhone || 'Telefone não informado'}</p>
+                                {selectedReservation.customerEmail && (
+                                    <p className="text-[#8a5c3f]">{selectedReservation.customerEmail}</p>
+                                )}
+                            </div>
+
+                            <div className="rounded-xl border border-[#e0d5c7] p-4 grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Espaço</p>
+                                    <p className="font-medium text-[#2a2a2a]">{selectedReservation.spaceName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Data</p>
+                                    <p className="font-medium text-[#2a2a2a]">{formatDateUTC(selectedReservation.date)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Horário</p>
+                                    <p className="font-medium text-[#2a2a2a]">{selectedReservation.time}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Total</p>
+                                    <p className="font-medium text-[#2a2a2a]">{formatCurrency(selectedReservation.totalPrice)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Status</p>
+                                    <div className="mt-1">
+                                        <Badge variant={getReservationStatusVariant(selectedReservation.status)}>
+                                            {getReservationStatusLabel(selectedReservation.status)}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Origem</p>
+                                    <p className="font-medium text-[#2a2a2a]">
+                                        {selectedReservation.source === 'manual' ? 'Manual' : 'Online'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-[#e0d5c7] p-4">
+                                <p className="text-xs uppercase tracking-wide text-[#8a5c3f] mb-1">Observações</p>
+                                <p className="text-[#2a2a2a] whitespace-pre-wrap">
+                                    {selectedReservation.notes?.trim() || 'Sem observações.'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </ModalContent>
+            </Modal>
         </AdminLayout>
     )
 }
