@@ -106,6 +106,7 @@ export default function AdminCabinsPage() {
             }
 
             setCabins([])
+            toast.error((allData && allData.error) || 'Erro ao carregar espaços do admin')
         } catch (error) {
             console.error('Erro:', error)
             toast.error('Erro ao carregar bangalôs')

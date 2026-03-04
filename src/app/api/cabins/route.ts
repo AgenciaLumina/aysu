@@ -9,6 +9,30 @@ import type { Cabin } from '@prisma/client'
 import { CabinCategory, Prisma } from '@prisma/client'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 
+const ENSURE_CABIN_COLUMNS_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "slug" TEXT,
+  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
+`
+
+const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
+
+function isMissingCabinColumnError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code !== 'P2022') return false
+        const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
+        return column.includes('slug') || column.includes('units') || column.includes('cabin')
+    }
+
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    return message.includes('column') && (message.includes('slug') || message.includes('units'))
+}
+
+async function ensureCabinColumns() {
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+}
+
 // GET - Lista cabins (público)
 export async function GET(request: NextRequest) {
     try {
@@ -27,13 +51,22 @@ export async function GET(request: NextRequest) {
             where.category = category as CabinCategory
         }
 
-        let cabins = await prisma.cabin.findMany({
+        const fetchCabins = () => prisma.cabin.findMany({
             where,
             orderBy: [
                 { category: 'asc' },
                 { name: 'asc' },
             ],
         })
+
+        let cabins: Cabin[]
+        try {
+            cabins = await fetchCabins()
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            cabins = await fetchCabins()
+        }
 
         // Recuperação automática: se todos os espaços ficaram inativos por engano,
         // reativa e devolve a listagem normalmente.
@@ -125,12 +158,24 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        const cabin = await prisma.cabin.create({
-            data: {
-                ...validation.data,
-                slug: inferredSlug,
-            },
-        })
+        let cabin: Cabin
+        try {
+            cabin = await prisma.cabin.create({
+                data: {
+                    ...validation.data,
+                    slug: inferredSlug,
+                },
+            })
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            cabin = await prisma.cabin.create({
+                data: {
+                    ...validation.data,
+                    slug: inferredSlug,
+                },
+            })
+        }
 
         console.log({
             action: 'CABIN_CREATED',

@@ -5,11 +5,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { updateCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
-import type { Cabin } from '@prisma/client'
+import { Prisma, type Cabin } from '@prisma/client'
 import { resolveCabinSlugFromName } from '@/lib/space-slugs'
 
 interface RouteParams {
     params: Promise<{ id: string }>
+}
+
+const ENSURE_CABIN_COLUMNS_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "slug" TEXT,
+  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
+`
+
+const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
+
+function isMissingCabinColumnError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code !== 'P2022') return false
+        const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
+        return column.includes('slug') || column.includes('units') || column.includes('cabin')
+    }
+
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    return message.includes('column') && (message.includes('slug') || message.includes('units'))
+}
+
+async function ensureCabinColumns() {
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
 }
 
 // GET - Detalhes do cabin
@@ -17,9 +41,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params
 
-        const cabin = await prisma.cabin.findUnique({
-            where: { id },
-        })
+        let cabin: Cabin | null
+        try {
+            cabin = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            cabin = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        }
 
         if (!cabin) {
             return NextResponse.json<ApiResponse>(
@@ -62,9 +95,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Verifica se existe
-        const existing = await prisma.cabin.findUnique({
-            where: { id },
-        })
+        let existing: Cabin | null
+        try {
+            existing = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            existing = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        }
 
         if (!existing) {
             return NextResponse.json<ApiResponse>(
@@ -90,14 +132,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const nextName = validation.data.name ?? existing.name
         const inferredSlug = validation.data.slug?.trim() || resolveCabinSlugFromName(nextName) || existing.slug || null
 
-        const cabin = await prisma.cabin.update({
-            where: { id },
-            data: {
-                ...validation.data,
-                slug: inferredSlug,
-                units: validation.data.units ?? existing.units,
-            },
-        })
+        let cabin: Cabin
+        try {
+            cabin = await prisma.cabin.update({
+                where: { id },
+                data: {
+                    ...validation.data,
+                    slug: inferredSlug,
+                    units: validation.data.units ?? existing.units,
+                },
+            })
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            cabin = await prisma.cabin.update({
+                where: { id },
+                data: {
+                    ...validation.data,
+                    slug: inferredSlug,
+                    units: validation.data.units ?? existing.units,
+                },
+            })
+        }
 
         console.log({
             action: 'CABIN_UPDATED',
