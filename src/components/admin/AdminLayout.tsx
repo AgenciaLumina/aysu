@@ -18,7 +18,6 @@ import {
     CreditCard,
     ImageIcon,
     FolderOpen,
-    Umbrella,
     Music
 } from 'lucide-react'
 
@@ -50,7 +49,6 @@ const navItems = [
     { href: '/admin/galeria', label: 'Galeria Site', icon: ImageIcon },
     { href: '/admin/midia', label: 'Mídia R2', icon: FolderOpen },
     { href: '/admin/espacos', label: 'Espaços', icon: Home },
-    { href: '/admin/day-use', label: 'Day Use', icon: Umbrella },
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]
 

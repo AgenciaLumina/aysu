@@ -27,13 +27,33 @@ export async function GET(request: NextRequest) {
             where.category = category as CabinCategory
         }
 
-        const cabins = await prisma.cabin.findMany({
+        let cabins = await prisma.cabin.findMany({
             where,
             orderBy: [
                 { category: 'asc' },
                 { name: 'asc' },
             ],
         })
+
+        // Recuperação automática: se todos os espaços ficaram inativos por engano,
+        // reativa e devolve a listagem normalmente.
+        if (isActive === 'true' && cabins.length === 0) {
+            const totalCabins = await prisma.cabin.count()
+            if (totalCabins > 0) {
+                await prisma.cabin.updateMany({
+                    where: { isActive: false },
+                    data: { isActive: true },
+                })
+
+                cabins = await prisma.cabin.findMany({
+                    where,
+                    orderBy: [
+                        { category: 'asc' },
+                        { name: 'asc' },
+                    ],
+                })
+            }
+        }
 
         return NextResponse.json<ApiResponse<Cabin[]>>({
             success: true,
