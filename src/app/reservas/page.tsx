@@ -787,7 +787,7 @@ export default function ReservasPage() {
                                         src={space.image}
                                         alt={space.name}
                                         fill
-                                        className="object-contain object-center group-hover:scale-105 transition-transform duration-700"
+                                        className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
                                     />
                                     {/* Gradient Overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
