@@ -759,7 +759,7 @@ export default function ReservasPage() {
                 {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
                     {spaceTypes.map((space) => {
-                        const { finalPrice, finalConsumable, isOverride } = getSpacePricing(space, effectiveSelectedDate)
+                        const { finalPrice, finalConsumable } = getSpacePricing(space, effectiveSelectedDate)
                         const availableCount = availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isRestaurantTable = space.id === 'mesa-restaurante'
@@ -882,11 +882,6 @@ export default function ReservasPage() {
                                     {/* Title */}
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <h3 className="text-xl font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
-                                        {isOverride && (
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full bg-sky-100 text-sky-700">
-                                                Valor de evento
-                                            </span>
-                                        )}
                                     </div>
                                     <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
 
