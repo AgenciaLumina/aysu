@@ -12,7 +12,13 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 
 interface MenuItem {
     id: string
@@ -43,6 +49,8 @@ export default function AdminMenuPage() {
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
+    const [uploadStep, setUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
+    const [imageDragOver, setImageDragOver] = useState(false)
     const [expandedCategories, setExpandedCategories] = useState<string[]>([])
     const [formData, setFormData] = useState({
         name: '',
@@ -128,24 +136,33 @@ export default function AdminMenuPage() {
         setIsModalOpen(true)
     }
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
+    const uploadMenuImageFile = async (file: File) => {
         const validationError = validateImageUpload(file)
         if (validationError) {
             toast.error(validationError)
-            e.target.value = ''
             return
         }
 
+        const largeImageWarning = getLargeImageWarning(file)
+        if (largeImageWarning) {
+            toast(largeImageWarning)
+        }
+
         setUploading(true)
-        const optimizedFile = await optimizeImageBeforeUpload(file)
-        const formDataUpload = new FormData()
-        formDataUpload.append('file', optimizedFile)
-        formDataUpload.append('folder', 'menu')
+        setUploadStep('optimizing')
 
         try {
+            const optimizedFile = await optimizeImageBeforeUpload(file)
+            const payloadError = getUploadPayloadError(optimizedFile)
+            if (payloadError) {
+                throw new Error(payloadError)
+            }
+
+            const formDataUpload = new FormData()
+            formDataUpload.append('file', optimizedFile)
+            formDataUpload.append('folder', 'menu')
+
+            setUploadStep('uploading')
             const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload })
             const data = await readUploadApiResponse(res)
             const imageUrl = data.data?.url
@@ -155,12 +172,45 @@ export default function AdminMenuPage() {
             } else {
                 toast.error(data.error || 'Erro no upload')
             }
-        } catch {
-            toast.error('Erro ao enviar imagem')
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao enviar imagem')
         } finally {
             setUploading(false)
+            setUploadStep('idle')
+        }
+    }
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        try {
+            await uploadMenuImageFile(file)
+        } finally {
             e.target.value = ''
         }
+    }
+
+    const handleImageDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        if (uploading) return
+        setImageDragOver(true)
+    }
+
+    const handleImageDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setImageDragOver(false)
+    }
+
+    const handleImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setImageDragOver(false)
+        if (uploading) return
+
+        const file = e.dataTransfer.files?.[0]
+        if (!file) return
+
+        await uploadMenuImageFile(file)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -391,7 +441,16 @@ export default function AdminMenuPage() {
                         <div>
                             <label className="block text-sm font-medium mb-1.5">Imagem do Produto</label>
                             <div className="flex items-start gap-4">
-                                <div className="w-24 h-24 rounded-lg bg-[#f1c595]/30 border-2 border-dashed border-[#d4a574] flex items-center justify-center overflow-hidden relative">
+                                <div
+                                    className={`w-24 h-24 rounded-lg border-2 border-dashed flex items-center justify-center overflow-hidden relative transition-colors ${
+                                        imageDragOver
+                                            ? 'border-[#d4a574] bg-[#f9efe5]'
+                                            : 'border-[#d4a574] bg-[#f1c595]/30'
+                                    }`}
+                                    onDragOver={handleImageDragOver}
+                                    onDragLeave={handleImageDragLeave}
+                                    onDrop={handleImageDrop}
+                                >
                                     {formData.imageUrl ? (
                                         <>
                                             <Image src={formData.imageUrl} alt="Preview" fill className="object-cover" />
@@ -402,7 +461,15 @@ export default function AdminMenuPage() {
                                 <div className="flex-1">
                                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                                     <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={uploading}><Upload className="h-4 w-4" /> {formData.imageUrl ? 'Trocar' : 'Enviar'}</Button>
-                                    <p className="text-xs text-[#8a5c3f]/70 mt-2">JPG, PNG, WebP, AVIF, HEIC ou HEIF. Max 5MB.</p>
+                                    {uploading ? (
+                                        <p className="text-xs text-[#8a5c3f] mt-2 animate-pulse">
+                                            {uploadStep === 'optimizing' ? 'Otimizando imagem...' : 'Enviando imagem otimizada...'}
+                                        </p>
+                                    ) : (
+                                        <p className="text-xs text-[#8a5c3f]/70 mt-2">
+                                            Arraste e solte no quadro ao lado ou clique em enviar. JPG, PNG, WebP, AVIF, HEIC ou HEIF.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

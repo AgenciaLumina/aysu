@@ -16,7 +16,14 @@ import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/com
 import toast from 'react-hot-toast'
 import type { DayConfigPayload, ReservationGlobalConfigPayload } from '@/lib/day-config'
 import { DEFAULT_RESERVABLE_ITEMS } from '@/lib/day-config'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
+import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 
 const STATUS_OPTIONS = [
     { value: 'NORMAL', label: 'Operação Normal', badge: 'secondary' as const },
@@ -25,7 +32,19 @@ const STATUS_OPTIONS = [
     { value: 'BLOCKED', label: 'Bloqueado/Manutenção', badge: 'error' as const },
 ]
 
-const SPACE_OVERRIDE_FIELDS = [
+interface SpaceOverrideField {
+    id: string
+    label: string
+}
+
+interface CabinOption {
+    id: string
+    name: string
+    slug?: string | null
+    isActive?: boolean
+}
+
+const FALLBACK_SPACE_OVERRIDE_FIELDS: SpaceOverrideField[] = [
     { id: 'bangalo-lateral', label: 'Bangalô Lateral' },
     { id: 'bangalo-piscina', label: 'Bangalô Piscina' },
     { id: 'bangalo-frente-mar', label: 'Bangalô Frente Mar' },
@@ -81,8 +100,8 @@ interface GlobalConfigForm {
     priceOverrides: SpaceOverrideForm
 }
 
-const createEmptyPriceOverrides = (): SpaceOverrideForm => {
-    return SPACE_OVERRIDE_FIELDS.reduce((acc, field) => {
+const createEmptyPriceOverrides = (fields: SpaceOverrideField[]): SpaceOverrideForm => {
+    return fields.reduce((acc, field) => {
         acc[field.id] = {
             enabled: false,
             price: '',
@@ -92,7 +111,7 @@ const createEmptyPriceOverrides = (): SpaceOverrideForm => {
     }, {} as SpaceOverrideForm)
 }
 
-const createDefaultForm = (): DayConfigForm => ({
+const createDefaultForm = (fields: SpaceOverrideField[]): DayConfigForm => ({
     date: '',
     status: 'NORMAL',
     reservationsEnabled: true,
@@ -101,14 +120,30 @@ const createDefaultForm = (): DayConfigForm => ({
     flyerImageUrl: '',
     highlightOnHome: false,
     reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
-    priceOverrides: createEmptyPriceOverrides(),
+    priceOverrides: createEmptyPriceOverrides(fields),
     ticketLots: DEFAULT_TICKET_LOTS.map(lot => ({ ...lot })),
 })
 
-const createDefaultGlobalForm = (): GlobalConfigForm => ({
+const createDefaultGlobalForm = (fields: SpaceOverrideField[]): GlobalConfigForm => ({
     reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
-    priceOverrides: createEmptyPriceOverrides(),
+    priceOverrides: createEmptyPriceOverrides(fields),
 })
+
+function normalizePriceOverrides(
+    fields: SpaceOverrideField[],
+    existing?: SpaceOverrideForm,
+): SpaceOverrideForm {
+    const normalized = createEmptyPriceOverrides(fields)
+    if (!existing) return normalized
+
+    for (const field of fields) {
+        if (existing[field.id]) {
+            normalized[field.id] = existing[field.id]
+        }
+    }
+
+    return normalized
+}
 
 function applyPriceOverridesToForm(
     base: SpaceOverrideForm,
@@ -172,15 +207,18 @@ function AdminCalendarioPageContent() {
     const searchParams = useSearchParams()
     const [configs, setConfigs] = useState<DayConfigPayload[]>([])
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
+    const [spaceOverrideFields, setSpaceOverrideFields] = useState<SpaceOverrideField[]>(FALLBACK_SPACE_OVERRIDE_FIELDS)
     const [loading, setLoading] = useState(true)
     const [loadingGlobal, setLoadingGlobal] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [saving, setSaving] = useState(false)
     const [savingGlobal, setSavingGlobal] = useState(false)
     const [uploadingFlyer, setUploadingFlyer] = useState(false)
+    const [flyerUploadStep, setFlyerUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
+    const [flyerDragOver, setFlyerDragOver] = useState(false)
     const [editingConfig, setEditingConfig] = useState<DayConfigPayload | null>(null)
-    const [form, setForm] = useState<DayConfigForm>(createDefaultForm)
-    const [globalForm, setGlobalForm] = useState<GlobalConfigForm>(createDefaultGlobalForm)
+    const [form, setForm] = useState<DayConfigForm>(() => createDefaultForm(FALLBACK_SPACE_OVERRIDE_FIELDS))
+    const [globalForm, setGlobalForm] = useState<GlobalConfigForm>(() => createDefaultGlobalForm(FALLBACK_SPACE_OVERRIDE_FIELDS))
     const [prefillDone, setPrefillDone] = useState(false)
     const flyerInputRef = useRef<HTMLInputElement>(null)
 
@@ -191,6 +229,45 @@ function AdminCalendarioPageContent() {
             events: configs.filter(c => c.status === 'EVENT' || c.status === 'PRIVATE_EVENT').length,
         }
     }, [configs])
+
+    const fetchSpaceOverrideFields = async (): Promise<SpaceOverrideField[]> => {
+        try {
+            const res = await fetch('/api/cabins?isActive=true', {
+                credentials: 'include',
+            })
+            const data = await res.json()
+
+            if (!data.success || !Array.isArray(data.data)) {
+                return FALLBACK_SPACE_OVERRIDE_FIELDS
+            }
+
+            const grouped = new Map<string, SpaceOverrideField>()
+            data.data.forEach((cabin: CabinOption) => {
+                const spaceKey = getCabinSpaceKey({
+                    id: cabin.id,
+                    name: cabin.name,
+                    slug: cabin.slug,
+                })
+
+                if (!grouped.has(spaceKey)) {
+                    grouped.set(spaceKey, {
+                        id: spaceKey,
+                        label: getCabinSpaceLabel({
+                            name: cabin.name,
+                            slug: cabin.slug,
+                        }),
+                    })
+                }
+            })
+
+            const fields = Array.from(grouped.values())
+                .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+
+            return fields.length > 0 ? fields : FALLBACK_SPACE_OVERRIDE_FIELDS
+        } catch {
+            return FALLBACK_SPACE_OVERRIDE_FIELDS
+        }
+    }
 
     const fetchConfigs = async () => {
         try {
@@ -210,7 +287,7 @@ function AdminCalendarioPageContent() {
         }
     }
 
-    const fetchGlobalConfig = async () => {
+    const fetchGlobalConfig = async (fields: SpaceOverrideField[]) => {
         try {
             const res = await fetch('/api/admin/day-configs/default', {
                 credentials: 'include',
@@ -224,7 +301,7 @@ function AdminCalendarioPageContent() {
             const config = data.data as ReservationGlobalConfigPayload
             setGlobalConfig(config)
 
-            const nextForm = createDefaultGlobalForm()
+            const nextForm = createDefaultGlobalForm(fields)
             nextForm.reservableItems = config.reservableItems
             applyPriceOverridesToForm(nextForm.priceOverrides, config.priceOverrides || {})
             setGlobalForm(nextForm)
@@ -236,8 +313,33 @@ function AdminCalendarioPageContent() {
     }
 
     useEffect(() => {
-        fetchConfigs()
-        fetchGlobalConfig()
+        let mounted = true
+
+        const bootstrap = async () => {
+            const fields = await fetchSpaceOverrideFields()
+            if (!mounted) return
+
+            setSpaceOverrideFields(fields)
+            setForm(prev => ({
+                ...prev,
+                priceOverrides: normalizePriceOverrides(fields, prev.priceOverrides),
+            }))
+            setGlobalForm(prev => ({
+                ...prev,
+                priceOverrides: normalizePriceOverrides(fields, prev.priceOverrides),
+            }))
+
+            await Promise.all([
+                fetchConfigs(),
+                fetchGlobalConfig(fields),
+            ])
+        }
+
+        bootstrap()
+
+        return () => {
+            mounted = false
+        }
     }, [])
 
     useEffect(() => {
@@ -268,12 +370,12 @@ function AdminCalendarioPageContent() {
 
     const openCreateModal = () => {
         setEditingConfig(null)
-        setForm(createDefaultForm())
+        setForm(createDefaultForm(spaceOverrideFields))
         setIsModalOpen(true)
     }
 
     const openEditModal = (config: DayConfigPayload) => {
-        const nextForm = createDefaultForm()
+        const nextForm = createDefaultForm(spaceOverrideFields)
 
         nextForm.date = config.date
         nextForm.status = config.status
@@ -335,25 +437,33 @@ function AdminCalendarioPageContent() {
         }
     }
 
-    const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
+    const uploadFlyerFile = async (file: File) => {
         const validationError = validateImageUpload(file)
         if (validationError) {
             toast.error(validationError)
-            e.target.value = ''
             return
         }
 
+        const largeImageWarning = getLargeImageWarning(file)
+        if (largeImageWarning) {
+            toast(largeImageWarning)
+        }
+
         setUploadingFlyer(true)
+        setFlyerUploadStep('optimizing')
 
         try {
             const optimizedFile = await optimizeImageBeforeUpload(file)
+            const payloadError = getUploadPayloadError(optimizedFile)
+            if (payloadError) {
+                throw new Error(payloadError)
+            }
+
             const formData = new FormData()
             formData.append('file', optimizedFile)
             formData.append('folder', 'events')
 
+            setFlyerUploadStep('uploading')
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 credentials: 'include',
@@ -372,8 +482,41 @@ function AdminCalendarioPageContent() {
             toast.error(error instanceof Error ? error.message : 'Erro ao fazer upload do flyer')
         } finally {
             setUploadingFlyer(false)
+            setFlyerUploadStep('idle')
+        }
+    }
+
+    const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        try {
+            await uploadFlyerFile(file)
+        } finally {
             e.target.value = ''
         }
+    }
+
+    const handleFlyerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        if (uploadingFlyer) return
+        setFlyerDragOver(true)
+    }
+
+    const handleFlyerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setFlyerDragOver(false)
+    }
+
+    const handleFlyerDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setFlyerDragOver(false)
+        if (uploadingFlyer) return
+
+        const file = e.dataTransfer.files?.[0]
+        if (!file) return
+
+        await uploadFlyerFile(file)
     }
 
     const handleSave = async (e: React.FormEvent) => {
@@ -490,7 +633,7 @@ function AdminCalendarioPageContent() {
             const config = data.data as ReservationGlobalConfigPayload
             setGlobalConfig(config)
 
-            const normalizedForm = createDefaultGlobalForm()
+            const normalizedForm = createDefaultGlobalForm(spaceOverrideFields)
             normalizedForm.reservableItems = config.reservableItems
             applyPriceOverridesToForm(normalizedForm.priceOverrides, config.priceOverrides || {})
             setGlobalForm(normalizedForm)
@@ -622,8 +765,12 @@ function AdminCalendarioPageContent() {
                                         <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
                                         <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                     </div>
-                                    {SPACE_OVERRIDE_FIELDS.map(space => {
-                                        const override = globalForm.priceOverrides[space.id]
+                                    {spaceOverrideFields.map(space => {
+                                        const override = globalForm.priceOverrides[space.id] || {
+                                            enabled: false,
+                                            price: '',
+                                            consumable: '',
+                                        }
                                         return (
                                             <div key={space.id} className="grid md:grid-cols-4 gap-3 items-center">
                                                 <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">
@@ -863,6 +1010,31 @@ function AdminCalendarioPageContent() {
                                         </Button>
                                     )}
                                 </div>
+                                <div
+                                    onDragOver={handleFlyerDragOver}
+                                    onDragLeave={handleFlyerDragLeave}
+                                    onDrop={handleFlyerDrop}
+                                    className={`rounded-lg border-2 border-dashed p-3 transition-colors ${
+                                        flyerDragOver
+                                            ? 'border-[#d4a574] bg-[#f9efe5]'
+                                            : 'border-[#e0d5c7] bg-[#f5f0eb]/40'
+                                    }`}
+                                >
+                                    {uploadingFlyer ? (
+                                        <div className="flex items-center gap-2 text-sm text-[#8a5c3f]">
+                                            <Spinner size="sm" />
+                                            <span>
+                                                {flyerUploadStep === 'optimizing'
+                                                    ? 'Otimizando imagem...'
+                                                    : 'Enviando imagem otimizada...'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-[#8a5c3f]">
+                                            Arraste e solte uma imagem aqui para upload rápido.
+                                        </p>
+                                    )}
+                                </div>
                                 {form.flyerImageUrl ? (
                                     <div className="mt-2">
                                         <div className="relative w-24 aspect-[4/5] rounded-lg border border-[#e0d5c7] bg-[#f5f0eb] overflow-hidden">
@@ -966,8 +1138,12 @@ function AdminCalendarioPageContent() {
                                     <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
                                     <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                 </div>
-                                {SPACE_OVERRIDE_FIELDS.map(space => {
-                                    const override = form.priceOverrides[space.id]
+                                {spaceOverrideFields.map(space => {
+                                    const override = form.priceOverrides[space.id] || {
+                                        enabled: false,
+                                        price: '',
+                                        consumable: '',
+                                    }
                                     return (
                                         <div key={space.id} className="grid md:grid-cols-4 gap-3 items-center">
                                             <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">

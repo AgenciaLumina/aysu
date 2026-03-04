@@ -7,7 +7,13 @@ import { Upload, FolderOpen, Check, Loader2 } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from './Modal'
 import { Button } from './Button'
 import toast from 'react-hot-toast'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 
 interface MediaFile {
     key: string
@@ -80,7 +86,17 @@ export function MediaPicker({ open, onClose, onSelect, defaultFolder = '' }: Med
                 return
             }
 
+            const largeImageWarning = getLargeImageWarning(file)
+            if (largeImageWarning) {
+                toast(largeImageWarning)
+            }
+
             const optimizedFile = await optimizeImageBeforeUpload(file)
+            const payloadError = getUploadPayloadError(optimizedFile)
+            if (payloadError) {
+                toast.error(payloadError)
+                return
+            }
 
             const formData = new FormData()
             formData.append('file', optimizedFile)

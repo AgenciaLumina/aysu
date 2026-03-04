@@ -11,7 +11,13 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 import { formatCurrency, generateSlug } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -99,6 +105,8 @@ export default function AdminEventsPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploadingFlyer, setUploadingFlyer] = useState(false)
+    const [flyerUploadStep, setFlyerUploadStep] = useState<'idle' | 'optimizing' | 'uploading'>('idle')
+    const [flyerDragOver, setFlyerDragOver] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingEvent, setEditingEvent] = useState<EventItem | null>(null)
     const [form, setForm] = useState<EventForm>(createDefaultForm)
@@ -151,25 +159,33 @@ export default function AdminEventsPage() {
         setIsModalOpen(true)
     }
 
-    const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
+    const uploadFlyerFile = async (file: File) => {
         const validationError = validateImageUpload(file)
         if (validationError) {
             toast.error(validationError)
-            e.target.value = ''
             return
         }
 
+        const largeImageWarning = getLargeImageWarning(file)
+        if (largeImageWarning) {
+            toast(largeImageWarning)
+        }
+
         setUploadingFlyer(true)
+        setFlyerUploadStep('optimizing')
 
         try {
             const optimizedFile = await optimizeImageBeforeUpload(file)
+            const payloadError = getUploadPayloadError(optimizedFile)
+            if (payloadError) {
+                throw new Error(payloadError)
+            }
+
             const formData = new FormData()
             formData.append('file', optimizedFile)
             formData.append('folder', 'events')
 
+            setFlyerUploadStep('uploading')
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 credentials: 'include',
@@ -188,8 +204,42 @@ export default function AdminEventsPage() {
             toast.error(error instanceof Error ? error.message : 'Erro ao enviar flyer')
         } finally {
             setUploadingFlyer(false)
+            setFlyerUploadStep('idle')
+        }
+    }
+
+    const handleFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        try {
+            await uploadFlyerFile(file)
+        } finally {
             e.target.value = ''
         }
+    }
+
+    const handleFlyerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        if (uploadingFlyer) return
+        setFlyerDragOver(true)
+    }
+
+    const handleFlyerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setFlyerDragOver(false)
+    }
+
+    const handleFlyerDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        setFlyerDragOver(false)
+
+        if (uploadingFlyer) return
+
+        const file = e.dataTransfer.files?.[0]
+        if (!file) return
+
+        await uploadFlyerFile(file)
     }
 
     const handleDelete = async (event: EventItem) => {
@@ -476,6 +526,31 @@ export default function AdminEventsPage() {
                                         <X className="h-4 w-4" />
                                         Remover
                                     </Button>
+                                )}
+                            </div>
+                            <div
+                                onDragOver={handleFlyerDragOver}
+                                onDragLeave={handleFlyerDragLeave}
+                                onDrop={handleFlyerDrop}
+                                className={`rounded-lg border-2 border-dashed p-3 transition-colors ${
+                                    flyerDragOver
+                                        ? 'border-[#d4a574] bg-[#f9efe5]'
+                                        : 'border-[#e0d5c7] bg-[#f5f0eb]/40'
+                                }`}
+                            >
+                                {uploadingFlyer ? (
+                                    <div className="flex items-center gap-2 text-sm text-[#8a5c3f]">
+                                        <Spinner size="sm" />
+                                        <span>
+                                            {flyerUploadStep === 'optimizing'
+                                                ? 'Otimizando imagem...'
+                                                : 'Enviando imagem otimizada...'}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-[#8a5c3f]">
+                                        Arraste e solte uma imagem aqui para upload rápido.
+                                    </p>
                                 )}
                             </div>
                             <p className="text-xs text-[#8a5c3f]/70">

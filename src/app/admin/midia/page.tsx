@@ -10,7 +10,13 @@ import {
     Search, Filter, ChevronDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 
 interface MediaFile {
     key: string
@@ -25,7 +31,7 @@ const FOLDERS = [
     { value: 'cabins/', label: '🏖️ Bangalôs' },
     { value: 'gallery/', label: '📸 Galeria' },
     { value: 'galeria-eventos/', label: '🎉 Galeria de Eventos' },
-    { value: 'eventos/', label: '🎉 Eventos' },
+    { value: 'events/', label: '🎉 Eventos' },
 ]
 
 export default function AdminMediaPage() {
@@ -70,8 +76,18 @@ export default function AdminMediaPage() {
                     continue
                 }
 
+                const largeImageWarning = getLargeImageWarning(file)
+                if (largeImageWarning) {
+                    toast(largeImageWarning)
+                }
+
                 const formData = new FormData()
                 const optimizedFile = await optimizeImageBeforeUpload(file)
+                const payloadError = getUploadPayloadError(optimizedFile)
+                if (payloadError) {
+                    toast.error(`${file.name}: ${payloadError}`)
+                    continue
+                }
                 formData.append('file', optimizedFile)
                 formData.append('folder', selectedFolder.replace('/', ''))
 

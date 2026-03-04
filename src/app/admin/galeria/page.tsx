@@ -8,7 +8,13 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import toast from 'react-hot-toast'
-import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload } from '@/lib/upload-client'
+import {
+    getLargeImageWarning,
+    getUploadPayloadError,
+    optimizeImageBeforeUpload,
+    readUploadApiResponse,
+    validateImageUpload,
+} from '@/lib/upload-client'
 
 interface GalleryImage {
     id: string
@@ -65,8 +71,18 @@ export default function AdminGalleryPage() {
                     continue
                 }
 
+                const largeImageWarning = getLargeImageWarning(file)
+                if (largeImageWarning) {
+                    toast(largeImageWarning)
+                }
+
                 // 1. Upload to R2
                 const optimizedFile = await optimizeImageBeforeUpload(file)
+                const payloadError = getUploadPayloadError(optimizedFile)
+                if (payloadError) {
+                    toast.error(`${file.name}: ${payloadError}`)
+                    continue
+                }
                 const formData = new FormData()
                 formData.append('file', optimizedFile)
                 formData.append('folder', 'gallery')
