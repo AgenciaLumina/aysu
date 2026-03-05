@@ -55,3 +55,27 @@ export function resolveCabinSlug(input: { name: string; slug?: string | null } |
 
     return resolveCabinSlugFromName(input.name)
 }
+
+export function getCabinSpaceKey(input: { id: string; name: string; slug?: string | null }): string {
+    const slug = typeof input.slug === 'string' ? input.slug.trim() : ''
+    if (slug) return slug
+
+    const resolved = resolveCabinSlug(input)
+    if (resolved) return resolved
+
+    return input.id
+}
+
+export function getCabinSpaceLabel(input: { name: string; slug?: string | null }): string {
+    const slug = typeof input.slug === 'string' ? input.slug.trim() : ''
+    if (slug && isSpaceSlug(slug)) {
+        return getSpacePrefix(slug)
+    }
+
+    const resolved = resolveCabinSlug(input)
+    if (resolved) {
+        return getSpacePrefix(resolved)
+    }
+
+    return input.name
+}
