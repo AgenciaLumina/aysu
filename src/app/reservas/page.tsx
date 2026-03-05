@@ -15,7 +15,7 @@ import { Footer } from '@/components/layout/Footer'
 import type { DayConfigPayload, ReservationGlobalConfigPayload, TicketLot } from '@/lib/day-config'
 import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace } from '@/lib/day-config'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
-import { resolveCabinSlug } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 
 // ==========================================
 // DADOS DOS ESPAÇOS (Informações reais)
@@ -24,7 +24,7 @@ import { resolveCabinSlug } from '@/lib/space-slugs'
 interface SpaceType {
     id: string
     name: string
-    slug: string
+    slug: string | null
     image: string
     capacity: string
     capacityNum: number
@@ -36,15 +36,28 @@ interface SpaceType {
     units: number
     category: 'bangalo' | 'sunbed' | 'mesa' | 'dayuse'
     tier: 'standard' | 'premium' | 'galera' | 'romantic' | 'social'
+    visibilityStatus: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
+}
+
+interface CabinApiItem {
+    id: string
+    name: string
+    slug?: string | null
+    capacity?: number
+    units?: number
+    pricePerHour?: number
+    description?: string
+    imageUrl?: string | null
+    category?: string
     visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
 }
 
-const spaceTypes: SpaceType[] = [
+const LEGACY_SPACE_TYPES: SpaceType[] = [
     // BANGALÔ LATERAL - Nível 1
     {
         id: 'bangalo-lateral',
         name: 'Bangalô Lateral',
-        slug: 'lateral',
+        slug: 'bangalo-lateral',
         image: '/espacos/bangalo-lateral.jpg',
         capacity: '4 a 5 pessoas',
         capacityNum: 5,
@@ -56,12 +69,13 @@ const spaceTypes: SpaceType[] = [
         units: 6,
         category: 'bangalo',
         tier: 'standard',
+        visibilityStatus: 'AVAILABLE',
     },
     // BANGALÔ PISCINA - Nível 2
     {
         id: 'bangalo-piscina',
         name: 'Bangalô Piscina',
-        slug: 'piscina',
+        slug: 'bangalo-piscina',
         image: '/espacos/bangalo-piscina.jpg',
         capacity: '6 pessoas',
         capacityNum: 6,
@@ -73,12 +87,13 @@ const spaceTypes: SpaceType[] = [
         units: 2,
         category: 'bangalo',
         tier: 'premium',
+        visibilityStatus: 'AVAILABLE',
     },
     // BANGALÔ FRENTE MAR - Nível 2
     {
         id: 'bangalo-frente-mar',
         name: 'Bangalô Frente Mar',
-        slug: 'frente-mar',
+        slug: 'bangalo-frente-mar',
         image: '/espacos/bangalo-frente-mar.jpg',
         capacity: '6 a 8 pessoas',
         capacityNum: 8,
@@ -90,12 +105,13 @@ const spaceTypes: SpaceType[] = [
         units: 4,
         category: 'bangalo',
         tier: 'premium',
+        visibilityStatus: 'AVAILABLE',
     },
     // BANGALÔ CENTRAL - Nível 3 (Galera)
     {
         id: 'bangalo-central',
         name: 'Bangalô Central',
-        slug: 'central',
+        slug: 'bangalo-central',
         image: '/espacos/bangalo10.jpeg',
         capacity: 'até 10 pessoas',
         capacityNum: 10,
@@ -107,12 +123,13 @@ const spaceTypes: SpaceType[] = [
         units: 1,
         category: 'bangalo',
         tier: 'galera',
+        visibilityStatus: 'AVAILABLE',
     },
     // SUNBED CASAL
     {
         id: 'sunbed-casal',
         name: 'Sunbed Casal',
-        slug: 'sunbed',
+        slug: 'sunbed-casal',
         image: '/espacos/Sunbeds.jpeg',
         capacity: '2 pessoas (casal)',
         capacityNum: 2,
@@ -124,6 +141,7 @@ const spaceTypes: SpaceType[] = [
         units: 4,
         category: 'sunbed',
         tier: 'romantic',
+        visibilityStatus: 'AVAILABLE',
     },
     // MESA RESTAURANTE (reservável conforme configuração da data)
     {
@@ -141,6 +159,7 @@ const spaceTypes: SpaceType[] = [
         units: 4,
         category: 'mesa',
         tier: 'social',
+        visibilityStatus: 'AVAILABLE',
     },
     // MESA PRAIA (reservável conforme configuração da data)
     {
@@ -158,6 +177,7 @@ const spaceTypes: SpaceType[] = [
         units: 4,
         category: 'mesa',
         tier: 'social',
+        visibilityStatus: 'AVAILABLE',
     },
     // DAY USE PRAIA COM ESPREGUIÇADEIRA
     {
@@ -175,8 +195,116 @@ const spaceTypes: SpaceType[] = [
         units: 20,
         category: 'dayuse',
         tier: 'social',
+        visibilityStatus: 'AVAILABLE',
     },
 ]
+
+const LEGACY_SPACE_INDEX: Record<string, SpaceType> = LEGACY_SPACE_TYPES.reduce((acc, space) => {
+    acc[space.id] = space
+    return acc
+}, {} as Record<string, SpaceType>)
+
+const SPACE_CATEGORY_ORDER: Record<SpaceType['category'], number> = {
+    bangalo: 1,
+    sunbed: 2,
+    mesa: 3,
+    dayuse: 4,
+}
+
+function normalizeText(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+}
+
+function getVisibilityPriority(status?: SpaceType['visibilityStatus']): number {
+    if (status === 'HIDDEN') return 3
+    if (status === 'UNAVAILABLE') return 2
+    return 1
+}
+
+function inferSpaceCategory(cabin: CabinApiItem, spaceKey: string): SpaceType['category'] {
+    const key = normalizeText(spaceKey)
+    const name = normalizeText(cabin.name)
+    const category = normalizeText(cabin.category || '')
+
+    if (key.includes('day-use') || name.includes('day use') || name.includes('espreguicadeira')) return 'dayuse'
+    if (key.includes('sunbed') || name.includes('sunbed')) return 'sunbed'
+    if (key.includes('mesa') || name.includes('mesa') || category === 'mesa') return 'mesa'
+
+    return 'bangalo'
+}
+
+function inferSpaceTier(spaceKey: string, category: SpaceType['category']): SpaceType['tier'] {
+    const key = normalizeText(spaceKey)
+
+    if (key.includes('central') || key.includes('galera')) return 'galera'
+    if (key.includes('frente-mar') || key.includes('piscina')) return 'premium'
+    if (category === 'sunbed') return 'romantic'
+    if (category === 'mesa' || category === 'dayuse') return 'social'
+
+    return 'standard'
+}
+
+function formatCapacityLabel(capacity: number): string {
+    return capacity === 1 ? '1 pessoa' : `${capacity} pessoas`
+}
+
+function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
+    const grouped = new Map<string, SpaceType>()
+
+    cabins.forEach((cabin) => {
+        const spaceKey = getCabinSpaceKey({
+            id: cabin.id,
+            name: cabin.name,
+            slug: cabin.slug,
+        })
+        const legacy = LEGACY_SPACE_INDEX[spaceKey]
+        const capacityNum = Math.max(1, Number(cabin.capacity || legacy?.capacityNum || 1))
+        const units = Math.max(1, Number(cabin.units || legacy?.units || 1))
+        const inferredCategory = legacy?.category || inferSpaceCategory(cabin, spaceKey)
+        const basePrice = Number(cabin.pricePerHour || legacy?.dailyPrice || 0)
+
+        const mapped: SpaceType = {
+            id: spaceKey,
+            name: legacy?.name || getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
+            slug: cabin.slug?.trim() || legacy?.slug || null,
+            image: cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg',
+            capacity: legacy?.capacity || formatCapacityLabel(capacityNum),
+            capacityNum,
+            dailyPrice: legacy?.dailyPrice ?? basePrice,
+            consumable: legacy?.consumable ?? 0,
+            holidayPrice: legacy?.holidayPrice ?? basePrice,
+            holidayConsumable: legacy?.holidayConsumable ?? (legacy?.consumable ?? 0),
+            description: cabin.description || legacy?.description || 'Espaço exclusivo para sua experiência Aysú.',
+            units,
+            category: inferredCategory,
+            tier: legacy?.tier || inferSpaceTier(spaceKey, inferredCategory),
+            visibilityStatus: cabin.visibilityStatus || legacy?.visibilityStatus || 'AVAILABLE',
+        }
+
+        const existing = grouped.get(spaceKey)
+        if (!existing) {
+            grouped.set(spaceKey, mapped)
+            return
+        }
+
+        existing.units += units
+        if (!existing.image && mapped.image) existing.image = mapped.image
+        if (!existing.description && mapped.description) existing.description = mapped.description
+        if (getVisibilityPriority(mapped.visibilityStatus) > getVisibilityPriority(existing.visibilityStatus)) {
+            existing.visibilityStatus = mapped.visibilityStatus
+        }
+    })
+
+    return Array.from(grouped.values()).sort((a, b) => {
+        const byCategory = SPACE_CATEGORY_ORDER[a.category] - SPACE_CATEGORY_ORDER[b.category]
+        if (byCategory !== 0) return byCategory
+        return a.name.localeCompare(b.name, 'pt-BR')
+    })
+}
 
 // ==========================================
 // HELPERS
@@ -210,6 +338,13 @@ function getDaysDiff(fromIso: string, toIso: string): number {
     const fromUtc = Date.UTC(fromYear, fromMonth - 1, fromDay)
     const toUtc = Date.UTC(toYear, toMonth - 1, toDay)
     return Math.max(0, Math.round((toUtc - fromUtc) / 86400000))
+}
+
+function formatDaysUntilLabel(days: number | null, uppercase = false): string {
+    if (days === null || days <= 0) return uppercase ? 'HOJE' : 'hoje'
+    const singular = uppercase ? 'DIA' : 'dia'
+    const plural = uppercase ? 'DIAS' : 'dias'
+    return `${days} ${days === 1 ? singular : plural}`
 }
 
 interface LotReservationGate {
@@ -296,12 +431,6 @@ const getTierColor = (tier: SpaceType['tier']) => {
     }
 }
 
-function getVisibilityPriority(status?: SpaceType['visibilityStatus']): number {
-    if (status === 'HIDDEN') return 3
-    if (status === 'UNAVAILABLE') return 2
-    return 1
-}
-
 // ==========================================
 // COMPONENTE PRINCIPAL
 // ==========================================
@@ -362,6 +491,7 @@ function ReservasPageContent() {
         return initialDateFromUrl < today ? null : initialDateFromUrl
     })
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
+    const [spaces, setSpaces] = useState<SpaceType[]>(LEGACY_SPACE_TYPES)
     const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
     const [dayConfigs, setDayConfigs] = useState<DayConfigPayload[]>([])
     const [currentMonth, setCurrentMonth] = useState(() => {
@@ -373,11 +503,6 @@ function ReservasPageContent() {
     })
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
-    const [spaceCatalog, setSpaceCatalog] = useState<Record<string, {
-        units: number
-        imageUrl?: string
-        visibilityStatus: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
-    }>>({})
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
 
     // Estado do modal de informação de data especial/bloqueada
@@ -472,41 +597,10 @@ function ReservasPageContent() {
             .then(data => {
                 if (!data.success || !Array.isArray(data.data)) return
 
-                const nextCatalog: Record<string, {
-                    units: number
-                    imageUrl?: string
-                    visibilityStatus: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
-                }> = {}
-
-                data.data.forEach((cabin: {
-                    name: string
-                    slug?: string | null
-                    units?: number
-                    imageUrl?: string | null
-                    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
-                }) => {
-                    const slug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug })
-                    if (!slug) return
-
-                    const current = nextCatalog[slug] || {
-                        units: 0,
-                        visibilityStatus: 'AVAILABLE' as const,
-                    }
-                    const nextStatus = cabin.visibilityStatus || 'AVAILABLE'
-
-                    current.units += Math.max(1, Number(cabin.units || 1))
-
-                    if (!current.imageUrl && typeof cabin.imageUrl === 'string' && cabin.imageUrl.trim()) {
-                        current.imageUrl = cabin.imageUrl.trim()
-                    }
-
-                    if (getVisibilityPriority(nextStatus) > getVisibilityPriority(current.visibilityStatus)) {
-                        current.visibilityStatus = nextStatus
-                    }
-
-                    nextCatalog[slug] = current
-                })
-                setSpaceCatalog(nextCatalog)
+                const mappedSpaces = buildDynamicSpaces(data.data as CabinApiItem[])
+                if (mappedSpaces.length > 0) {
+                    setSpaces(mappedSpaces)
+                }
             })
             .catch(err => console.error('Erro ao buscar espaços ativos:', err))
     }, [])
@@ -567,23 +661,11 @@ function ReservasPageContent() {
         : null
     const lotReservationGate = getLotReservationGate(selectedDateConfig?.ticketLots ?? [])
 
-    const displaySpaces = useMemo(
-        () =>
-            spaceTypes
-                .map((space) => {
-                    const catalog = spaceCatalog[space.id]
-                    if (!catalog) return space
-
-                    return {
-                        ...space,
-                        image: catalog.imageUrl || space.image,
-                        units: catalog.units > 0 ? catalog.units : space.units,
-                        visibilityStatus: catalog.visibilityStatus,
-                    }
-                })
-                .filter((space) => space.visibilityStatus !== 'HIDDEN'),
-        [spaceCatalog]
-    )
+    const effectiveSelectedSpace = useMemo(() => {
+        if (!selectedSpace) return null
+        const next = spaces.find((space) => space.id === selectedSpace.id && space.visibilityStatus === 'AVAILABLE')
+        return next || null
+    }, [selectedSpace, spaces])
 
 
 
@@ -656,12 +738,12 @@ function ReservasPageContent() {
     const handleReserve = () => {
         if (lotReservationGate.isBlocked) return
 
-        if (effectiveSelectedDate && selectedSpace) {
-            const { finalPrice, finalConsumable } = getSpacePricing(selectedSpace, effectiveSelectedDate)
+        if (effectiveSelectedDate && effectiveSelectedSpace) {
+            const { finalPrice, finalConsumable } = getSpacePricing(effectiveSelectedSpace, effectiveSelectedDate)
 
             const params = new URLSearchParams({
-                cabinId: selectedSpace.id,
-                cabinName: selectedSpace.name,
+                cabinId: effectiveSelectedSpace.id,
+                cabinName: effectiveSelectedSpace.name,
                 date: toLocalISODate(effectiveSelectedDate),
                 price: finalPrice.toString(),
                 consumable: finalConsumable.toString(),
@@ -688,7 +770,7 @@ function ReservasPageContent() {
                 : null
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white overflow-x-hidden">
             <Header variant="transparent" />
 
             {/* ==========================================
@@ -701,7 +783,7 @@ function ReservasPageContent() {
                 {/* Background Video */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                        className="absolute top-1/2 left-1/2 min-w-[100vw] min-h-[100vh] w-auto h-auto -translate-x-1/2 -translate-y-1/2 scale-150"
+                        className="absolute left-1/2 top-1/2 h-[56.25vw] w-[177.78vh] min-h-full min-w-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[1.08] md:scale-[1.22]"
                         src="https://www.youtube.com/embed/brLps0wydgU?autoplay=1&mute=1&loop=1&playlist=brLps0wydgU&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&enablejsapi=1&origin=https://aysu.com.br"
                         title="Aysú Beach Lounge"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -730,7 +812,7 @@ function ReservasPageContent() {
             {/* ==========================================
                 CALENDÁRIO - Card flutuante premium
                 ========================================== */}
-            <section className="max-w-lg mx-auto px-6 -mt-24 relative z-10 pb-16">
+            <section className="max-w-lg mx-auto px-4 sm:px-6 -mt-24 relative z-10 pb-16">
                 <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 border border-gray-100">
                     {/* Calendar Header */}
                     <div className="flex items-center justify-between px-8 py-6 border-b border-[var(--aissu-border)]">
@@ -833,7 +915,7 @@ function ReservasPageContent() {
                                         </button>
                                         {/* Closed Date Tooltip */}
                                         {day.isClosed && (
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-red-600 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-red-600 text-white text-xs rounded-lg max-w-[220px] text-center whitespace-normal break-words opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                                 {day.closedReason || 'Evento Fechado'} — Não abriremos ao público
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-red-600" />
                                             </div>
@@ -850,7 +932,7 @@ function ReservasPageContent() {
                                         )}
                                         {/* Holiday Tooltip */}
                                         {day.holidayName && !day.isClosed && !hasEventInfo && (
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg max-w-[220px] text-center whitespace-normal break-words opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                                 {day.holidayName}
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-gray-900" />
                                             </div>
@@ -893,7 +975,7 @@ function ReservasPageContent() {
                                                 <>
                                                     <p className="text-[11px] font-black uppercase tracking-[0.08em]">Lote antecipado</p>
                                                     <p className="text-2xl leading-none font-black mt-1">
-                                                        ABRE EM {lotReservationGate.daysUntilNext === 0 ? 'HOJE' : `${lotReservationGate.daysUntilNext} DIAS`}
+                                                        ABRE EM {formatDaysUntilLabel(lotReservationGate.daysUntilNext, true)}
                                                     </p>
                                                     <p className="text-sm font-bold mt-1">
                                                         {lotReservationGate.nextLotName} • {formatDateOnlyBR(lotReservationGate.nextAvailableDate)}
@@ -976,13 +1058,16 @@ function ReservasPageContent() {
 
                 {/* Space Grid */}
                 <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {displaySpaces.map((space) => {
+                    {spaces.map((space) => {
+                        if (space.visibilityStatus === 'HIDDEN') return null
+
                         const { finalPrice, finalConsumable } = getSpacePricing(space, effectiveSelectedDate)
                         const availableCount = availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isRestaurantTable = space.id === 'mesa-restaurante'
                         const isBeachTable = space.id === 'mesa-praia'
                         const isDayUse = space.id === 'day-use-praia'
+                        const blockedByVisibility = space.visibilityStatus === 'UNAVAILABLE'
                         const blockedByRule = (
                             (space.category === 'bangalo' && !reservableItems.bangalos) ||
                             (space.category === 'sunbed' && !reservableItems.sunbeds) ||
@@ -990,11 +1075,10 @@ function ReservasPageContent() {
                             (isBeachTable && !reservableItems.beachTables) ||
                             (isDayUse && !reservableItems.dayUse)
                         )
-                        const manuallyUnavailable = space.visibilityStatus === 'UNAVAILABLE'
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
-                        const isSoldOut = (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)
+                        const isSoldOut = blockedByVisibility
+                            || (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)
                             || blockedByRule
-                            || manuallyUnavailable
                             || lotReservationGate.isBlocked
                             || isLoadingAvailability
 
@@ -1013,7 +1097,7 @@ function ReservasPageContent() {
                                             ? 'opacity-60 cursor-not-allowed grayscale'
                                             : 'cursor-pointer hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1'
                                     } 
-                                        ${selectedSpace?.id === space.id
+                                        ${effectiveSelectedSpace?.id === space.id
                                         ? 'ring-2 ring-gray-900 shadow-2xl shadow-black/10'
                                         : 'shadow-lg shadow-black/5'
                                     }`}
@@ -1040,6 +1124,13 @@ function ReservasPageContent() {
                                     <div className="absolute top-4 right-4">
                                         {effectiveSelectedDate ? (
                                             (() => {
+                                                if (blockedByVisibility) {
+                                                    return (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-zinc-700 text-white">
+                                                            Indisponível
+                                                        </span>
+                                                    )
+                                                }
                                                 const count = availabilityCounts[space.id]
                                                 if (count === undefined) {
                                                     return (
@@ -1052,13 +1143,6 @@ function ReservasPageContent() {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-slate-700 text-white">
                                                             Disponível somente em evento
-                                                        </span>
-                                                    )
-                                                }
-                                                if (manuallyUnavailable) {
-                                                    return (
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-zinc-700 text-white">
-                                                            Indisponível
                                                         </span>
                                                     )
                                                 }
@@ -1097,9 +1181,15 @@ function ReservasPageContent() {
                                                 )
                                             })()
                                         ) : (
-                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
-                                                {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
-                                            </span>
+                                            blockedByVisibility ? (
+                                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-zinc-700 text-white shadow-lg">
+                                                    Indisponível
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-gray-900 shadow-lg">
+                                                    {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
+                                                </span>
+                                            )
                                         )}
                                     </div>
 
@@ -1112,7 +1202,7 @@ function ReservasPageContent() {
                                     </div>
 
                                     {/* Selection Overlay */}
-                                    {selectedSpace?.id === space.id && (
+                                    {effectiveSelectedSpace?.id === space.id && (
                                         <div className="absolute inset-0 bg-gray-900/30 flex items-center justify-center">
                                             <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl">
                                                 <Check className="h-8 w-8 text-gray-900" />
@@ -1184,7 +1274,7 @@ function ReservasPageContent() {
             {/* ==========================================
                 STICKY BOTTOM BAR
                 ========================================== */}
-            {selectedSpace && effectiveSelectedDate && (
+            {effectiveSelectedSpace && effectiveSelectedDate && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-2xl shadow-black/10" style={{ borderColor: 'var(--aissu-border)' }}>
                     <div className="max-w-5xl mx-auto px-6 py-4">
                         <div className="flex items-center justify-between">
@@ -1192,14 +1282,14 @@ function ReservasPageContent() {
                             <div className="flex items-center gap-4">
                                 <div className="hidden sm:block w-16 h-16 rounded-xl overflow-hidden relative shadow-lg">
                                     <Image
-                                        src={selectedSpace.image}
-                                        alt={selectedSpace.name}
+                                        src={effectiveSelectedSpace.image}
+                                        alt={effectiveSelectedSpace.name}
                                         fill
                                         className="object-cover"
                                     />
                                 </div>
                                 <div>
-                                    <p className="font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{selectedSpace.name}</p>
+                                    <p className="font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{effectiveSelectedSpace.name}</p>
                                     <p className="text-sm capitalize" style={{ color: 'var(--aissu-wood)' }}>{formatDateShort(effectiveSelectedDate)}</p>
                                 </div>
                             </div>
@@ -1208,7 +1298,7 @@ function ReservasPageContent() {
                             <div className="flex items-center gap-6">
                                 <div className="text-right hidden sm:block">
                                     {(() => {
-                                        const { finalPrice, finalConsumable } = getSpacePricing(selectedSpace, effectiveSelectedDate)
+                                        const { finalPrice, finalConsumable } = getSpacePricing(effectiveSelectedSpace, effectiveSelectedDate)
                                         return (
                                             <>
                                                 <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>

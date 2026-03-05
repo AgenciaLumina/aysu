@@ -101,6 +101,13 @@ function getDaysDiff(fromIso: string, toIso: string): number {
     return Math.max(0, Math.round((toUtc - fromUtc) / 86400000))
 }
 
+function formatDaysUntilLabel(days: number | null, uppercase = false): string {
+    if (days === null || days <= 0) return uppercase ? 'HOJE' : 'hoje'
+    const singular = uppercase ? 'DIA' : 'dia'
+    const plural = uppercase ? 'DIAS' : 'dias'
+    return `${days} ${days === 1 ? singular : plural}`
+}
+
 interface LotState {
     status: 'none' | 'upcoming' | 'active' | 'sold_out'
     activeLot: TicketLot | null
@@ -291,7 +298,7 @@ export default function UpcomingEventsSection() {
                                         <div className="absolute top-3 right-3 px-3 py-2 rounded-xl bg-amber-500 text-white shadow-2xl border border-amber-200">
                                             <p className="text-[10px] uppercase tracking-[0.08em] font-black">Lote abre em</p>
                                             <p className="text-lg leading-none font-black">
-                                                {lotState.daysUntilNext === 0 ? 'HOJE' : `${lotState.daysUntilNext} DIAS`}
+                                                {formatDaysUntilLabel(lotState.daysUntilNext, true)}
                                             </p>
                                             <p className="text-[10px] opacity-95">
                                                 {lotState.nextLot.name} • {formatDateOnly(lotState.nextLot.endsAt)}
@@ -339,7 +346,7 @@ export default function UpcomingEventsSection() {
                                         {lotState.status === 'upcoming' && lotState.nextLot && (
                                             <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
                                                 <p className="text-xs font-extrabold uppercase tracking-[0.08em]">
-                                                    {lotState.nextLot.name} abre em {lotState.daysUntilNext === 0 ? 'hoje' : `${lotState.daysUntilNext} dias`}
+                                                    {lotState.nextLot.name} abre em {formatDaysUntilLabel(lotState.daysUntilNext)}
                                                 </p>
                                                 <p className="text-[11px] font-semibold mt-0.5">
                                                     Liberação: {formatDateOnly(lotState.nextLot.endsAt)}
@@ -414,7 +421,7 @@ export default function UpcomingEventsSection() {
                                 {selectedLotState.status === 'upcoming' && selectedLotState.nextLot && (
                                     <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
                                         <p className="text-xs font-extrabold uppercase tracking-[0.08em]">
-                                            {selectedLotState.nextLot.name} abre em {selectedLotState.daysUntilNext === 0 ? 'hoje' : `${selectedLotState.daysUntilNext} dias`}
+                                            {selectedLotState.nextLot.name} abre em {formatDaysUntilLabel(selectedLotState.daysUntilNext)}
                                         </p>
                                         <p className="text-[11px] font-semibold mt-0.5">
                                             Liberação: {formatDateOnly(selectedLotState.nextLot.endsAt)}
