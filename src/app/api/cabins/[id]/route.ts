@@ -5,8 +5,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { updateCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
-import { Prisma, type Cabin } from '@prisma/client'
+import { CabinVisibilityStatus, Prisma, type Cabin } from '@prisma/client'
 import { resolveCabinSlugFromName } from '@/lib/space-slugs'
+import { getCabinGroupKey, getNormalizedCabinUnits, listCabinGroupMembers, sumCabinUnits } from '@/lib/cabin-groups'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -51,6 +52,17 @@ async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+}
+
+async function findCabinGroupMembers(cabin: Pick<Cabin, 'id' | 'name' | 'slug'>): Promise<Cabin[]> {
+    const cabins = await prisma.cabin.findMany({
+        orderBy: [
+            { updatedAt: 'desc' },
+            { createdAt: 'desc' },
+        ],
+    })
+
+    return listCabinGroupMembers(cabins, cabin)
 }
 
 // GET - Detalhes do cabin
@@ -148,27 +160,96 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const nextName = validation.data.name ?? existing.name
         const inferredSlug = validation.data.slug?.trim() || resolveCabinSlugFromName(nextName) || existing.slug || null
+        const currentGroupMembers = await findCabinGroupMembers(existing)
+        const currentGroupIds = new Set(currentGroupMembers.map((cabin) => cabin.id))
+        const currentActiveGroupMembers = currentGroupMembers.filter((cabin) => cabin.isActive)
+        const currentGroupUnits = currentActiveGroupMembers.length > 0
+            ? sumCabinUnits(currentActiveGroupMembers)
+            : getNormalizedCabinUnits(existing.units)
+        const desiredUnits = validation.data.units ?? currentGroupUnits
+        const nextGroupKey = getCabinGroupKey({
+            id,
+            name: nextName,
+            slug: inferredSlug,
+        })
+
+        if (nextGroupKey !== getCabinGroupKey(existing)) {
+            const allCabins = await prisma.cabin.findMany({
+                where: { isActive: true },
+                select: { id: true, name: true, slug: true },
+            })
+
+            const conflict = allCabins.find((cabin) => {
+                if (currentGroupIds.has(cabin.id)) return false
+                return getCabinGroupKey(cabin) === nextGroupKey
+            })
+
+            if (conflict) {
+                return NextResponse.json<ApiResponse>(
+                    { success: false, error: 'Já existe outro espaço ativo para este tipo. Edite o cadastro existente.' },
+                    { status: 409 }
+                )
+            }
+        }
 
         let cabin: Cabin
         try {
-            cabin = await prisma.cabin.update({
-                where: { id },
-                data: {
-                    ...validation.data,
-                    slug: inferredSlug,
-                    units: validation.data.units ?? existing.units,
-                },
+            cabin = await prisma.$transaction(async (tx) => {
+                const updatedCabin = await tx.cabin.update({
+                    where: { id },
+                    data: {
+                        ...validation.data,
+                        name: nextName,
+                        slug: inferredSlug,
+                        units: desiredUnits,
+                    },
+                })
+
+                const siblingIds = currentGroupMembers
+                    .filter((groupCabin) => groupCabin.id !== id)
+                    .map((groupCabin) => groupCabin.id)
+
+                if (siblingIds.length > 0) {
+                    await tx.cabin.updateMany({
+                        where: { id: { in: siblingIds } },
+                        data: {
+                            isActive: false,
+                            visibilityStatus: CabinVisibilityStatus.HIDDEN,
+                        },
+                    })
+                }
+
+                return updatedCabin
             })
         } catch (error) {
             if (!isMissingCabinColumnError(error)) throw error
             await ensureCabinColumns()
-            cabin = await prisma.cabin.update({
-                where: { id },
-                data: {
-                    ...validation.data,
-                    slug: inferredSlug,
-                    units: validation.data.units ?? existing.units,
-                },
+            cabin = await prisma.$transaction(async (tx) => {
+                const updatedCabin = await tx.cabin.update({
+                    where: { id },
+                    data: {
+                        ...validation.data,
+                        name: nextName,
+                        slug: inferredSlug,
+                        units: desiredUnits,
+                    },
+                })
+
+                const siblingIds = currentGroupMembers
+                    .filter((groupCabin) => groupCabin.id !== id)
+                    .map((groupCabin) => groupCabin.id)
+
+                if (siblingIds.length > 0) {
+                    await tx.cabin.updateMany({
+                        where: { id: { in: siblingIds } },
+                        data: {
+                            isActive: false,
+                            visibilityStatus: CabinVisibilityStatus.HIDDEN,
+                        },
+                    })
+                }
+
+                return updatedCabin
             })
         }
 
