@@ -21,6 +21,7 @@ import {
     FolderOpen,
     Music
 } from 'lucide-react'
+import type { AuthUser } from '@/lib/types'
 
 interface AdminLayoutProps {
     children: React.ReactNode
@@ -41,11 +42,23 @@ interface PendingReservationNotification {
     createdAt: string
 }
 
-const navItems = [
+interface NavItem {
+    href: string
+    label: string
+    icon: React.ComponentType<{ className?: string }>
+    allowedRoles?: AuthUser['role'][]
+}
+
+const navItems: NavItem[] = [
     { href: '/admin/frente-de-caixa', label: 'Frente de Caixa', icon: CreditCard },
     { href: '/admin/reservas', label: 'Reservas', icon: Calendar },
     { href: '/admin/eventos', label: 'Programação', icon: Music },
-    { href: '/admin/calendario', label: 'Comercial', icon: CalendarDays },
+    {
+        href: '/admin/calendario',
+        label: 'Calendário Comercial',
+        icon: CalendarDays,
+        allowedRoles: ['ADMIN', 'MANAGER', 'CASHIER', 'STAFF'],
+    },
     { href: '/admin/menu-gallery', label: 'Galeria Menu', icon: ImageIcon },
     { href: '/admin/galeria', label: 'Galeria Site', icon: ImageIcon },
     { href: '/admin/galeria-eventos', label: 'Galeria de Eventos', icon: Images },
@@ -61,6 +74,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const [showNotifications, setShowNotifications] = useState(false)
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const [sessionUser, setSessionUser] = useState<AuthUser | null>(null)
+    const [sessionChecked, setSessionChecked] = useState(false)
 
     const isActive = (href: string) => {
         if (!pathname) return false
@@ -116,10 +131,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 if (!data?.success) {
                     throw new Error('Sessão inválida')
                 }
+
+                setSessionUser(data.data)
             } catch {
                 if (cancelled) return
                 clearClientAuth()
                 redirectToLogin()
+            } finally {
+                if (!cancelled) {
+                    setSessionChecked(true)
+                }
             }
         }
 
@@ -168,6 +189,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     }, [clearClientAuth, pathname, redirectToLogin])
 
     const unreadCount = notifications.filter(n => n.unread).length
+    const visibleNavItems = navItems.filter((item) => {
+        if (!item.allowedRoles) return true
+        if (!sessionChecked) return false
+        return !!sessionUser && item.allowedRoles.includes(sessionUser.role)
+    })
 
     return (
         <div className="min-h-screen bg-[#f8f6f3] flex">
@@ -195,7 +221,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 py-4">
-                    {navItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const Icon = item.icon
                         const active = isActive(item.href)
                         return (

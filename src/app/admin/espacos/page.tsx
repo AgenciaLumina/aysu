@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Plus, Pencil, Users, DollarSign, ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, DollarSign, ImageIcon } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -81,6 +81,7 @@ export default function AdminCabinsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingCabin, setEditingCabin] = useState<Cabin | null>(null)
     const [saving, setSaving] = useState(false)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
     const [showMediaPicker, setShowMediaPicker] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -189,6 +190,34 @@ export default function AdminCabinsPage() {
         }
     }
 
+    const handleDelete = async (cabin: Cabin) => {
+        const confirmed = window.confirm(`Excluir "${cabin.name}"? O espaço será removido das vendas e reservas.`)
+        if (!confirmed) return
+
+        setDeletingId(cabin.id)
+        try {
+            const res = await fetch(`/api/cabins/${cabin.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+            })
+
+            const data = await res.json()
+            if (data.success) {
+                toast.success('Espaço excluído com sucesso!')
+                if (editingCabin?.id === cabin.id) {
+                    setIsModalOpen(false)
+                }
+                fetchCabins()
+            } else {
+                toast.error(data.error || 'Erro ao excluir espaço')
+            }
+        } catch {
+            toast.error('Erro ao excluir espaço')
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     return (
         <AdminLayout>
             {/* Header */}
@@ -230,6 +259,7 @@ export default function AdminCabinsPage() {
                                             alt={cabin.name}
                                             fill
                                             className="object-contain object-center"
+                                            unoptimized={cabin.imageUrl.startsWith('http')}
                                         />
                                     ) : (
                                         <div className="absolute inset-0 flex items-center justify-center">
@@ -263,10 +293,22 @@ export default function AdminCabinsPage() {
                                         </div>
                                     </div>
 
-                                    <Button variant="secondary" size="sm" className="w-full" onClick={() => openModal(cabin)}>
-                                        <Pencil className="h-4 w-4" />
-                                        Editar
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="secondary" size="sm" className="flex-1" onClick={() => openModal(cabin)}>
+                                            <Pencil className="h-4 w-4" />
+                                            Editar
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleDelete(cabin)}
+                                            isLoading={deletingId === cabin.id}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Excluir
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -295,6 +337,7 @@ export default function AdminCabinsPage() {
                                         alt="Preview"
                                         fill
                                         className="object-contain object-center"
+                                        unoptimized={formData.imageUrl.startsWith('http')}
                                     />
                                 ) : (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8a5c3f]">
@@ -388,13 +431,28 @@ export default function AdminCabinsPage() {
                             </select>
                         </div>
 
-                        <ModalFooter className="pt-4">
-                            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
-                                Cancelar
-                            </Button>
-                            <Button type="submit" isLoading={saving}>
-                                {editingCabin ? 'Salvar' : 'Criar'}
-                            </Button>
+                        <ModalFooter className="pt-4 sm:justify-between sm:space-x-0">
+                            <div className="flex justify-start">
+                                {editingCabin ? (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        onClick={() => handleDelete(editingCabin)}
+                                        isLoading={deletingId === editingCabin.id}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Excluir Espaço
+                                    </Button>
+                                ) : <div />}
+                            </div>
+                            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                                <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                                    Cancelar
+                                </Button>
+                                <Button type="submit" isLoading={saving}>
+                                    {editingCabin ? 'Salvar' : 'Criar'}
+                                </Button>
+                            </div>
                         </ModalFooter>
                     </form>
                 </ModalContent>

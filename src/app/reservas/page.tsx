@@ -265,7 +265,10 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
         const capacityNum = Math.max(1, Number(cabin.capacity || legacy?.capacityNum || 1))
         const units = Math.max(1, Number(cabin.units || legacy?.units || 1))
         const inferredCategory = legacy?.category || inferSpaceCategory(cabin, spaceKey)
-        const basePrice = Number(cabin.pricePerHour || legacy?.dailyPrice || 0)
+        const parsedDbPrice = Number(cabin.pricePerHour)
+        const basePrice = Number.isFinite(parsedDbPrice) && parsedDbPrice > 0
+            ? parsedDbPrice
+            : Number(legacy?.dailyPrice || 0)
 
         const mapped: SpaceType = {
             id: spaceKey,
@@ -274,7 +277,7 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
             image: cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg',
             capacity: legacy?.capacity || formatCapacityLabel(capacityNum),
             capacityNum,
-            dailyPrice: legacy?.dailyPrice ?? basePrice,
+            dailyPrice: basePrice,
             consumable: legacy?.consumable ?? 0,
             holidayPrice: legacy?.holidayPrice ?? basePrice,
             holidayConsumable: legacy?.holidayConsumable ?? (legacy?.consumable ?? 0),
@@ -1109,6 +1112,7 @@ function ReservasPageContent() {
                                         alt={space.name}
                                         fill
                                         className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
+                                        unoptimized={space.image.startsWith('http')}
                                     />
                                     {/* Gradient Overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
@@ -1134,8 +1138,8 @@ function ReservasPageContent() {
                                                 const count = availabilityCounts[space.id]
                                                 if (count === undefined) {
                                                     return (
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/90 text-gray-700">
-                                                            Carregando...
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">
+                                                            {space.units} {space.units === 1 ? 'unidade' : 'unidades'}
                                                         </span>
                                                     )
                                                 }

@@ -1,9 +1,9 @@
 // Media Picker Component - Escolher entre Upload ou Selecionar do R2
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
-import { Upload, FolderOpen, Check, Loader2 } from 'lucide-react'
+import { Upload, FolderOpen, Check, Loader2, ImageIcon } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from './Modal'
 import { Button } from './Button'
 import toast from 'react-hot-toast'
@@ -19,7 +19,7 @@ interface MediaFile {
     key: string
     url: string
     size: number
-    lastModified: Date
+    lastModified: string
 }
 
 interface MediaPickerProps {
@@ -37,6 +37,28 @@ const FOLDERS = [
     { value: 'gallery/', label: '📸 Galeria' },
     { value: 'galeria-eventos/', label: '🎉 Galeria de Eventos' },
 ]
+
+function formatFileSize(bytes: number): string {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatFileDate(value: string): string {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return 'Data indisponível'
+    return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+}
+
+function getFileLabel(key: string): string {
+    return key.split('/').pop() || key
+}
 
 export function MediaPicker({
     open,
@@ -59,13 +81,7 @@ export function MediaPicker({
         setSelectedUrl(null)
     }, [open, defaultFolder, initialMode])
 
-    useEffect(() => {
-        if (open && mode === 'browse') {
-            fetchMediaFiles()
-        }
-    }, [open, mode, currentFolder])
-
-    const fetchMediaFiles = async () => {
+    const fetchMediaFiles = useCallback(async () => {
         setLoading(true)
         try {
             const res = await fetch(`/api/admin/media?folder=${currentFolder}&limit=200`)
@@ -85,7 +101,19 @@ export function MediaPicker({
         } finally {
             setLoading(false)
         }
-    }
+    }, [currentFolder])
+
+    useEffect(() => {
+        if (open && mode === 'browse') {
+            fetchMediaFiles()
+        }
+    }, [open, mode, fetchMediaFiles])
+
+    useEffect(() => {
+        if (mode === 'browse') {
+            setSelectedUrl(null)
+        }
+    }, [currentFolder, mode])
 
     const handleUpload = async (fileList: FileList | null) => {
         if (!fileList || fileList.length === 0) return
@@ -145,14 +173,16 @@ export function MediaPicker({
         onClose()
     }
 
+    const selectedFile = files.find((file) => file.url === selectedUrl) || null
+
     return (
         <Modal open={open} onOpenChange={onClose}>
-            <ModalContent className="max-w-5xl">
-                <ModalHeader>
+            <ModalContent className="max-w-6xl max-h-[92vh] overflow-hidden p-0">
+                <ModalHeader className="border-b border-[#eadfce] px-6 py-5">
                     <ModalTitle>Selecionar Imagem</ModalTitle>
                 </ModalHeader>
 
-                <div className="p-6">
+                <div className="overflow-y-auto p-6">
                     {/* Mode Tabs */}
                     <div className="flex gap-2 mb-6 border-b border-[#e0d5c7]">
                         <button
@@ -227,9 +257,9 @@ export function MediaPicker({
                     {mode === 'browse' && (
                         <div className="space-y-4">
                             {/* Folder selector */}
-                            <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                                 <span className="text-sm text-[#8a5c3f]">Pasta:</span>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     {FOLDERS.map(f => (
                                         <button
                                             key={f.value}
@@ -258,30 +288,88 @@ export function MediaPicker({
                             ) : (
                                 <>
                                     <p className="text-sm text-[#8a5c3f]">{files.length} imagens encontradas</p>
-                                    <div className="grid grid-cols-5 gap-3 max-h-[400px] overflow-y-auto p-1">
-                                        {files.map((file) => (
-                                            <div
-                                                key={file.key}
-                                                onClick={() => setSelectedUrl(file.url)}
-                                                className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${selectedUrl === file.url
-                                                    ? 'border-[#d4a574] ring-2 ring-[#d4a574]/30'
-                                                    : 'border-transparent hover:border-[#e0d5c7]'
-                                                    }`}
-                                            >
-                                                <Image
-                                                    src={file.url}
-                                                    alt={file.key}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="150px"
-                                                />
-                                                {selectedUrl === file.url && (
-                                                    <div className="absolute inset-0 bg-[#d4a574]/20 flex items-center justify-center">
-                                                        <Check className="h-8 w-8 text-white drop-shadow-lg" />
-                                                    </div>
-                                                )}
+                                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
+                                        <div className="rounded-2xl border border-[#eadfce] bg-[#fcfaf7] p-3">
+                                            <div className="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
+                                                {files.map((file) => (
+                                                    <button
+                                                        key={file.key}
+                                                        type="button"
+                                                        onClick={() => setSelectedUrl(file.url)}
+                                                        className={`group overflow-hidden rounded-2xl border bg-white text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#d4a574] focus:ring-offset-2 ${selectedUrl === file.url
+                                                                ? 'border-[#d4a574] shadow-md shadow-[#d4a574]/15'
+                                                                : 'border-[#efe7dc] hover:border-[#d8bea3] hover:shadow-sm'
+                                                            }`}
+                                                    >
+                                                        <div className="relative aspect-[4/5] bg-[#f2e9df]">
+                                                            <Image
+                                                                src={file.url}
+                                                                alt={getFileLabel(file.key)}
+                                                                fill
+                                                                unoptimized
+                                                                className="object-cover"
+                                                                sizes="(max-width: 768px) 45vw, (max-width: 1280px) 30vw, 220px"
+                                                            />
+                                                            {selectedUrl === file.url && (
+                                                                <div className="absolute inset-0 flex items-center justify-center bg-[#2a2a2a]/20">
+                                                                    <span className="rounded-full bg-white/95 p-2 text-[#8a5c3f] shadow-lg">
+                                                                        <Check className="h-5 w-5" />
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-1 px-3 py-2">
+                                                            <p className="truncate text-xs font-medium text-[#2a2a2a]">
+                                                                {getFileLabel(file.key)}
+                                                            </p>
+                                                            <p className="text-[11px] text-[#8a5c3f]">
+                                                                {formatFileSize(file.size)}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                ))}
                                             </div>
-                                        ))}
+                                        </div>
+
+                                        <div className="rounded-2xl border border-[#eadfce] bg-white p-4">
+                                            {selectedFile ? (
+                                                <div className="space-y-4">
+                                                    <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-2xl bg-[#f7f0e8]">
+                                                        <Image
+                                                            src={selectedFile.url}
+                                                            alt={getFileLabel(selectedFile.key)}
+                                                            fill
+                                                            unoptimized
+                                                            className="object-contain"
+                                                            sizes="(max-width: 1024px) 90vw, 360px"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <p className="break-all text-sm font-medium text-[#2a2a2a]">
+                                                            {getFileLabel(selectedFile.key)}
+                                                        </p>
+                                                        <p className="text-xs text-[#8a5c3f]">
+                                                            Caminho: {selectedFile.key}
+                                                        </p>
+                                                        <p className="text-xs text-[#8a5c3f]">
+                                                            Tamanho: {formatFileSize(selectedFile.size)}
+                                                        </p>
+                                                        <p className="text-xs text-[#8a5c3f]">
+                                                            Atualizado: {formatFileDate(selectedFile.lastModified)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e6d8c6] bg-[#fcfaf7] px-6 text-center text-[#8a5c3f]">
+                                                    <ImageIcon className="mb-4 h-10 w-10 text-[#d4a574]" />
+                                                    <p className="font-medium text-[#2a2a2a]">Selecione uma imagem</p>
+                                                    <p className="mt-2 text-sm">
+                                                        A prévia maior aparece aqui para evitar distorções e facilitar a escolha.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex justify-end gap-2 pt-4 border-t border-[#e0d5c7]">
                                         <Button variant="secondary" onClick={onClose}>

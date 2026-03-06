@@ -273,3 +273,52 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         )
     }
 }
+
+// DELETE - Remove cabin logicamente (grupo inteiro)
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+    try {
+        const { id } = await params
+
+        let existing: Cabin | null
+        try {
+            existing = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            existing = await prisma.cabin.findUnique({
+                where: { id },
+            })
+        }
+
+        if (!existing) {
+            return NextResponse.json<ApiResponse>(
+                { success: false, error: 'Espaço não encontrado' },
+                { status: 404 }
+            )
+        }
+
+        const groupMembers = await findCabinGroupMembers(existing)
+        const groupIds = groupMembers.map((cabin) => cabin.id)
+
+        await prisma.cabin.updateMany({
+            where: { id: { in: groupIds } },
+            data: {
+                isActive: false,
+                visibilityStatus: CabinVisibilityStatus.HIDDEN,
+            },
+        })
+
+        return NextResponse.json<ApiResponse>({
+            success: true,
+            message: 'Espaço excluído com sucesso',
+        })
+    } catch (error) {
+        console.error('[Cabin DELETE Error]', error)
+        return NextResponse.json<ApiResponse>(
+            { success: false, error: 'Erro ao excluir espaço' },
+            { status: 500 }
+        )
+    }
+}
