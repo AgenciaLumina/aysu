@@ -9,8 +9,8 @@ interface RouteParams {
     params: Promise<{ id: string }>
 }
 
-function nullableString(value: string | undefined): string | null {
-    if (value === undefined) return null
+function nullableString(value: string | null | undefined): string | null {
+    if (value == null) return null
     const trimmed = value.trim()
     return trimmed.length ? trimmed : null
 }
