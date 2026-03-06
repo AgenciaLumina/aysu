@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { isHoliday, getHolidayName } from '@/lib/holidays'
 import { toLocalISODate } from '@/lib/utils'
+import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 import toast from 'react-hot-toast'
 
 interface Space {
@@ -19,7 +20,16 @@ interface Space {
     capacity: string
 }
 
-const SPACES: Space[] = [
+interface CabinApiItem {
+    id: string
+    name: string
+    slug?: string | null
+    capacity?: number
+    pricePerHour?: number
+    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
+}
+
+const LEGACY_SPACES: Space[] = [
     { id: 'bangalo-lateral', name: 'Bangalô Lateral', dailyPrice: 600, holidayPrice: 1000, capacity: '4-5 pessoas' },
     { id: 'bangalo-piscina', name: 'Bangalô Piscina', dailyPrice: 600, holidayPrice: 1800, capacity: '6 pessoas' },
     { id: 'bangalo-frente-mar', name: 'Bangalô Frente Mar', dailyPrice: 720, holidayPrice: 1800, capacity: '6-8 pessoas' },
@@ -27,6 +37,43 @@ const SPACES: Space[] = [
     { id: 'sunbed-casal', name: 'Sunbed Casal', dailyPrice: 250, holidayPrice: 500, capacity: '2 pessoas' },
     { id: 'day-use-praia', name: 'Day Use Praia', dailyPrice: 160, holidayPrice: 160, capacity: '1 pessoa' },
 ]
+
+const LEGACY_SPACE_BY_ID = LEGACY_SPACES.reduce((acc, space) => {
+    acc[space.id] = space
+    return acc
+}, {} as Record<string, Space>)
+
+function mapCabinsToSpaces(cabins: CabinApiItem[]): Space[] {
+    const grouped = new Map<string, Space>()
+
+    cabins.forEach((cabin) => {
+        if (cabin.visibilityStatus === 'HIDDEN' || cabin.visibilityStatus === 'UNAVAILABLE') return
+
+        const spaceKey = getCabinSpaceKey({
+            id: cabin.id,
+            name: cabin.name,
+            slug: cabin.slug,
+        })
+        const legacy = LEGACY_SPACE_BY_ID[spaceKey]
+        const capacity = Math.max(1, Number(cabin.capacity || 1))
+        const parsedDbPrice = Number(cabin.pricePerHour)
+        const dailyPrice = Number.isFinite(parsedDbPrice) && parsedDbPrice > 0
+            ? parsedDbPrice
+            : (legacy?.dailyPrice ?? 0)
+
+        if (!grouped.has(spaceKey)) {
+            grouped.set(spaceKey, {
+                id: spaceKey,
+                name: legacy?.name || getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
+                dailyPrice,
+                holidayPrice: legacy?.holidayPrice ?? dailyPrice,
+                capacity: legacy?.capacity || (capacity === 1 ? '1 pessoa' : `${capacity} pessoas`),
+            })
+        }
+    })
+
+    return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+}
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -41,6 +88,7 @@ export default function NovaReservaManualPage() {
     const router = useRouter()
     const [step, setStep] = useState(1) // 1: Space, 2: Date, 3: Customer, 4: Confirm
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [spaces, setSpaces] = useState<Space[]>(LEGACY_SPACES)
 
     // Form state
     const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)
@@ -76,6 +124,7 @@ export default function NovaReservaManualPage() {
     // Fetch closed dates on mount
     useEffect(() => {
         fetchClosedDates()
+        fetchSpaces()
     }, [])
 
     // Fetch occupied dates when space is selected
@@ -94,6 +143,22 @@ export default function NovaReservaManualPage() {
             }
         } catch (error) {
             console.error('Error fetching closed dates:', error)
+        }
+    }
+
+    const fetchSpaces = async () => {
+        try {
+            const res = await fetch('/api/cabins?isActive=true', { cache: 'no-store' })
+            const data = await res.json()
+
+            if (!data.success || !Array.isArray(data.data)) return
+
+            const mapped = mapCabinsToSpaces(data.data as CabinApiItem[])
+            if (mapped.length > 0) {
+                setSpaces(mapped)
+            }
+        } catch (error) {
+            console.error('Error fetching spaces:', error)
         }
     }
 
@@ -260,7 +325,7 @@ export default function NovaReservaManualPage() {
                 <div>
                     <h2 className="text-xl font-serif font-bold text-[#2a2a2a] mb-6">Escolha o Espaço</h2>
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {SPACES.map(space => (
+                        {spaces.map(space => (
                             <Card
                                 key={space.id}
                                 className="cursor-pointer hover:shadow-xl transition-shadow"

@@ -411,7 +411,7 @@ export default function AdminEventsPage() {
                                     >
                                         <Button size="sm">
                                             <CalendarClock className="h-4 w-4" />
-                                            Configurar preços/lotes
+                                            Abrir no calendário comercial
                                         </Button>
                                     </Link>
 

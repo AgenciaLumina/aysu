@@ -1,42 +1,150 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Users, Info } from 'lucide-react'
+import { Users } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 
-interface PricingItem {
-    title: string
-    cap: string
-    val: string
-    price: string
+interface CabinApiItem {
+    id: string
+    name: string
+    slug?: string | null
+    capacity?: number
+    units?: number
+    pricePerHour?: number
+    category?: string
+    visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
 }
 
-const HOLIDAY_PRICING: PricingItem[] = [
-    { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 700", price: "R$ 1.000" },
-    { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 1.300", price: "R$ 1.800" },
-    { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 2.000", price: "R$ 2.500" },
-    { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 350", price: "R$ 500" },
-    { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 150", price: "R$ 200" },
-]
+interface ReservationGlobalConfigPayload {
+    priceOverrides?: Record<string, { price: number; consumable?: number }>
+}
 
-const NORMAL_PRICING: PricingItem[] = [
-    { title: "Bangalô Lateral", cap: "4-5 pessoas", val: "R$ 500", price: "R$ 600" },
-    { title: "Bangalô Piscina", cap: "6 pessoas", val: "R$ 500", price: "R$ 600" },
-    { title: "Bangalô Frente Mar", cap: "6-8 pessoas", val: "R$ 600", price: "R$ 720" },
-    { title: "Bangalô Galera", cap: "Até 10 pessoas", val: "R$ 1.200", price: "R$ 1.500" },
-    { title: "Sunbed Casal", cap: "2 pessoas", val: "R$ 200", price: "R$ 250" },
-    { title: "Day Use Praia", cap: "Pulseira Prata", val: "R$ 100", price: "R$ 120" },
-]
+interface PricingItem {
+    id: string
+    title: string
+    cap: string
+    val: number
+    price: number
+    categoryOrder: number
+}
+
+interface LegacyPricing {
+    normalPrice: number
+    normalConsumable: number
+    holidayPrice: number
+    holidayConsumable: number
+}
+
+const LEGACY_PRICING_BY_SPACE: Record<string, LegacyPricing> = {
+    'bangalo-lateral': { normalPrice: 600, normalConsumable: 500, holidayPrice: 1000, holidayConsumable: 700 },
+    'bangalo-piscina': { normalPrice: 600, normalConsumable: 500, holidayPrice: 1800, holidayConsumable: 1300 },
+    'bangalo-frente-mar': { normalPrice: 720, normalConsumable: 600, holidayPrice: 1800, holidayConsumable: 1300 },
+    'bangalo-central': { normalPrice: 1500, normalConsumable: 1200, holidayPrice: 2500, holidayConsumable: 2000 },
+    'sunbed-casal': { normalPrice: 250, normalConsumable: 200, holidayPrice: 500, holidayConsumable: 350 },
+    'mesa-restaurante': { normalPrice: 160, normalConsumable: 100, holidayPrice: 160, holidayConsumable: 100 },
+    'mesa-praia': { normalPrice: 160, normalConsumable: 100, holidayPrice: 160, holidayConsumable: 100 },
+    'day-use-praia': { normalPrice: 160, normalConsumable: 100, holidayPrice: 160, holidayConsumable: 100 },
+}
+
+function getCategoryOrder(spaceKey: string, category?: string): number {
+    const key = spaceKey.toLowerCase()
+    const categoryNormalized = (category || '').toLowerCase()
+
+    if (key.includes('bangalo') || ['cabana', 'lounge', 'vip'].includes(categoryNormalized)) return 1
+    if (key.includes('sunbed')) return 2
+    if (key.includes('day-use') || key.includes('dayuse')) return 4
+    if (key.includes('mesa') || categoryNormalized === 'mesa') return 3
+    return 5
+}
+
+function formatCapacityLabel(capacity: number): string {
+    if (capacity <= 1) return '1 pessoa'
+    return `${capacity} pessoas`
+}
 
 export default function PricingSection() {
     const [activeTab, setActiveTab] = useState<'normal' | 'holiday'>('holiday')
+    const [cabins, setCabins] = useState<CabinApiItem[]>([])
+    const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
 
-    const currentPricing = activeTab === 'normal' ? NORMAL_PRICING : HOLIDAY_PRICING
+    useEffect(() => {
+        fetch('/api/cabins?isActive=true')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success && Array.isArray(data.data)) {
+                    setCabins(data.data)
+                }
+            })
+            .catch(() => {})
+
+        fetch('/api/day-configs/default')
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success && data.data) {
+                    setGlobalConfig(data.data)
+                }
+            })
+            .catch(() => {})
+    }, [])
+
+    const pricingItems = useMemo(() => {
+        if (!cabins.length) {
+            return Object.entries(LEGACY_PRICING_BY_SPACE)
+                .map(([id, pricing]) => ({
+                    id,
+                    title: getCabinSpaceLabel({ name: id, slug: id }),
+                    cap: 'Consulte capacidade',
+                    val: activeTab === 'holiday' ? pricing.holidayConsumable : pricing.normalConsumable,
+                    price: activeTab === 'holiday' ? pricing.holidayPrice : pricing.normalPrice,
+                    categoryOrder: getCategoryOrder(id),
+                }))
+                .sort((a, b) => a.categoryOrder - b.categoryOrder || a.title.localeCompare(b.title, 'pt-BR'))
+        }
+
+        const grouped = new Map<string, PricingItem>()
+        cabins.forEach((cabin) => {
+            if (cabin.visibilityStatus === 'HIDDEN') return
+
+            const spaceKey = getCabinSpaceKey({
+                id: cabin.id,
+                name: cabin.name,
+                slug: cabin.slug,
+            })
+            const legacy = LEGACY_PRICING_BY_SPACE[spaceKey]
+            const override = globalConfig?.priceOverrides?.[spaceKey]
+            const parsedDbPrice = Number(cabin.pricePerHour)
+            const baseNormalPrice = Number.isFinite(parsedDbPrice) && parsedDbPrice > 0
+                ? parsedDbPrice
+                : (legacy?.normalPrice ?? 0)
+
+            const normalPrice = override?.price ?? baseNormalPrice
+            const normalConsumable = override?.consumable ?? legacy?.normalConsumable ?? 0
+            const holidayPrice = legacy?.holidayPrice ?? normalPrice
+            const holidayConsumable = legacy?.holidayConsumable ?? normalConsumable
+            const capacity = Math.max(1, Number(cabin.capacity || 1))
+
+            const mapped: PricingItem = {
+                id: spaceKey,
+                title: getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
+                cap: formatCapacityLabel(capacity),
+                val: activeTab === 'holiday' ? holidayConsumable : normalConsumable,
+                price: activeTab === 'holiday' ? holidayPrice : normalPrice,
+                categoryOrder: getCategoryOrder(spaceKey, cabin.category),
+            }
+
+            if (!grouped.has(spaceKey)) {
+                grouped.set(spaceKey, mapped)
+            }
+        })
+
+        return Array.from(grouped.values())
+            .sort((a, b) => a.categoryOrder - b.categoryOrder || a.title.localeCompare(b.title, 'pt-BR'))
+    }, [activeTab, cabins, globalConfig])
 
     return (
         <div className="bg-white rounded-[2.5rem] p-10 lg:p-14 shadow-2xl shadow-[#d4a574]/10 border border-[#e0d5c7]/50 relative transition-all duration-500">
-            {/* Tabs Selector */}
             <div className="flex p-1 bg-[#f5f0e8] rounded-2xl mb-12 max-w-sm mx-auto">
                 <button
                     onClick={() => setActiveTab('holiday')}
@@ -58,12 +166,11 @@ export default function PricingSection() {
                 </button>
             </div>
 
-            {/* Header com Badge Dinâmico */}
             <div className="relative mb-8 pt-4">
                 {activeTab === 'holiday' && (
                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 animate-fade-in">
                         <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#8B4513] text-white text-[10px] md:text-xs font-medium shadow-xl whitespace-nowrap">
-                            <span>Valores exclusivos para eventos e feriados</span>
+                            <span>Valores para eventos e feriados</span>
                         </div>
                     </div>
                 )}
@@ -74,11 +181,10 @@ export default function PricingSection() {
                 </h3>
             </div>
 
-            {/* Listagem de Preços */}
             <div className="space-y-6">
-                {currentPricing.map((item, i) => (
+                {pricingItems.map((item) => (
                     <div
-                        key={i}
+                        key={item.id}
                         className="flex flex-wrap justify-between items-end gap-4 pb-6 border-b border-[#f5f0e8] last:border-0 hover:bg-[#faf8f5] p-3 rounded-xl transition-colors group"
                     >
                         <div>
@@ -86,44 +192,26 @@ export default function PricingSection() {
                             <p className="text-sm text-[#8a5c3f] mt-1.5 flex items-center gap-2">
                                 <Users className="h-4 w-4" /> {item.cap}
                                 <span className="w-1 h-1 bg-[#d4a574] rounded-full" />
-                                <span className="font-medium">Consome {item.val}</span>
+                                <span className="font-medium">Consome {formatCurrency(item.val)}</span>
                             </p>
                         </div>
                         <div className="text-right flex flex-col items-end">
-                            {item.title === "Bangalô Frente Mar" && activeTab === 'normal' && (
-                                <span className="inline-block bg-[#d4a574]/20 text-[#8a5c3f] text-[10px] font-bold px-2 py-0.5 rounded-full mb-1">
-                                    A PARTIR
-                                </span>
-                            )}
-                            <div className="flex items-center gap-2">
-                                <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
-                                    {item.price}
-                                </p>
-                                {item.title === "Bangalô Frente Mar" && activeTab === 'normal' && (
-                                    <div className="relative group">
-                                        <Info className="h-4 w-4 text-[#d4a574] animate-pulse cursor-help" />
-                                        {/* Tooltip simples */}
-                                        <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-[#2a2a2a] text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10 pointer-events-none">
-                                            Valor para 6 pessoas. Até 8 pessoas mediante taxa extra.
-                                            <div className="absolute -bottom-1 right-1 w-2 h-2 bg-[#2a2a2a] rotate-45"></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <p className={`text-2xl font-bold transition-colors duration-500 ${activeTab === 'holiday' ? 'text-[#8B4513]' : 'text-[#d4a574]'}`}>
+                                {formatCurrency(item.price)}
+                            </p>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Rodapé Dinâmico */}
             <div className="mt-8 pt-6 border-t border-[#f5f0e8] text-center space-y-2">
                 <p className="text-xs text-[#a09080] italic">
-                    * Bangalô Frente Mar: Valor referente a 6 pessoas. Excedentes (até o limite de 8) pagam Day Use Tradicional.
+                    * Valores sincronizados com o cadastro de Espaços e com sobrescritas de preço padrão.
                 </p>
                 <p className="text-xs text-[#a09080] italic">
                     {activeTab === 'holiday'
-                        ? '* Valores válidos para Feriados, Eventos e Datas Comemorativas.'
-                        : '* Valores válidos para Dias de Semana e Finais de Semana Comuns.'}
+                        ? '* Datas especiais podem ter valores específicos definidos na Programação.'
+                        : '* Valores válidos para o dia a dia quando não houver regra especial por data.'}
                 </p>
             </div>
 

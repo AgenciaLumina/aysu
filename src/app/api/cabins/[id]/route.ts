@@ -8,6 +8,7 @@ import type { ApiResponse } from '@/lib/types'
 import { CabinVisibilityStatus, Prisma, type Cabin } from '@prisma/client'
 import { resolveCabinSlugFromName } from '@/lib/space-slugs'
 import { getCabinGroupKey, getNormalizedCabinUnits, listCabinGroupMembers, sumCabinUnits } from '@/lib/cabin-groups'
+import { buildDeletedCabinName } from '@/lib/cabin-trash'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -16,7 +17,9 @@ interface RouteParams {
 const ENSURE_CABIN_COLUMNS_SQL = `
 ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "slug" TEXT,
-  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "deletedOriginalName" TEXT;
 `
 
 const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
@@ -32,30 +35,46 @@ ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
 `
 
+const ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "deletedVisibilityStatus" "CabinVisibilityStatus";
+`
+
 const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
 const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
+const ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedOriginalName_idx" ON "Cabin"("deletedOriginalName");`
+const ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedVisibilityStatus_idx" ON "Cabin"("deletedVisibilityStatus");`
+const ENSURE_CABIN_DELETED_AT_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedAt_idx" ON "Cabin"("deletedAt");`
 
 function isMissingCabinColumnError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code !== 'P2022') return false
         const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
-        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('cabin')
+        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('deletedoriginalname') || column.includes('deletedvisibilitystatus') || column.includes('deletedat') || column.includes('cabin')
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : ''
-    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus'))
+    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus') || message.includes('deletedoriginalname') || message.includes('deletedvisibilitystatus') || message.includes('deletedat'))
 }
 
 async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
 }
 
-async function findCabinGroupMembers(cabin: Pick<Cabin, 'id' | 'name' | 'slug'>): Promise<Cabin[]> {
+async function findCabinGroupMembers(
+    cabin: Pick<Cabin, 'id' | 'name' | 'slug'>,
+    options?: { includeDeleted?: boolean },
+): Promise<Cabin[]> {
     const cabins = await prisma.cabin.findMany({
+        where: options?.includeDeleted ? undefined : { deletedAt: null },
         orderBy: [
             { updatedAt: 'desc' },
             { createdAt: 'desc' },
@@ -144,6 +163,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             )
         }
 
+        if (existing.deletedAt) {
+            return NextResponse.json<ApiResponse>(
+                { success: false, error: 'Este espaço está na lixeira. Restaure antes de editar.' },
+                { status: 409 }
+            )
+        }
+
         // Se mudou o nome, verifica duplicidade
         if (validation.data.name && validation.data.name !== existing.name) {
             const nameConflict = await prisma.cabin.findUnique({
@@ -175,7 +201,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         if (nextGroupKey !== getCabinGroupKey(existing)) {
             const allCabins = await prisma.cabin.findMany({
-                where: { isActive: true },
+                where: { isActive: true, deletedAt: null },
                 select: { id: true, name: true, slug: true },
             })
 
@@ -299,20 +325,36 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             )
         }
 
-        const groupMembers = await findCabinGroupMembers(existing)
-        const groupIds = groupMembers.map((cabin) => cabin.id)
+        if (existing.deletedAt) {
+            return NextResponse.json<ApiResponse>({
+                success: true,
+                message: 'Espaço já está na lixeira',
+            })
+        }
 
-        await prisma.cabin.updateMany({
-            where: { id: { in: groupIds } },
-            data: {
-                isActive: false,
-                visibilityStatus: CabinVisibilityStatus.HIDDEN,
-            },
+        const groupMembers = await findCabinGroupMembers(existing)
+        const deletedAt = new Date()
+
+        await prisma.$transaction(async (tx) => {
+            for (const cabin of groupMembers) {
+                const originalName = cabin.deletedOriginalName || cabin.name
+                await tx.cabin.update({
+                    where: { id: cabin.id },
+                    data: {
+                        name: buildDeletedCabinName(originalName, cabin.id),
+                        isActive: false,
+                        deletedAt,
+                        deletedOriginalName: originalName,
+                        deletedVisibilityStatus: cabin.visibilityStatus,
+                        visibilityStatus: CabinVisibilityStatus.HIDDEN,
+                    },
+                })
+            }
         })
 
         return NextResponse.json<ApiResponse>({
             success: true,
-            message: 'Espaço excluído com sucesso',
+            message: 'Espaço enviado para a lixeira',
         })
     } catch (error) {
         console.error('[Cabin DELETE Error]', error)

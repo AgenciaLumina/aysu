@@ -241,7 +241,7 @@ function AdminCalendarioPageContent() {
     }, [])
 
     useEffect(() => {
-        if (prefillDone) return
+        if (prefillDone || loading) return
 
         const date = searchParams.get('date')
         const title = searchParams.get('title')
@@ -253,18 +253,67 @@ function AdminCalendarioPageContent() {
             return
         }
 
-        setForm(prev => ({
-            ...prev,
-            date: date || prev.date,
-            title: title || prev.title,
-            release: release || prev.release,
-            flyerImageUrl: flyer || prev.flyerImageUrl,
-            status: 'EVENT',
-            highlightOnHome: true,
-        }))
+        const existingConfig = date
+            ? configs.find((config) => config.date === date)
+            : null
+
+        if (existingConfig) {
+            const nextForm = createDefaultForm()
+
+            nextForm.date = existingConfig.date
+            nextForm.status = existingConfig.status
+            nextForm.reservationsEnabled = existingConfig.reservationsEnabled
+            nextForm.title = existingConfig.title || ''
+            nextForm.release = existingConfig.release || ''
+            nextForm.flyerImageUrl = existingConfig.flyerImageUrl || ''
+            nextForm.highlightOnHome = existingConfig.highlightOnHome
+            nextForm.reservableItems = existingConfig.reservableItems
+
+            applyPriceOverridesToForm(nextForm.priceOverrides, existingConfig.priceOverrides || {})
+
+            existingConfig.ticketLots.forEach((lot, index) => {
+                if (!nextForm.ticketLots[index]) {
+                    nextForm.ticketLots.push({
+                        enabled: true,
+                        name: lot.name,
+                        endsAt: lot.endsAt,
+                        price: formatCurrencyInput(lot.price.toString()),
+                        consumable: lot.consumable !== undefined ? formatCurrencyInput(lot.consumable.toString()) : '',
+                        soldOut: !!lot.soldOut,
+                    })
+                    return
+                }
+
+                nextForm.ticketLots[index] = {
+                    enabled: true,
+                    name: lot.name,
+                    endsAt: lot.endsAt,
+                    price: formatCurrencyInput(lot.price.toString()),
+                    consumable: lot.consumable !== undefined ? formatCurrencyInput(lot.consumable.toString()) : '',
+                    soldOut: !!lot.soldOut,
+                }
+            })
+
+            setEditingConfig(existingConfig)
+            setForm(nextForm)
+            setIsModalOpen(true)
+            setPrefillDone(true)
+            return
+        }
+
+        const nextForm = createDefaultForm()
+        nextForm.date = date || nextForm.date
+        nextForm.title = title || nextForm.title
+        nextForm.release = release || nextForm.release
+        nextForm.flyerImageUrl = flyer || nextForm.flyerImageUrl
+        nextForm.status = 'EVENT'
+        nextForm.highlightOnHome = true
+
+        setEditingConfig(null)
+        setForm(nextForm)
         setIsModalOpen(true)
         setPrefillDone(true)
-    }, [prefillDone, searchParams])
+    }, [configs, loading, prefillDone, searchParams])
 
     const openCreateModal = () => {
         setEditingConfig(null)
@@ -551,7 +600,7 @@ function AdminCalendarioPageContent() {
                         <div>
                             <h2 className="text-lg font-semibold text-[#2a2a2a]">Configuração padrão (dia a dia)</h2>
                             <p className="text-sm text-[#8a5c3f]">
-                                Vale para datas sem regra específica no calendário. Em datas configuradas, a regra da data tem prioridade.
+                                Vale para datas sem regra específica no calendário. Estoque, capacidade e preço-base vêm de Espaços; a regra da data sempre tem prioridade.
                             </p>
                         </div>
                         <Button onClick={handleSaveGlobalConfig} isLoading={savingGlobal} disabled={loadingGlobal}>
@@ -612,9 +661,9 @@ function AdminCalendarioPageContent() {
                             </div>
 
                             <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
-                                <h3 className="font-semibold text-[#2a2a2a]">Sobrescrever preços padrão</h3>
+                                <h3 className="font-semibold text-[#2a2a2a]">Ajuste comercial opcional do dia a dia</h3>
                                 <p className="text-xs text-[#8a5c3f]/80">
-                                    Use para definir preços fixos do dia a dia. Datas com configuração própria continuam sobrescrevendo estes valores.
+                                    Use apenas se o preço do dia a dia precisar ser diferente do cadastro em Espaços. Se quiser uma única fonte, deixe vazio e controle o preço base por lá.
                                 </p>
                                 <div className="space-y-3">
                                     <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">
@@ -958,7 +1007,7 @@ function AdminCalendarioPageContent() {
                         <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                             <h3 className="font-semibold text-[#2a2a2a]">Sobrescrever preços por espaço</h3>
                             <p className="text-xs text-[#8a5c3f]/80">
-                                Quantidade segue o cadastro em Espaços. Aqui você altera apenas preço e consumação desta data.
+                                Quantidade segue o cadastro em Espaços. Abrindo por Programação ou por Calendário Comercial, esta é a mesma configuração da data.
                             </p>
                             <div className="space-y-3">
                                 <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">

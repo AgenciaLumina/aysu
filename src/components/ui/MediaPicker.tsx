@@ -177,12 +177,12 @@ export function MediaPicker({
 
     return (
         <Modal open={open} onOpenChange={onClose}>
-            <ModalContent className="max-w-6xl max-h-[92vh] overflow-hidden p-0">
+            <ModalContent className="max-h-[92vh] max-w-6xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden p-0">
                 <ModalHeader className="border-b border-[#eadfce] px-6 py-5">
                     <ModalTitle>Selecionar Imagem</ModalTitle>
                 </ModalHeader>
 
-                <div className="overflow-y-auto p-6">
+                <div className="min-h-0 overflow-y-auto p-6">
                     {/* Mode Tabs */}
                     <div className="flex gap-2 mb-6 border-b border-[#e0d5c7]">
                         <button
@@ -288,9 +288,9 @@ export function MediaPicker({
                             ) : (
                                 <>
                                     <p className="text-sm text-[#8a5c3f]">{files.length} imagens encontradas</p>
-                                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
+                                    <div className="grid min-h-0 gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
                                         <div className="rounded-2xl border border-[#eadfce] bg-[#fcfaf7] p-3">
-                                            <div className="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
+                                            <div className="grid max-h-[40vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 md:max-h-[44vh] xl:grid-cols-4">
                                                 {files.map((file) => (
                                                     <button
                                                         key={file.key}
@@ -331,7 +331,7 @@ export function MediaPicker({
                                             </div>
                                         </div>
 
-                                        <div className="rounded-2xl border border-[#eadfce] bg-white p-4">
+                                        <div className="max-h-[40vh] overflow-y-auto rounded-2xl border border-[#eadfce] bg-white p-4 md:max-h-[44vh]">
                                             {selectedFile ? (
                                                 <div className="space-y-4">
                                                     <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-2xl bg-[#f7f0e8]">
@@ -371,7 +371,7 @@ export function MediaPicker({
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex justify-end gap-2 pt-4 border-t border-[#e0d5c7]">
+                                    <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-[#e0d5c7] bg-white/95 pt-4 backdrop-blur">
                                         <Button variant="secondary" onClick={onClose}>
                                             Cancelar
                                         </Button>

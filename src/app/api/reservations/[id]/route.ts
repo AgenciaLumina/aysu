@@ -8,27 +8,53 @@ import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse, ReservationWithDetails } from '@/lib/types'
 import { Prisma, ReservationStatus } from '@prisma/client'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
-import { getSpacePrefix, resolveCabinSlug, type SpaceSlug } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
 
 interface RouteParams {
     params: Promise<{ id: string }>
 }
 
-function buildSlugCabinWhere(slug: SpaceSlug): Prisma.CabinWhereInput {
-    const prefix = getSpacePrefix(slug)
-    return {
-        OR: [
-            { slug },
-            { slug: null, name: { startsWith: prefix } },
-        ],
-    }
+const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
+DO $$ BEGIN
+  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+`
+
+const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
+`
+
+const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
+
+async function ensureCabinVisibilityStatusColumn() {
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
 }
 
-async function getActiveUnitsForSlug(slug: SpaceSlug): Promise<number> {
+function buildSpaceKeyCabinWhere(spaceKey: string): Prisma.CabinWhereInput {
+    if (isSpaceSlug(spaceKey)) {
+        const prefix = getSpacePrefix(spaceKey)
+        return {
+            OR: [
+                { slug: spaceKey },
+                { slug: null, name: { startsWith: prefix } },
+            ],
+        }
+    }
+
+    return { slug: spaceKey }
+}
+
+async function getActiveUnitsForSpaceKey(spaceKey: string): Promise<number> {
     const cabins = await prisma.cabin.findMany({
         where: {
             isActive: true,
-            ...buildSlugCabinWhere(slug),
+            visibilityStatus: 'AVAILABLE',
+            ...buildSpaceKeyCabinWhere(spaceKey),
         },
         select: { units: true },
     })
@@ -36,8 +62,8 @@ async function getActiveUnitsForSlug(slug: SpaceSlug): Promise<number> {
     return cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
 }
 
-async function countConflictsForSlug(
-    slug: SpaceSlug,
+async function countConflictsForSpaceKey(
+    spaceKey: string,
     checkIn: Date,
     checkOut: Date,
     excludeReservationId: string,
@@ -68,12 +94,20 @@ async function countConflictsForSlug(
         },
     })
 
-    return reservations.filter((reservation) => resolveCabinSlug(reservation.cabin) === slug).length
+    return reservations.filter((reservation) => {
+        const reservationSpaceKey = getCabinSpaceKey({
+            id: reservation.cabinId,
+            name: reservation.cabin.name,
+            slug: reservation.cabin.slug,
+        })
+        return reservationSpaceKey === spaceKey
+    }).length
 }
 
 // GET - Detalhes da reserva
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        await ensureCabinVisibilityStatusColumn()
         const { id } = await params
         const authUser = getAuthUser(request)
 
@@ -124,6 +158,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH - Atualiza reserva
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
+        await ensureCabinVisibilityStatusColumn()
         const { id } = await params
         const authUser = getAuthUser(request)
 
@@ -178,16 +213,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 )
             }
 
-            const slug = resolveCabinSlug(existingReservation.cabin)
+            const spaceKey = getCabinSpaceKey({
+                id: existingReservation.cabinId,
+                name: existingReservation.cabin.name,
+                slug: existingReservation.cabin.slug,
+            })
             let conflictCount = 0
             let maxAllowedUnits = Math.max(1, existingReservation.cabin.units || 1)
 
-            if (slug) {
-                maxAllowedUnits = await getActiveUnitsForSlug(slug)
+            if (spaceKey) {
+                maxAllowedUnits = await getActiveUnitsForSpaceKey(spaceKey)
                 if (maxAllowedUnits <= 0) {
                     maxAllowedUnits = Math.max(1, existingReservation.cabin.units || 1)
                 }
-                conflictCount = await countConflictsForSlug(slug, newCheckIn, newCheckOut, id)
+                conflictCount = await countConflictsForSpaceKey(spaceKey, newCheckIn, newCheckOut, id)
             } else {
                 const activeReservationFilter = getActiveReservationFilter()
                 conflictCount = await prisma.reservation.count({
@@ -251,6 +290,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE - Cancela reserva (soft delete)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
+        await ensureCabinVisibilityStatusColumn()
         const { id } = await params
         const authUser = getAuthUser(request)
 

@@ -8,11 +8,14 @@ import type { ApiResponse } from '@/lib/types'
 import type { Cabin } from '@prisma/client'
 import { CabinCategory, CabinVisibilityStatus, Prisma } from '@prisma/client'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
+import { buildDeletedCabinName } from '@/lib/cabin-trash'
 
 const ENSURE_CABIN_COLUMNS_SQL = `
 ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "slug" TEXT,
-  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS "units" INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "deletedOriginalName" TEXT;
 `
 
 const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
@@ -28,8 +31,16 @@ ALTER TABLE "Cabin"
   ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
 `
 
+const ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "deletedVisibilityStatus" "CabinVisibilityStatus";
+`
+
 const ENSURE_CABIN_SLUG_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_slug_idx" ON "Cabin"("slug");`
 const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
+const ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedOriginalName_idx" ON "Cabin"("deletedOriginalName");`
+const ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedVisibilityStatus_idx" ON "Cabin"("deletedVisibilityStatus");`
+const ENSURE_CABIN_DELETED_AT_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_deletedAt_idx" ON "Cabin"("deletedAt");`
 
 const DEFAULT_CABINS: Array<{
     name: string
@@ -136,19 +147,50 @@ function isMissingCabinColumnError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code !== 'P2022') return false
         const column = typeof error.meta?.column === 'string' ? error.meta.column.toLowerCase() : ''
-        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('cabin')
+        return column.includes('slug') || column.includes('units') || column.includes('visibilitystatus') || column.includes('deletedoriginalname') || column.includes('deletedvisibilitystatus') || column.includes('deletedat') || column.includes('cabin')
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : ''
-    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus'))
+    return message.includes('column') && (message.includes('slug') || message.includes('units') || message.includes('visibilitystatus') || message.includes('deletedoriginalname') || message.includes('deletedvisibilitystatus') || message.includes('deletedat'))
 }
 
 async function ensureCabinColumns() {
     await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
     await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
+}
+
+async function normalizeDeletedCabinsForNameReuse() {
+    const deletedCabins = await prisma.cabin.findMany({
+        where: {
+            deletedAt: { not: null },
+            deletedOriginalName: null,
+        },
+        select: {
+            id: true,
+            name: true,
+        },
+    })
+
+    if (deletedCabins.length === 0) return
+
+    await prisma.$transaction(async (tx) => {
+        for (const cabin of deletedCabins) {
+            await tx.cabin.update({
+                where: { id: cabin.id },
+                data: {
+                    deletedOriginalName: cabin.name,
+                    name: buildDeletedCabinName(cabin.name, cabin.id),
+                },
+            })
+        }
+    })
 }
 
 async function bootstrapDefaultCabinsIfEmpty() {
@@ -168,9 +210,16 @@ export async function GET(request: NextRequest) {
         const isActive = searchParams.get('isActive')
         const category = searchParams.get('category')
         const visibilityStatus = searchParams.get('visibilityStatus')
+        const deleted = searchParams.get('deleted')
 
         // Filtros
         const where: Prisma.CabinWhereInput = {}
+
+        if (deleted === 'true') {
+            where.deletedAt = { not: null }
+        } else {
+            where.deletedAt = null
+        }
 
         if (isActive !== null) {
             where.isActive = isActive === 'true'
@@ -201,26 +250,6 @@ export async function GET(request: NextRequest) {
             await ensureCabinColumns()
             await bootstrapDefaultCabinsIfEmpty()
             cabins = await fetchCabins()
-        }
-
-        // Recuperação automática: se todos os espaços ficaram inativos por engano,
-        // reativa e devolve a listagem normalmente.
-        if (isActive === 'true' && cabins.length === 0) {
-            const totalCabins = await prisma.cabin.count()
-            if (totalCabins > 0) {
-                await prisma.cabin.updateMany({
-                    where: { isActive: false },
-                    data: { isActive: true },
-                })
-
-                cabins = await prisma.cabin.findMany({
-                    where,
-                    orderBy: [
-                        { category: 'asc' },
-                        { name: 'asc' },
-                    ],
-                })
-            }
         }
 
         return NextResponse.json<ApiResponse<Cabin[]>>({
@@ -260,6 +289,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Verifica se nome já existe
+        try {
+            await normalizeDeletedCabinsForNameReuse()
+        } catch (error) {
+            if (!isMissingCabinColumnError(error)) throw error
+            await ensureCabinColumns()
+            await normalizeDeletedCabinsForNameReuse()
+        }
+
         const existing = await prisma.cabin.findUnique({
             where: { name: validation.data.name },
         })
@@ -277,6 +314,7 @@ export async function POST(request: NextRequest) {
             const existingSameType = await prisma.cabin.findFirst({
                 where: {
                     isActive: true,
+                    deletedAt: null,
                     OR: [
                         { slug: inferredSlug },
                         { slug: null, name: { startsWith: getSpacePrefix(inferredSlug) } },

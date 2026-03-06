@@ -5,7 +5,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
-import { getSpacePrefix, isSpaceSlug, resolveCabinSlug, SPACE_SLUGS, type SpaceSlug } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
+
+const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
+DO $$ BEGIN
+  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+`
+
+const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
+ALTER TABLE "Cabin"
+  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
+`
+
+const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
+
+async function ensureCabinVisibilityStatusColumn() {
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+}
 
 interface ReservationLite {
     cabinId: string
@@ -44,21 +65,26 @@ function getCalendarDayRange(date: Date): { start: Date; end: Date } {
     return { start, end }
 }
 
-function buildSlugFilter(slug: SpaceSlug) {
-    const prefix = getSpacePrefix(slug)
-    return {
-        OR: [
-            { slug },
-            { slug: null, name: { startsWith: prefix } },
-        ],
+function buildSpaceKeyFilter(spaceKey: string) {
+    if (isSpaceSlug(spaceKey)) {
+        const prefix = getSpacePrefix(spaceKey)
+        return {
+            OR: [
+                { slug: spaceKey },
+                { slug: null, name: { startsWith: prefix } },
+            ],
+        }
     }
+
+    return { slug: spaceKey }
 }
 
-async function getActiveUnitsBySlug(slug: SpaceSlug): Promise<number> {
+async function getActiveUnitsBySpaceKey(spaceKey: string): Promise<number> {
     const cabins = await prisma.cabin.findMany({
         where: {
             isActive: true,
-            ...buildSlugFilter(slug),
+            visibilityStatus: 'AVAILABLE',
+            ...buildSpaceKeyFilter(spaceKey),
         },
         select: { units: true },
     })
@@ -96,6 +122,7 @@ async function getRelevantReservations(
 
 export async function GET(request: NextRequest) {
     try {
+        await ensureCabinVisibilityStatusColumn()
         const { searchParams } = new URL(request.url)
         const cabinId = searchParams.get('cabinId')
         const dateParam = searchParams.get('date')
@@ -111,8 +138,7 @@ export async function GET(request: NextRequest) {
 
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId || '')
 
-        let targetSlug: SpaceSlug | null = null
-        let targetUuid: string | null = null
+        let targetSpaceKey: string | null = null
         let totalUnits = 0
         let nameToReturn = ''
 
@@ -120,33 +146,27 @@ export async function GET(request: NextRequest) {
             if (isUuid) {
                 const cabin = await prisma.cabin.findUnique({
                     where: { id: cabinId },
-                    select: { id: true, name: true, slug: true, units: true },
+                    select: { id: true, name: true, slug: true, units: true, visibilityStatus: true },
                 })
 
                 if (!cabin) {
                     return NextResponse.json({ success: false, error: 'Espaço não encontrado' }, { status: 404 })
                 }
 
-                targetSlug = resolveCabinSlug(cabin)
-                if (targetSlug) {
-                    totalUnits = await getActiveUnitsBySlug(targetSlug)
-                    if (totalUnits <= 0) {
-                        totalUnits = Math.max(1, cabin.units || 1)
-                    }
-                    nameToReturn = getSpacePrefix(targetSlug)
-                } else {
-                    targetUuid = cabin.id
-                    totalUnits = Math.max(1, cabin.units || 1)
-                    nameToReturn = cabin.name
+                targetSpaceKey = getCabinSpaceKey(cabin)
+                totalUnits = await getActiveUnitsBySpaceKey(targetSpaceKey)
+                if (totalUnits <= 0) {
+                    totalUnits = cabin.visibilityStatus === 'AVAILABLE' ? Math.max(1, cabin.units || 1) : 0
                 }
+                nameToReturn = getCabinSpaceLabel(cabin)
             } else {
-                if (!isSpaceSlug(cabinId)) {
+                targetSpaceKey = cabinId.trim()
+                if (!targetSpaceKey) {
                     return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
                 }
 
-                targetSlug = cabinId
-                totalUnits = await getActiveUnitsBySlug(cabinId)
-                nameToReturn = getSpacePrefix(cabinId)
+                totalUnits = await getActiveUnitsBySpaceKey(targetSpaceKey)
+                nameToReturn = isSpaceSlug(targetSpaceKey) ? getSpacePrefix(targetSpaceKey) : targetSpaceKey
             }
         }
 
@@ -166,9 +186,13 @@ export async function GET(request: NextRequest) {
             const reservations = await getRelevantReservations(monthStart, monthEnd)
 
             const relevantReservations = reservations.filter((reservation) => {
-                if (targetUuid) return reservation.cabinId === targetUuid
-                const slug = resolveCabinSlug(reservation.cabin)
-                return slug === targetSlug
+                if (!targetSpaceKey) return false
+                const reservationSpaceKey = getCabinSpaceKey({
+                    id: reservation.cabinId,
+                    name: reservation.cabin.name,
+                    slug: reservation.cabin.slug,
+                })
+                return reservationSpaceKey === targetSpaceKey
             })
 
             const dayResults = []
@@ -195,38 +219,37 @@ export async function GET(request: NextRequest) {
             const { start, end } = getDayRange(date)
 
             const activeCabins = await prisma.cabin.findMany({
-                where: { isActive: true },
+                where: { isActive: true, visibilityStatus: 'AVAILABLE' },
                 select: { id: true, name: true, slug: true, units: true },
             })
 
-            const totalUnitsByType = SPACE_SLUGS.reduce<Record<string, number>>((acc, slug) => {
-                acc[slug] = 0
-                return acc
-            }, {})
+            const totalUnitsByType: Record<string, number> = {}
 
             activeCabins.forEach((cabin) => {
-                const slug = resolveCabinSlug(cabin)
-                if (!slug) return
-                totalUnitsByType[slug] += Math.max(1, cabin.units || 1)
+                const spaceKey = getCabinSpaceKey(cabin)
+                totalUnitsByType[spaceKey] = (totalUnitsByType[spaceKey] || 0) + Math.max(1, cabin.units || 1)
             })
 
             const reservations = await getRelevantReservations(start, end)
-            const reservedByType = SPACE_SLUGS.reduce<Record<string, number>>((acc, slug) => {
-                acc[slug] = 0
-                return acc
-            }, {})
+            const reservedByType: Record<string, number> = {}
 
             reservations.forEach((reservation) => {
-                const slug = resolveCabinSlug(reservation.cabin)
-                if (!slug) return
                 if (!overlaps(start, end, reservation.checkIn, reservation.checkOut)) return
-                reservedByType[slug] += 1
+
+                const spaceKey = getCabinSpaceKey({
+                    id: reservation.cabinId,
+                    name: reservation.cabin.name,
+                    slug: reservation.cabin.slug,
+                })
+
+                if (!(spaceKey in totalUnitsByType)) return
+                reservedByType[spaceKey] = (reservedByType[spaceKey] || 0) + 1
             })
 
             const availability: Record<string, number> = {}
-            SPACE_SLUGS.forEach((slug) => {
-                const available = totalUnitsByType[slug] - reservedByType[slug]
-                availability[slug] = available > 0 ? available : 0
+            Object.entries(totalUnitsByType).forEach(([spaceKey, totalUnitsForType]) => {
+                const available = totalUnitsForType - (reservedByType[spaceKey] || 0)
+                availability[spaceKey] = available > 0 ? available : 0
             })
 
             return NextResponse.json({ success: true, data: availability })
@@ -239,9 +262,13 @@ export async function GET(request: NextRequest) {
 
             const reservations = await getRelevantReservations(start, end)
             const relevantReservations = reservations.filter((reservation) => {
-                if (targetUuid) return reservation.cabinId === targetUuid
-                const slug = resolveCabinSlug(reservation.cabin)
-                return slug === targetSlug
+                if (!targetSpaceKey) return false
+                const reservationSpaceKey = getCabinSpaceKey({
+                    id: reservation.cabinId,
+                    name: reservation.cabin.name,
+                    slug: reservation.cabin.slug,
+                })
+                return reservationSpaceKey === targetSpaceKey
             })
 
             const slots = []

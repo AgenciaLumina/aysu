@@ -151,7 +151,10 @@ model Cabin {
   imageUrl     String?
   category     CabinCategory @default(CABANA)
   visibilityStatus CabinVisibilityStatus @default(AVAILABLE)
+  deletedOriginalName String?
+  deletedVisibilityStatus CabinVisibilityStatus?
   isActive     Boolean       @default(true)
+  deletedAt    DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -162,6 +165,9 @@ model Cabin {
   @@index([isActive])
   @@index([slug])
   @@index([visibilityStatus])
+  @@index([deletedOriginalName])
+  @@index([deletedVisibilityStatus])
+  @@index([deletedAt])
 }
 
 // Reservas (Online + Offline sincronizadas)

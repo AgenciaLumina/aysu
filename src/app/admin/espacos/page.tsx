@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { formatCurrency } from '@/lib/utils'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlug } from '@/lib/space-slugs'
+import { getCabinTrashDisplayName } from '@/lib/cabin-trash'
 import toast from 'react-hot-toast'
 
 interface Cabin {
@@ -28,6 +29,8 @@ interface Cabin {
     category: string
     isActive: boolean
     imageUrl?: string
+    deletedAt?: string | null
+    deletedOriginalName?: string | null
 }
 
 const categories = ['CABANA', 'LOUNGE', 'VIP', 'MESA'] as const
@@ -44,14 +47,17 @@ function getVisibilityPriority(status?: Cabin['visibilityStatus']): number {
     return 1
 }
 
-function groupCabins(rawCabins: Cabin[]): Cabin[] {
+function groupCabins(rawCabins: Cabin[], options?: { preserveDeletedBatches?: boolean }): Cabin[] {
     const grouped = new Map<string, Cabin>()
 
     rawCabins.forEach((cabin) => {
         const resolvedSlug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug }) || null
-        const key = resolvedSlug ?? cabin.id
+        const batchSuffix = options?.preserveDeletedBatches && cabin.deletedAt ? `:${cabin.deletedAt}` : ''
+        const key = `${resolvedSlug ?? cabin.id}${batchSuffix}`
         const normalizedUnits = Math.max(1, cabin.units || 1)
-        const displayName = resolvedSlug && isSpaceSlug(resolvedSlug) ? getSpacePrefix(resolvedSlug) : cabin.name
+        const displayName = options?.preserveDeletedBatches
+            ? getCabinTrashDisplayName(cabin)
+            : (resolvedSlug && isSpaceSlug(resolvedSlug) ? getSpacePrefix(resolvedSlug) : cabin.name)
 
         if (!grouped.has(key)) {
             grouped.set(key, {
@@ -60,6 +66,8 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
                 slug: resolvedSlug,
                 units: normalizedUnits,
                 visibilityStatus: cabin.visibilityStatus || 'AVAILABLE',
+                deletedAt: cabin.deletedAt || null,
+                deletedOriginalName: cabin.deletedOriginalName || null,
             })
             return
         }
@@ -67,6 +75,8 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
         const current = grouped.get(key)!
         current.units += normalizedUnits
         current.isActive = current.isActive || cabin.isActive
+        current.deletedAt = current.deletedAt || cabin.deletedAt || null
+        current.deletedOriginalName = current.deletedOriginalName || cabin.deletedOriginalName || null
         if (getVisibilityPriority(cabin.visibilityStatus) > getVisibilityPriority(current.visibilityStatus)) {
             current.visibilityStatus = cabin.visibilityStatus || 'AVAILABLE'
         }
@@ -77,11 +87,13 @@ function groupCabins(rawCabins: Cabin[]): Cabin[] {
 
 export default function AdminCabinsPage() {
     const [cabins, setCabins] = useState<Cabin[]>([])
+    const [trashCabins, setTrashCabins] = useState<Cabin[]>([])
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingCabin, setEditingCabin] = useState<Cabin | null>(null)
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [restoringId, setRestoringId] = useState<string | null>(null)
     const [showMediaPicker, setShowMediaPicker] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -100,29 +112,31 @@ export default function AdminCabinsPage() {
         try {
             setLoading(true)
 
-            const activeRes = await fetch('/api/cabins?isActive=true', { cache: 'no-store' })
-            const activeData = await activeRes.json()
+            const [activeRes, trashRes] = await Promise.all([
+                fetch('/api/cabins?isActive=true', { cache: 'no-store' }),
+                fetch('/api/cabins?deleted=true', { cache: 'no-store' }),
+            ])
 
-            if (activeData.success && Array.isArray(activeData.data) && activeData.data.length > 0) {
-                setCabins(groupCabins(activeData.data))
-                return
+            const [activeData, trashData] = await Promise.all([
+                activeRes.json(),
+                trashRes.json(),
+            ])
+
+            if (!activeData.success || !Array.isArray(activeData.data)) {
+                throw new Error(activeData.error || 'Erro ao carregar espaços ativos')
             }
 
-            // Fallback de segurança: se por algum motivo não houver ativos no backend,
-            // carregamos todos para não deixar o admin vazio.
-            const allRes = await fetch('/api/cabins', { cache: 'no-store' })
-            const allData = await allRes.json()
-
-            if (allData.success && Array.isArray(allData.data)) {
-                setCabins(groupCabins(allData.data))
-                return
+            if (!trashData.success || !Array.isArray(trashData.data)) {
+                throw new Error(trashData.error || 'Erro ao carregar lixeira')
             }
 
-            setCabins([])
-            toast.error((allData && allData.error) || 'Erro ao carregar espaços do admin')
+            setCabins(groupCabins(activeData.data))
+            setTrashCabins(groupCabins(trashData.data, { preserveDeletedBatches: true }))
         } catch (error) {
             console.error('Erro:', error)
-            toast.error('Erro ao carregar bangalôs')
+            setCabins([])
+            setTrashCabins([])
+            toast.error(error instanceof Error ? error.message : 'Erro ao carregar espaços')
         } finally {
             setLoading(false)
         }
@@ -177,21 +191,21 @@ export default function AdminCabinsPage() {
             const data = await res.json()
 
             if (data.success) {
-                toast.success(editingCabin ? 'Bangalô atualizado!' : 'Bangalô criado!')
+                toast.success(editingCabin ? 'Espaço atualizado!' : 'Espaço criado!')
                 setIsModalOpen(false)
                 fetchCabins()
             } else {
                 toast.error(data.error || 'Erro ao salvar')
             }
         } catch {
-            toast.error('Erro ao salvar bangalô')
+            toast.error('Erro ao salvar espaço')
         } finally {
             setSaving(false)
         }
     }
 
     const handleDelete = async (cabin: Cabin) => {
-        const confirmed = window.confirm(`Excluir "${cabin.name}"? O espaço será removido das vendas e reservas.`)
+        const confirmed = window.confirm(`Mover "${cabin.name}" para a lixeira? O espaço sairá das vendas e reservas, mas poderá ser restaurado depois.`)
         if (!confirmed) return
 
         setDeletingId(cabin.id)
@@ -203,7 +217,7 @@ export default function AdminCabinsPage() {
 
             const data = await res.json()
             if (data.success) {
-                toast.success('Espaço excluído com sucesso!')
+                toast.success('Espaço enviado para a lixeira!')
                 if (editingCabin?.id === cabin.id) {
                     setIsModalOpen(false)
                 }
@@ -218,13 +232,38 @@ export default function AdminCabinsPage() {
         }
     }
 
+    const handleRestore = async (cabin: Cabin) => {
+        const confirmed = window.confirm(`Restaurar "${cabin.name}" da lixeira?`)
+        if (!confirmed) return
+
+        setRestoringId(cabin.id)
+        try {
+            const res = await fetch(`/api/cabins/${cabin.id}/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            })
+
+            const data = await res.json()
+            if (data.success) {
+                toast.success('Espaço restaurado com sucesso!')
+                fetchCabins()
+            } else {
+                toast.error(data.error || 'Erro ao restaurar espaço')
+            }
+        } catch {
+            toast.error('Erro ao restaurar espaço')
+        } finally {
+            setRestoringId(null)
+        }
+    }
+
     return (
         <AdminLayout>
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl font-serif font-bold text-[#2a2a2a]">Espaços</h1>
-                    <p className="text-[#8a5c3f]">Gerencie bangalôs, cabanas e espaços</p>
+                    <p className="text-[#8a5c3f]">Gerencie bangalôs, mesas, lounges e demais espaços</p>
                 </div>
                 <Button onClick={() => openModal()}>
                     <Plus className="h-4 w-4" />
@@ -235,84 +274,176 @@ export default function AdminCabinsPage() {
             {/* Content */}
             {loading ? (
                 <div className="flex justify-center py-20"><Spinner size="lg" /></div>
-            ) : cabins.length === 0 ? (
-                <Card>
-                    <CardContent className="py-16 text-center">
-                        <Users className="h-12 w-12 text-[#e0d5c7] mx-auto mb-4" />
-                        <p className="text-[#8a5c3f] mb-4">Nenhum bangalô cadastrado</p>
-                        <Button onClick={() => openModal()}>
-                            <Plus className="h-4 w-4" />
-                            Criar Primeiro Bangalô
-                        </Button>
-                    </CardContent>
-                </Card>
             ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {cabins.map(cabin => (
-                        <Card key={cabin.id} className={!cabin.isActive || cabin.visibilityStatus === 'HIDDEN' ? 'opacity-60' : ''}>
-                            <CardContent className="p-0">
-                                {/* Imagem */}
-                                <div className="relative aspect-[5/6] bg-[#f5f0eb]">
-                                    {cabin.imageUrl ? (
-                                        <Image
-                                            src={cabin.imageUrl}
-                                            alt={cabin.name}
-                                            fill
-                                            className="object-contain object-center"
-                                            unoptimized={cabin.imageUrl.startsWith('http')}
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <ImageIcon className="h-12 w-12 text-[#e0d5c7]" />
-                                        </div>
-                                    )}
-                                </div>
+                <div className="space-y-10">
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-[#2a2a2a]">Espaços ativos</h2>
+                                <p className="text-sm text-[#8a5c3f]">Cadastro base de estoque, capacidade e preço padrão.</p>
+                            </div>
+                            <Badge variant="secondary">{cabins.length} tipos</Badge>
+                        </div>
 
-                                <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <Badge variant="secondary">{cabin.category}</Badge>
-                                        {cabin.visibilityStatus === 'AVAILABLE' && <Badge variant="success">Disponível</Badge>}
-                                        {cabin.visibilityStatus === 'UNAVAILABLE' && <Badge variant="warning">Indisponível</Badge>}
-                                        {cabin.visibilityStatus === 'HIDDEN' && <Badge variant="outline">Oculto</Badge>}
-                                        {!cabin.isActive && <Badge variant="warning">Inativo</Badge>}
-                                    </div>
-                                    <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
-                                    <p className="text-sm text-[#8a5c3f] mb-4 line-clamp-2">{cabin.description}</p>
+                        {cabins.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-16 text-center">
+                                    <Users className="h-12 w-12 text-[#e0d5c7] mx-auto mb-4" />
+                                    <p className="text-[#8a5c3f] mb-4">Nenhum espaço ativo cadastrado</p>
+                                    <Button onClick={() => openModal()}>
+                                        <Plus className="h-4 w-4" />
+                                        Criar Primeiro Espaço
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {cabins.map(cabin => (
+                                    <Card key={cabin.id} className={!cabin.isActive || cabin.visibilityStatus === 'HIDDEN' ? 'opacity-60' : ''}>
+                                        <CardContent className="p-0">
+                                            <div className="relative aspect-[5/6] bg-[#f5f0eb]">
+                                                {cabin.imageUrl ? (
+                                                    <Image
+                                                        src={cabin.imageUrl}
+                                                        alt={cabin.name}
+                                                        fill
+                                                        className="object-contain object-center"
+                                                        unoptimized={cabin.imageUrl.startsWith('http')}
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <ImageIcon className="h-12 w-12 text-[#e0d5c7]" />
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                    <div className="flex items-center gap-4 text-sm text-[#8a5c3f] mb-4">
-                                        <div className="flex items-center gap-1">
-                                            <Users className="h-4 w-4" />
-                                            <span>{cabin.capacity} pessoas</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Badge variant="secondary">{cabin.units} un.</Badge>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <DollarSign className="h-4 w-4" />
-                                            <span>{formatCurrency(cabin.pricePerHour)}/h</span>
-                                        </div>
-                                    </div>
+                                            <div className="p-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <Badge variant="secondary">{cabin.category}</Badge>
+                                                    {cabin.visibilityStatus === 'AVAILABLE' && <Badge variant="success">Disponível</Badge>}
+                                                    {cabin.visibilityStatus === 'UNAVAILABLE' && <Badge variant="warning">Indisponível</Badge>}
+                                                    {cabin.visibilityStatus === 'HIDDEN' && <Badge variant="outline">Oculto</Badge>}
+                                                    {!cabin.isActive && <Badge variant="warning">Inativo</Badge>}
+                                                </div>
+                                                <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
+                                                <p className="text-sm text-[#8a5c3f] mb-4 line-clamp-2">{cabin.description}</p>
 
-                                    <div className="flex gap-2">
-                                        <Button variant="secondary" size="sm" className="flex-1" onClick={() => openModal(cabin)}>
-                                            <Pencil className="h-4 w-4" />
-                                            Editar
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => handleDelete(cabin)}
-                                            isLoading={deletingId === cabin.id}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            Excluir
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                                <div className="flex items-center gap-4 text-sm text-[#8a5c3f] mb-4">
+                                                    <div className="flex items-center gap-1">
+                                                        <Users className="h-4 w-4" />
+                                                        <span>{cabin.capacity} pessoas</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Badge variant="secondary">{cabin.units} un.</Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <DollarSign className="h-4 w-4" />
+                                                        <span>{formatCurrency(cabin.pricePerHour)}/h</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => openModal(cabin)}>
+                                                        <Pencil className="h-4 w-4" />
+                                                        Editar
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => handleDelete(cabin)}
+                                                        isLoading={deletingId === cabin.id}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        Excluir
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-[#2a2a2a]">Lixeira</h2>
+                                <p className="text-sm text-[#8a5c3f]">Espaços excluídos aguardando restauração.</p>
+                            </div>
+                            <Badge variant="outline">{trashCabins.length} itens</Badge>
+                        </div>
+
+                        {trashCabins.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-10 text-center">
+                                    <Trash2 className="h-10 w-10 text-[#e0d5c7] mx-auto mb-4" />
+                                    <p className="text-[#8a5c3f]">Nenhum espaço na lixeira</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {trashCabins.map(cabin => (
+                                    <Card key={cabin.id} className="border-dashed opacity-80">
+                                        <CardContent className="p-0">
+                                            <div className="relative aspect-[5/6] bg-[#f8f4ef]">
+                                                {cabin.imageUrl ? (
+                                                    <Image
+                                                        src={cabin.imageUrl}
+                                                        alt={cabin.name}
+                                                        fill
+                                                        className="object-contain object-center grayscale"
+                                                        unoptimized={cabin.imageUrl.startsWith('http')}
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <ImageIcon className="h-12 w-12 text-[#e0d5c7]" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="p-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <Badge variant="outline">{cabin.category}</Badge>
+                                                    <Badge variant="warning">Na lixeira</Badge>
+                                                </div>
+                                                <h3 className="font-serif text-lg font-bold text-[#2a2a2a] mb-2">{cabin.name}</h3>
+                                                <p className="text-sm text-[#8a5c3f] mb-4 line-clamp-2">{cabin.description}</p>
+
+                                                <div className="flex items-center gap-4 text-sm text-[#8a5c3f] mb-4">
+                                                    <div className="flex items-center gap-1">
+                                                        <Users className="h-4 w-4" />
+                                                        <span>{cabin.capacity} pessoas</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Badge variant="secondary">{cabin.units} un.</Badge>
+                                                    </div>
+                                                </div>
+
+                                                {cabin.deletedAt && (
+                                                    <p className="mb-4 text-xs text-[#8a5c3f]/80">
+                                                        Excluído em {new Date(cabin.deletedAt).toLocaleString('pt-BR')}
+                                                    </p>
+                                                )}
+
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="w-full"
+                                                    onClick={() => handleRestore(cabin)}
+                                                    isLoading={restoringId === cabin.id}
+                                                >
+                                                    Restaurar
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
+                    </section>
                 </div>
             )}
 
@@ -320,7 +451,7 @@ export default function AdminCabinsPage() {
             <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <ModalContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <ModalHeader>
-                        <ModalTitle>{editingCabin ? 'Editar Bangalô' : 'Novo Bangalô'}</ModalTitle>
+                        <ModalTitle>{editingCabin ? 'Editar Espaço' : 'Novo Espaço'}</ModalTitle>
                     </ModalHeader>
 
                     <form onSubmit={handleSubmit} className="p-4 space-y-4 pb-2">
