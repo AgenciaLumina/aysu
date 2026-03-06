@@ -223,7 +223,7 @@ export default function AdminMenuPage() {
             price: parseFloat(formData.price),
             categoryId: formData.categoryId,
             tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-            imageUrl: formData.imageUrl || null
+            imageUrl: formData.imageUrl || undefined
         }
 
         try {

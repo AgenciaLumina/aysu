@@ -19,7 +19,7 @@ const mediaUrlOrPathSchema = z
         message: 'URL inválida. Use um caminho "/..." ou URL http(s).',
     })
 
-const optionalMediaUrlOrPathSchema = z.union([mediaUrlOrPathSchema, z.literal('')]).optional()
+const optionalMediaUrlOrPathSchema = z.union([mediaUrlOrPathSchema, z.literal(''), z.null()]).optional()
 
 const cabinCategorySchema = z.preprocess(
     (value) => {

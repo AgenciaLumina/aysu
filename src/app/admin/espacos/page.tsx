@@ -159,7 +159,7 @@ export default function AdminCabinsPage() {
             pricePerHour: parseFloat(formData.pricePerHour),
             description: formData.description,
             category: normalizeCabinCategory(formData.category),
-            imageUrl: formData.imageUrl || null,
+            imageUrl: formData.imageUrl || undefined,
             slug: editingCabin?.slug || undefined,
         }
 
