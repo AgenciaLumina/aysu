@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, CalendarDays, ChevronRight, Loader2, X } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import { formatDateOnlyLabel } from '@/lib/date-only'
 
 interface GalleryPhoto {
     id: string
@@ -29,15 +30,7 @@ interface EventGalleryDetail {
 }
 
 function formatDateLabel(value: string | null): string {
-    if (!value) return 'Data não informada'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Data não informada'
-
-    return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-    })
+    return formatDateOnlyLabel(value, 'Data não informada')
 }
 
 export default function EventGalleryDetailPage() {

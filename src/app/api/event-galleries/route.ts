@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { ensureEventGalleryTables } from '@/lib/event-gallery'
+import { ensureEventGalleryTables, serializeEventGalleryDateField } from '@/lib/event-gallery'
 import type { ApiResponse } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
             },
         })
 
-        return NextResponse.json({ success: true, data: galleries })
+        return NextResponse.json({
+            success: true,
+            data: galleries.map(serializeEventGalleryDateField),
+        })
     } catch (error) {
         console.error('[Event Galleries Public GET]', error)
         return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao carregar galeria de eventos' }, { status: 500 })

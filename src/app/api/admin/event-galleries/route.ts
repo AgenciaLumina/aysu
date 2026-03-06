@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 import { createEventGallerySchema } from '@/lib/validations'
-import { ensureEventGalleryTables, normalizeEventGallerySlug, parseEventGalleryDate } from '@/lib/event-gallery'
+import {
+    ensureEventGalleryTables,
+    normalizeEventGallerySlug,
+    parseEventGalleryDate,
+    serializeEventGalleryDateField,
+} from '@/lib/event-gallery'
 import type { ApiResponse } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -31,7 +36,10 @@ export async function GET(request: NextRequest) {
             },
         })
 
-        return NextResponse.json({ success: true, data: galleries })
+        return NextResponse.json({
+            success: true,
+            data: galleries.map(serializeEventGalleryDateField),
+        })
     } catch (error) {
         console.error('[Admin Event Galleries GET]', error)
         return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao carregar galerias' }, { status: 500 })
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            data: created,
+            data: serializeEventGalleryDateField(created),
             message: 'Galeria de eventos criada com sucesso',
         }, { status: 201 })
     } catch (error) {

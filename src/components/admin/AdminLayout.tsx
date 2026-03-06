@@ -19,7 +19,9 @@ import {
     ImageIcon,
     Images,
     FolderOpen,
-    Music
+    Music,
+    Menu,
+    X
 } from 'lucide-react'
 import type { AuthUser } from '@/lib/types'
 
@@ -67,10 +69,20 @@ const navItems: NavItem[] = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ]
 
+const roleLabels: Record<AuthUser['role'], string> = {
+    ADMIN: 'Administrador',
+    MANAGER: 'Gerente',
+    CASHIER: 'Caixa',
+    CHEF: 'Cozinha',
+    BARISTA: 'Bar',
+    STAFF: 'Equipe',
+}
+
 export function AdminLayout({ children }: AdminLayoutProps) {
     const pathname = usePathname()
     const router = useRouter()
     const [isCollapsed, setIsCollapsed] = useState(false)
+    const [mobileNavOpen, setMobileNavOpen] = useState(false)
     const [showNotifications, setShowNotifications] = useState(false)
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
     const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -194,16 +206,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         if (!sessionChecked) return false
         return !!sessionUser && item.allowedRoles.includes(sessionUser.role)
     })
+    const currentPageLabel = visibleNavItems.find((item) => isActive(item.href))?.label || 'Painel'
+    const sessionRoleLabel = sessionUser ? roleLabels[sessionUser.role] : 'Equipe'
+
+    useEffect(() => {
+        setMobileNavOpen(false)
+        setShowNotifications(false)
+    }, [pathname])
 
     return (
         <div className="min-h-screen bg-[#f8f6f3] flex">
+            <div
+                className={`fixed inset-0 z-40 bg-[#2a2a2a]/55 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${mobileNavOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                    }`}
+                onClick={() => setMobileNavOpen(false)}
+            />
+
             {/* Sidebar */}
             <aside
-                className={`fixed left-0 top-0 h-full bg-[#2a2a2a] text-white transition-all duration-300 z-50 flex flex-col ${isCollapsed ? 'w-16' : 'w-64'
-                    }`}
+                className={`fixed left-0 top-0 z-50 flex h-full w-[min(18rem,86vw)] flex-col bg-[#2a2a2a] text-white shadow-2xl transition-[transform,width] duration-300 lg:translate-x-0 lg:shadow-none ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+                    } ${isCollapsed ? 'lg:w-16' : 'lg:w-64'}`}
             >
                 {/* Logo */}
-                <div className="p-4 border-b border-white/10 flex items-center gap-3">
+                <div className="flex items-center gap-3 border-b border-white/10 p-4">
                     <Image
                         src="/logo_aysu.png"
                         alt="Aysú"
@@ -211,16 +236,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         height={40}
                         className="rounded-full"
                     />
-                    {!isCollapsed && (
-                        <div>
-                            <p className="font-serif font-bold">Aysú</p>
-                            <p className="text-xs text-white/50">Admin Panel</p>
-                        </div>
-                    )}
+                    <div className={`min-w-0 flex-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                        <p className="truncate font-serif font-bold">Aysú</p>
+                        <p className="text-xs text-white/50">Admin Panel</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setMobileNavOpen(false)}
+                        className="rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+                        aria-label="Fechar menu"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 py-4">
+                <nav className="flex-1 overflow-y-auto py-4">
                     {visibleNavItems.map((item) => {
                         const Icon = item.icon
                         const active = isActive(item.href)
@@ -235,7 +266,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                 title={isCollapsed ? item.label : undefined}
                             >
                                 <Icon className="h-5 w-5 flex-shrink-0" />
-                                {!isCollapsed && <span className="text-sm">{item.label}</span>}
+                                <span className={`text-sm ${isCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                             </Link>
                         )
                     })}
@@ -244,7 +275,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 {/* Collapse Button */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-4 border-t border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                    className="hidden border-t border-white/10 p-4 transition-colors hover:bg-white/10 lg:flex lg:items-center lg:justify-center"
                 >
                     {isCollapsed ? (
                         <ChevronRight className="h-5 w-5" />
@@ -264,7 +295,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         title={isCollapsed ? 'Configurações' : undefined}
                     >
                         <Settings className="h-5 w-5" />
-                        {!isCollapsed && <span className="text-sm">Configurações</span>}
+                        <span className={`text-sm ${isCollapsed ? 'lg:hidden' : ''}`}>Configurações</span>
                     </Link>
                     <Link
                         href="/"
@@ -272,7 +303,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         title={isCollapsed ? 'Voltar ao Site' : undefined}
                     >
                         <Home className="h-5 w-5" />
-                        {!isCollapsed && <span className="text-sm">Voltar ao Site</span>}
+                        <span className={`text-sm ${isCollapsed ? 'lg:hidden' : ''}`}>Voltar ao Site</span>
                     </Link>
                     <button
                         type="button"
@@ -282,24 +313,44 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         title={isCollapsed ? 'Sair' : undefined}
                     >
                         <LogOut className="h-5 w-5" />
-                        {!isCollapsed && <span className="text-sm">{isLoggingOut ? 'Saindo...' : 'Sair'}</span>}
+                        <span className={`text-sm ${isCollapsed ? 'lg:hidden' : ''}`}>
+                            {isLoggingOut ? 'Saindo...' : 'Sair'}
+                        </span>
                     </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex-1 transition-[margin] duration-300 ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
                 {/* Top Bar */}
-                <header className="h-16 bg-white border-b border-[#e0d5c7] sticky top-0 z-40 flex items-center justify-between px-6">
-                    <div>
-                        {/* Breadcrumb placeholder */}
-                    </div>
-                    <div className="flex items-center gap-4">
+                <header className="sticky top-0 z-30 border-b border-[#e0d5c7] bg-white/95 backdrop-blur-sm">
+                    <div className="flex h-14 items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setMobileNavOpen(true)}
+                                className="rounded-lg border border-[#e0d5c7] p-2 text-[#8a5c3f] transition-colors hover:bg-[#f5f0e8] lg:hidden"
+                                aria-label="Abrir menu"
+                            >
+                                <Menu className="h-5 w-5" />
+                            </button>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#b58d68]">
+                                    Painel Aysu
+                                </p>
+                                <p className="truncate text-sm font-semibold text-[#2a2a2a] sm:text-base">
+                                    {currentPageLabel}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 sm:gap-4">
                         {/* Notifications */}
                         <div className="relative">
                             <button
                                 onClick={() => setShowNotifications(!showNotifications)}
-                                className="relative p-2 text-[#8a5c3f] hover:bg-[#f5f0e8] rounded-lg transition-colors"
+                                className="relative rounded-lg p-2 text-[#8a5c3f] transition-colors hover:bg-[#f5f0e8]"
+                                aria-label="Abrir notificações"
                             >
                                 <Bell className="h-5 w-5" />
                                 {unreadCount > 0 && (
@@ -314,7 +365,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                         className="fixed inset-0 z-40"
                                         onClick={() => setShowNotifications(false)}
                                     />
-                                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-[#e0d5c7] z-50 overflow-hidden">
+                                    <div className="absolute right-0 top-full z-50 mt-2 w-[calc(100vw-1.5rem)] max-w-80 overflow-hidden rounded-xl border border-[#e0d5c7] bg-white shadow-2xl">
                                         <div className="p-4 border-b border-[#e0d5c7] flex items-center justify-between">
                                             <h3 className="font-semibold text-[#2a2a2a]">Notificações</h3>
                                             {unreadCount > 0 && (
@@ -359,20 +410,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             )}
                         </div>
                         {/* User */}
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-[#d4a574] flex items-center justify-center">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#d4a574]">
                                 <User className="h-5 w-5 text-white" />
                             </div>
-                            <div className="hidden sm:block">
-                                <p className="text-sm font-medium text-[#2a2a2a]">Admin</p>
-                                <p className="text-xs text-[#8a5c3f]">Gerente</p>
+                            <div className="hidden min-w-0 sm:block">
+                                <p className="truncate text-sm font-medium text-[#2a2a2a]">
+                                    {sessionUser?.name || 'Admin'}
+                                </p>
+                                <p className="text-xs text-[#8a5c3f]">{sessionRoleLabel}</p>
                             </div>
                         </div>
+                    </div>
                     </div>
                 </header>
 
                 {/* Page Content */}
-                <main className="p-6">
+                <main className="p-4 pb-8 sm:p-6 sm:pb-10">
                     {children}
                 </main>
             </div>

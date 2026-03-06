@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
-import { ensureEventGalleryTables, normalizeEventGallerySlug, parseEventGalleryDate } from '@/lib/event-gallery'
+import {
+    ensureEventGalleryTables,
+    normalizeEventGallerySlug,
+    parseEventGalleryDate,
+    serializeEventGalleryDateField,
+} from '@/lib/event-gallery'
 import { updateEventGallerySchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ success: false, error: 'Galeria não encontrada' }, { status: 404 })
         }
 
-        return NextResponse.json({ success: true, data: gallery })
+        return NextResponse.json({ success: true, data: serializeEventGalleryDateField(gallery) })
     } catch (error) {
         console.error('[Admin Event Galleries GET by id]', error)
         return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao carregar galeria' }, { status: 500 })
@@ -145,7 +150,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             })
         })
 
-        return NextResponse.json({ success: true, data: updated, message: 'Galeria atualizada com sucesso' })
+        return NextResponse.json({
+            success: true,
+            data: updated ? serializeEventGalleryDateField(updated) : null,
+            message: 'Galeria atualizada com sucesso',
+        })
     } catch (error) {
         console.error('[Admin Event Galleries PATCH]', error)
         return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao atualizar galeria' }, { status: 500 })

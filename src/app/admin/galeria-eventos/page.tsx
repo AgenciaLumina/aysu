@@ -25,6 +25,7 @@ import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle } from '@/com
 import { Badge } from '@/components/ui/Badge'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { generateSlug } from '@/lib/utils'
+import { formatDateOnlyLabel, serializeDateOnly } from '@/lib/date-only'
 import {
     getLargeImageWarning,
     getUploadPayloadError,
@@ -78,27 +79,8 @@ function getGalleryFolder(slugOrTitle: string): string {
     return `galeria-eventos/${normalized || 'galeria'}`
 }
 
-function toInputDate(value: string | null): string {
-    if (!value) return ''
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return ''
-
-    const year = date.getUTCFullYear()
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(date.getUTCDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-}
-
 function formatDateLabel(value: string | null): string {
-    if (!value) return 'Sem data'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Sem data'
-
-    return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-    })
+    return formatDateOnlyLabel(value, 'Sem data')
 }
 
 function createInitialForm(): GalleryForm {
@@ -175,7 +157,7 @@ export default function AdminEventGalleryPage() {
         setForm({
             title: gallery.title,
             slug: gallery.slug,
-            eventDate: toInputDate(gallery.eventDate),
+            eventDate: serializeDateOnly(gallery.eventDate) || '',
             shortDescription: gallery.shortDescription || '',
             description: gallery.description || '',
             coverImageUrl: gallery.coverImageUrl || '',
