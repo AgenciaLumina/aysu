@@ -4,7 +4,7 @@
 
 'use client'
 
-import { Suspense, useState, useMemo, useEffect } from 'react'
+import { Suspense, useState, useMemo, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Users, Check, ChevronRight, ChevronLeft, MapPin, Utensils } from 'lucide-react'
@@ -211,6 +211,10 @@ const SPACE_CATEGORY_ORDER: Record<SpaceType['category'], number> = {
     dayuse: 4,
 }
 const DATE_DETAILS_SCROLL_ID = 'reserva-data-detalhes'
+const MOBILE_SCROLL_HEADER_OFFSET = 88
+const DESKTOP_SCROLL_HEADER_OFFSET = 108
+const MAX_SCROLL_ATTEMPTS = 8
+const SCROLL_RETRY_DELAY_MS = 90
 
 function normalizeText(value: string): string {
     return value
@@ -508,6 +512,7 @@ function ReservasPageContent() {
 
     const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({})
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
+    const scrollRetryTimeoutRef = useRef<number | null>(null)
 
     // Estado do modal de informação de data especial/bloqueada
     const [dayInfoModal, setDayInfoModal] = useState<{
@@ -623,6 +628,14 @@ function ReservasPageContent() {
             .catch(err => console.error('Erro ao buscar configurações do calendário:', err))
     }, [currentMonth])
 
+    useEffect(() => {
+        return () => {
+            if (scrollRetryTimeoutRef.current !== null) {
+                window.clearTimeout(scrollRetryTimeoutRef.current)
+            }
+        }
+    }, [])
+
     const getDateConfig = (date: Date) => {
         const dateStr = toLocalISODate(date)
         return dayConfigByDate[dateStr] ?? null
@@ -729,12 +742,32 @@ function ReservasPageContent() {
     }, [currentMonth, closedDates, dayConfigs])
 
     const handleDateSelect = (date: Date) => {
+        const scrollToDateDetails = (attempt = 0) => {
+            const target = document.getElementById(DATE_DETAILS_SCROLL_ID)
+            if (!target) {
+                if (attempt >= MAX_SCROLL_ATTEMPTS) return
+
+                scrollRetryTimeoutRef.current = window.setTimeout(() => {
+                    scrollToDateDetails(attempt + 1)
+                }, SCROLL_RETRY_DELAY_MS)
+                return
+            }
+
+            const headerOffset = window.innerWidth < 768 ? MOBILE_SCROLL_HEADER_OFFSET : DESKTOP_SCROLL_HEADER_OFFSET
+            const absoluteTop = window.scrollY + target.getBoundingClientRect().top - headerOffset
+            window.scrollTo({
+                top: Math.max(absoluteTop, 0),
+                behavior: 'smooth',
+            })
+        }
+
+        if (scrollRetryTimeoutRef.current !== null) {
+            window.clearTimeout(scrollRetryTimeoutRef.current)
+            scrollRetryTimeoutRef.current = null
+        }
+
         setSelectedDate(date)
-        setTimeout(() => {
-            document
-                .getElementById(DATE_DETAILS_SCROLL_ID)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 100)
+        window.requestAnimationFrame(() => scrollToDateDetails())
     }
 
     const handleSpaceSelect = (space: SpaceType) => {
