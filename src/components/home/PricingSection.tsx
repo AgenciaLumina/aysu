@@ -65,7 +65,7 @@ function formatCapacityLabel(capacity: number): string {
 }
 
 export default function PricingSection() {
-    const [activeTab, setActiveTab] = useState<'normal' | 'holiday'>('holiday')
+    const [activeTab, setActiveTab] = useState<'normal' | 'holiday'>('normal')
     const [cabins, setCabins] = useState<CabinApiItem[]>([])
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
 
@@ -167,13 +167,21 @@ export default function PricingSection() {
             </div>
 
             <div className="relative mb-8 pt-4">
-                {activeTab === 'holiday' && (
-                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 animate-fade-in">
-                        <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#8B4513] text-white text-[10px] md:text-xs font-medium shadow-xl whitespace-nowrap">
-                            <span>Valores para eventos e feriados</span>
-                        </div>
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-10 animate-fade-in">
+                    <div
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[10px] md:text-xs font-medium shadow-xl whitespace-nowrap ${
+                            activeTab === 'holiday'
+                                ? 'bg-[#8B4513] text-white'
+                                : 'bg-[#d4a574] text-white'
+                        }`}
+                    >
+                        <span>
+                            {activeTab === 'holiday'
+                                ? 'Valores para eventos e feriados'
+                                : 'Valores para datas normais'}
+                        </span>
                     </div>
-                )}
+                </div>
 
                 <h3 className="font-serif text-2xl font-bold text-[#2a2a2a] flex items-center gap-3">
                     <div className={`w-1 h-8 rounded-full transition-colors duration-500 ${activeTab === 'holiday' ? 'bg-[#8B4513]' : 'bg-[#d4a574]'}`} />

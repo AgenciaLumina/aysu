@@ -206,7 +206,6 @@ export default function UpcomingEventsSection() {
                         // Futuro: mais próximo primeiro | Passado (destaque): mais recente primeiro
                         return aIsUpcoming ? aTime - bTime : bTime - aTime
                     })
-                    .slice(0, 3)
                 setEvents(upcoming)
             })
             .catch(() => setEvents([]))

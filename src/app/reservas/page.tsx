@@ -210,6 +210,7 @@ const SPACE_CATEGORY_ORDER: Record<SpaceType['category'], number> = {
     mesa: 3,
     dayuse: 4,
 }
+const DATE_DETAILS_SCROLL_ID = 'reserva-data-detalhes'
 
 function normalizeText(value: string): string {
     return value
@@ -730,7 +731,9 @@ function ReservasPageContent() {
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date)
         setTimeout(() => {
-            document.getElementById('espacos')?.scrollIntoView({ behavior: 'smooth' })
+            document
+                .getElementById(DATE_DETAILS_SCROLL_ID)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }, 100)
     }
 
@@ -948,7 +951,7 @@ function ReservasPageContent() {
 
                     {/* Selected Date */}
                     {selectedDate && (
-                        <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
+                        <div id={DATE_DETAILS_SCROLL_ID} className="px-8 py-6 bg-gray-50 border-t border-gray-100">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Data selecionada</p>
