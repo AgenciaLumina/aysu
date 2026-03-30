@@ -211,6 +211,7 @@ const SPACE_CATEGORY_ORDER: Record<SpaceType['category'], number> = {
     dayuse: 4,
 }
 const DATE_DETAILS_SCROLL_ID = 'reserva-data-detalhes'
+const SPACES_SECTION_ID = 'espacos'
 const MOBILE_SCROLL_HEADER_OFFSET = 88
 const DESKTOP_SCROLL_HEADER_OFFSET = 108
 const MAX_SCROLL_ATTEMPTS = 8
@@ -742,8 +743,18 @@ function ReservasPageContent() {
     }, [currentMonth, closedDates, dayConfigs])
 
     const handleDateSelect = (date: Date) => {
+        const dateKey = toLocalISODate(date)
+        const configForDate = dayConfigByDate[dateKey] ?? null
+        const hasFlyerOrEventDetails = Boolean(
+            configForDate?.flyerImageUrl ||
+            configForDate?.title ||
+            configForDate?.release ||
+            configForDate?.ticketLots?.length
+        )
+        const targetId = hasFlyerOrEventDetails ? DATE_DETAILS_SCROLL_ID : SPACES_SECTION_ID
+
         const scrollToDateDetails = (attempt = 0) => {
-            const target = document.getElementById(DATE_DETAILS_SCROLL_ID)
+            const target = document.getElementById(targetId)
             if (!target) {
                 if (attempt >= MAX_SCROLL_ATTEMPTS) return
 
@@ -918,6 +929,9 @@ function ReservasPageContent() {
                                                         isClosed: true,
                                                         date: day.date!,
                                                     })
+                                                    if (day.config?.flyerImageUrl || day.config?.title || day.config?.release || day.config?.ticketLots?.length) {
+                                                        handleDateSelect(day.date!)
+                                                    }
                                                 } else if (!isDisabled) {
                                                     handleDateSelect(day.date!)
                                                 }
@@ -928,7 +942,7 @@ function ReservasPageContent() {
                                                 ${isSelected
                                                     ? 'bg-gray-900 text-white shadow-lg scale-105'
                                                     : day.isClosed
-                                                        ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
+                                                        ? 'bg-red-100 text-red-500 hover:bg-red-200'
                                                         : isDisabled
                                                             ? 'text-gray-200 cursor-not-allowed'
                                                             : isToday
@@ -979,6 +993,20 @@ function ReservasPageContent() {
                                     </div>
                                 )
                             })}
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-gray-500">
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-sky-500" />
+                                Evento
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                Feriado
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                Data bloqueada
+                            </span>
                         </div>
                     </div>
 
