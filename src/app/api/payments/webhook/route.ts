@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyWebhookSignature, mapCardBrand, mapPaymentStatus } from '@/lib/rede-api'
 import type { ApiResponse } from '@/lib/types'
-import { PaymentStatus, CardBrand } from '@prisma/client'
+import { PaymentStatus, CardBrand, ReservationStatus } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
     try {

@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db'
 import { createRedeTransaction, mapCardBrand, mapPaymentStatus } from '@/lib/rede-api'
 import { createPaymentSchema } from '@/lib/validations'
 import type { ApiResponse, RedeTransactionResponse } from '@/lib/types'
-import { PaymentStatus } from '@prisma/client'
+import { PaymentStatus, ReservationStatus } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
     try {
