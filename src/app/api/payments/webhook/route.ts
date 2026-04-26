@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyWebhookSignature, mapCardBrand, mapPaymentStatus } from '@/lib/rede-api'
 import type { ApiResponse } from '@/lib/types'
-import { PaymentStatus, ReservationStatus, CardBrand } from '@prisma/client'
+import { PaymentStatus, CardBrand } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
     try {
@@ -68,17 +68,11 @@ export async function POST(request: NextRequest) {
             },
         })
 
-        // Se CAPTURED, confirma reserva
+        // Pagamento capturado nao aprova sozinho.
+        // Reserva segue pendente ate equipe validar comprovante/contexto.
         if (paymentStatus === PaymentStatus.CAPTURED) {
-            await prisma.reservation.update({
-                where: { id: payment.reservationId },
-                data: { status: ReservationStatus.CONFIRMED },
-            })
-
-            // TODO: Enviar email de confirmação
-            // TODO: Enviar WhatsApp (opcional)
             console.log({
-                action: 'RESERVATION_CONFIRMED_VIA_WEBHOOK',
+                action: 'PAYMENT_CAPTURED_AWAITING_APPROVAL',
                 timestamp: new Date().toISOString(),
                 reservationId: payment.reservationId,
                 transactionId: transaction.id,

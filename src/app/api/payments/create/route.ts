@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db'
 import { createRedeTransaction, mapCardBrand, mapPaymentStatus } from '@/lib/rede-api'
 import { createPaymentSchema } from '@/lib/validations'
 import type { ApiResponse, RedeTransactionResponse } from '@/lib/types'
-import { PaymentStatus, ReservationStatus } from '@prisma/client'
+import { PaymentStatus } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
     try {
@@ -94,15 +94,9 @@ export async function POST(request: NextRequest) {
             },
         })
 
-        // Atualiza status da reserva
-        await prisma.reservation.update({
-            where: { id: reservationId },
-            data: { status: ReservationStatus.CONFIRMED },
-        })
-
         // Log de auditoria
         console.log({
-            action: 'PAYMENT_AUTHORIZED',
+            action: 'PAYMENT_AUTHORIZED_AWAITING_APPROVAL',
             timestamp: new Date().toISOString(),
             paymentId: payment.id,
             reservationId,
@@ -117,7 +111,7 @@ export async function POST(request: NextRequest) {
                 transactionId: redeResponse.transactionId,
                 status: 'AUTHORIZED',
             },
-            message: 'Pagamento autorizado com sucesso',
+            message: 'Pagamento autorizado. Reserva segue aguardando aprovacao manual.',
         })
     } catch (error) {
         console.error('[Payment Create Error]', error)

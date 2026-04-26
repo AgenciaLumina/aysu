@@ -54,6 +54,7 @@ interface PendingReservation {
     totalPrice: number
     createdAt: string
     notes?: string | null
+    reviewReason?: string
 }
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -487,6 +488,11 @@ export default function FrenteDeCaixaPage() {
                                         {reservation.notes && (
                                             <p className="text-xs text-[#8a5c3f] mt-1 whitespace-pre-wrap break-words">
                                                 <span className="font-semibold text-[#6c4531]">Obs:</span> {reservation.notes}
+                                            </p>
+                                        )}
+                                        {reservation.reviewReason && (
+                                            <p className="text-xs text-amber-700 mt-1 whitespace-pre-wrap break-words">
+                                                <span className="font-semibold">Revisar:</span> {reservation.reviewReason}
                                             </p>
                                         )}
                                     </div>
