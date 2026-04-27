@@ -12,21 +12,9 @@ export async function GET(request: NextRequest) {
         }
 
         const pending = await prisma.reservation.findMany({
-            where: {
-                OR: [
-                    { status: 'PENDING' },
-                    {
-                        source: 'ONLINE',
-                        status: 'CONFIRMED',
-                        payment: {
-                            is: null,
-                        },
-                    },
-                ],
-            },
+            where: { status: 'PENDING' },
             include: {
                 cabin: { select: { name: true } },
-                payment: { select: { id: true, status: true } },
             },
             orderBy: { createdAt: 'desc' },
         })
@@ -46,12 +34,6 @@ export async function GET(request: NextRequest) {
             totalPrice: Number(r.totalPrice),
             createdAt: r.createdAt.toISOString(),
             notes: r.notes,
-            status: r.status,
-            source: r.source,
-            reviewReason:
-                r.status === 'CONFIRMED' && !r.payment
-                    ? 'Reserva online confirmada sem pagamento vinculado'
-                    : 'Reserva aguardando aprovacao',
         }))
 
         return NextResponse.json({ success: true, data: formatted, count: formatted.length })
