@@ -12,6 +12,10 @@ const immutableAssetHeaders = [
   { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
 ];
 
+const noStoreHeaders = [
+  { key: "Cache-Control", value: "no-store, max-age=0" },
+];
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
@@ -75,6 +79,38 @@ const nextConfig: NextConfig = {
       {
         source: "/manutencao",
         headers: publicPageCacheHeaders,
+      },
+      {
+        source: "/checkout",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/checkout/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/reservas",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/reservas/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/admin/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/api/auth/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/api/payments/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/api/payments/webhook",
+        headers: noStoreHeaders,
       },
       {
         source: "/_next/static/:path*",
