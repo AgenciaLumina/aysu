@@ -4,11 +4,13 @@ import { canManageReservations, getAuthUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' }
+
 export async function GET(request: NextRequest) {
     try {
         const authUser = getAuthUser(request)
         if (!canManageReservations(authUser)) {
-            return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
+            return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403, headers: NO_STORE_HEADERS })
         }
 
         const pending = await prisma.reservation.findMany({
@@ -36,9 +38,9 @@ export async function GET(request: NextRequest) {
             notes: r.notes,
         }))
 
-        return NextResponse.json({ success: true, data: formatted, count: formatted.length })
+        return NextResponse.json({ success: true, data: formatted, count: formatted.length }, { headers: NO_STORE_HEADERS })
     } catch (error) {
         console.error('[Pending Reservations Error]', error)
-        return NextResponse.json({ success: false, error: 'Erro' }, { status: 500 })
+        return NextResponse.json({ success: false, error: 'Erro' }, { status: 500, headers: NO_STORE_HEADERS })
     }
 }
