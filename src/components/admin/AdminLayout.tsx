@@ -196,7 +196,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             } catch {}
         }
         fetchPending()
-        const interval = setInterval(fetchPending, 30000)
+        const interval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                void fetchPending()
+            }
+        }, 120000)
         return () => clearInterval(interval)
     }, [clearClientAuth, pathname, redirectToLogin])
 

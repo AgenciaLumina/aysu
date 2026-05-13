@@ -142,10 +142,14 @@ export default function FrenteDeCaixaPage() {
         fetchReservations()
     }, [selectedDate])
 
-    // Fetch pending on mount and every 30s
+    // Fetch pending on mount and every 2 minutes while visible
     useEffect(() => {
         fetchPendingReservations()
-        const interval = setInterval(fetchPendingReservations, 30000)
+        const interval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                void fetchPendingReservations()
+            }
+        }, 120000)
         return () => clearInterval(interval)
     }, [])
 
