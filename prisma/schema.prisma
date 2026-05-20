@@ -460,6 +460,14 @@ model ReservationGlobalConfig {
   updatedAt       DateTime @updatedAt
 }
 
+// Conteúdo editável do site público (textos e tabelas comerciais)
+model SiteContentConfig {
+  id        String   @id @default("default")
+  content   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Galeria de Menu (imagens para seção "Nosso Menu" da home)
 model MenuGalleryImage {
   id           String   @id @default(uuid())

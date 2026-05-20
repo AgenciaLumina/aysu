@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import {
-    Calendar, Users, Clock, MapPin, Phone, Mail,
+    Calendar, Users, MapPin, Phone, Mail,
     Sparkles, Wine, UtensilsCrossed, Camera, Music,
     Check, ChevronRight, Star, Heart
 } from 'lucide-react'
@@ -13,92 +12,23 @@ import { Footer } from '@/components/layout/Footer'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { formatCurrency } from '@/lib/utils'
+import { DEFAULT_SITE_CONTENT, parseSiteContentConfig } from '@/lib/site-content'
 import toast from 'react-hot-toast'
 
-// Tipos de eventos
-const eventTypes = [
-    { name: 'Casamentos à Beira-mar', icon: Heart, description: 'Cerimônias e recepções com vista para o oceano' },
-    { name: 'Festas de 15 Anos', icon: Sparkles, description: 'Celebração de debutantes em cenário paradisíaco' },
-    { name: 'Corporativos', icon: Users, description: 'Ativações de marca, confraternizações e team building' },
-    { name: 'Miniweddings', icon: Star, description: 'Celebrações íntimas para até 50 convidados' },
-]
-
-// Pacotes de espaço
-const spacePricing = [
-    {
-        name: 'Semana',
-        price: 6000,
-        features: [
-            'Segunda a Sexta',
-            'Até 6 horas de evento',
-            'Abril a Outubro',
-            'Exceto feriados'
-        ],
-        highlight: false
-    },
-    {
-        name: 'Final de Semana',
-        price: 9500,
-        features: [
-            'Sábado ou Domingo',
-            'Até 5 horas de evento',
-            'Abril a Outubro',
-            'Exceto feriados'
-        ],
-        highlight: true
-    },
-    {
-        name: 'Alta Temporada',
-        price: 15500,
-        features: [
-            'Novembro a Março',
-            'Semana ou Final de Semana',
-            'Até 5 horas de evento',
-            'Inclui feriados'
-        ],
-        highlight: false
-    }
-]
-
-// Bar & Coquetelaria
-const barIncludes = [
-    'Drinks autorais e clássicos (com e sem álcool)',
-    'Refrigerantes variados',
-    'Água mineral com e sem gás',
-    'Sucos naturais ou refrescos tropicais',
-    'Cervejas 600ML (Original, Stella Artois e Corona)',
-    'Equipe de bartender(s) e barback(s)',
-    'Bar completo (estrutura, gelo, utensílios e taças)',
-]
-
-// Buffet Finger Food
-
-const buffetOptions = [
-    'Camarões empanados com molho de limão siciliano',
-    'Mini pastel de sabores variados com molho de redução artesanal',
-    'Espetinho caprese com redução de balsâmico',
-    'Mini tacos de sabores variados (Ex.: guacamole)',
-    'Ceviche com chips de banana da terra',
-    'Mini sanduíches - diversos sabores',
-    'Dadinhos de tapioca com geleia picante de pimenta',
-    'Bolinho de arroz cremoso com aioli de limão',
-    'Bruschetta de tomate confit com manjericão fresco',
-    'Wraps frios de legumes crocantes com creme de iogurte',
-]
-
-// Serviços Parceiros
-const partnerServices = [
-    { name: 'Assessoria de Evento', icon: Calendar },
-    { name: 'Fotografia', icon: Camera },
-    { name: 'Maquiagem', icon: Sparkles },
-    { name: 'Hospedagem', icon: MapPin },
-    { name: 'DJ', icon: Music },
-    { name: 'Iluminação', icon: Star },
-    { name: 'Decoração', icon: Heart },
-    { name: 'Confeitaria', icon: UtensilsCrossed },
-]
+const contentIconMap = {
+    calendar: Calendar,
+    camera: Camera,
+    heart: Heart,
+    'map-pin': MapPin,
+    music: Music,
+    sparkles: Sparkles,
+    star: Star,
+    users: Users,
+    utensils: UtensilsCrossed,
+}
 
 export default function EventosPage() {
+    const [siteContent, setSiteContent] = useState(DEFAULT_SITE_CONTENT)
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -109,6 +39,26 @@ export default function EventosPage() {
         message: '',
     })
     const [submitting, setSubmitting] = useState(false)
+    const eventsContent = siteContent.events
+
+    useEffect(() => {
+        let cancelled = false
+
+        fetch('/api/site-content')
+            .then((res) => res.json())
+            .then((data) => {
+                const payload = data?.data?.content ?? data?.data
+
+                if (data?.success && payload && !cancelled) {
+                    setSiteContent(parseSiteContentConfig(payload))
+                }
+            })
+            .catch(() => {})
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target
@@ -157,25 +107,26 @@ export default function EventosPage() {
                 {/* Content */}
                 <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
                     <p className="text-sm tracking-[0.3em] uppercase text-white/90 mb-4">
-                        Celebre à Beira-Mar
+                        {eventsContent.hero.eyebrow}
                     </p>
                     <h1
                         className="font-serif text-4xl md:text-6xl lg:text-7xl font-light mb-6"
                         style={{ color: '#FFFFFF' }}
                     >
-                        Faça seu Evento
+                        {eventsContent.hero.title}
                     </h1>
                     <p className="text-white/80 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-                        Casamentos, aniversários, Eventos Corporativos e celebrações exclusivas
-                        no cenário mais bonito do Litoral Norte
+                        {eventsContent.hero.subtitle}
                     </p>
                     <div className="flex flex-wrap justify-center gap-4">
                         <Button size="lg" onClick={() => document.getElementById('orcamento')?.scrollIntoView({ behavior: 'smooth' })}>
-                            Solicitar Orçamento
+                            {eventsContent.hero.primaryCtaLabel}
                         </Button>
-                        <Button variant="outline" size="lg" className="!border-white !text-white hover:!bg-white/10">
-                            <Phone className="h-4 w-4" />
-                            (12) 98289-6301
+                        <Button asChild variant="outline" size="lg" className="!border-white !text-white hover:!bg-white/10">
+                            <a href={eventsContent.hero.phoneHref}>
+                                <Phone className="h-4 w-4" />
+                                {eventsContent.hero.phoneLabel}
+                            </a>
                         </Button>
                     </div>
                 </div>
@@ -185,22 +136,26 @@ export default function EventosPage() {
             <section className="py-20 px-6">
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">Celebrações</p>
+                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">{eventsContent.eventTypesSection.eyebrow}</p>
                         <h2 className="font-serif text-3xl md:text-4xl font-light text-[#2a2a2a]">
-                            Tipos de Eventos
+                            {eventsContent.eventTypesSection.title}
                         </h2>
                     </div>
 
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {eventTypes.map((type, idx) => (
-                            <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-[#e0d5c7] hover:shadow-lg transition-shadow group">
-                                <div className="w-12 h-12 rounded-full bg-[#f1c595]/30 flex items-center justify-center mb-4 group-hover:bg-[#d4a574]/30 transition-colors">
-                                    <type.icon className="h-6 w-6 text-[#d4a574]" />
+                        {eventsContent.eventTypes.map((type, idx) => {
+                            const TypeIcon = contentIconMap[type.icon as keyof typeof contentIconMap] ?? Heart
+
+                            return (
+                                <div key={`${type.name}-${idx}`} className="bg-white rounded-2xl p-6 shadow-sm border border-[#e0d5c7] hover:shadow-lg transition-shadow group">
+                                    <div className="w-12 h-12 rounded-full bg-[#f1c595]/30 flex items-center justify-center mb-4 group-hover:bg-[#d4a574]/30 transition-colors">
+                                        <TypeIcon className="h-6 w-6 text-[#d4a574]" />
+                                    </div>
+                                    <h3 className="font-semibold text-[#2a2a2a] mb-2">{type.name}</h3>
+                                    <p className="text-sm text-[#8a5c3f]">{type.description}</p>
                                 </div>
-                                <h3 className="font-semibold text-[#2a2a2a] mb-2">{type.name}</h3>
-                                <p className="text-sm text-[#8a5c3f]">{type.description}</p>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
             </section>
@@ -208,25 +163,24 @@ export default function EventosPage() {
             {/* Venue Showcase - Full Width Image */}
             <section className="relative h-[60vh] min-h-[400px] overflow-hidden" >
                 <Image
-                    src="/evento_01.avif"
+                    src={eventsContent.venue.imageUrl || '/evento_01.avif'}
                     alt="Espaço Aysú Beach Lounge Noturno - Cenário Único"
                     fill
                     className="object-cover"
-                    quality={90}
+                    quality={75}
                     priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-black/30 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 text-center">
-                    <p className="text-[#d4a574] text-sm uppercase tracking-[0.3em] mb-2">Exclusividade Total</p>
+                    <p className="text-[#d4a574] text-sm uppercase tracking-[0.3em] mb-2">{eventsContent.venue.eyebrow}</p>
                     <h3
                         className="font-serif text-2xl md:text-4xl font-light mb-4"
                         style={{ color: '#FFFFFF' }}
                     >
-                        Seu evento em um cenário único
+                        {eventsContent.venue.title}
                     </h3>
                     <p className="text-white/70 max-w-2xl mx-auto">
-                        Deck de madeira, piscina com iluminação, vista para o mar e montanhas.
-                        Tudo preparado para criar memórias inesquecíveis.
+                        {eventsContent.venue.description}
                     </p>
                 </div>
             </section>
@@ -235,22 +189,22 @@ export default function EventosPage() {
             <section className="py-20 px-6 bg-gradient-to-b from-[#2a2a2a] to-[#1a1a1a] text-white" >
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">Espaço Exclusivo</p>
+                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">{eventsContent.pricing.eyebrow}</p>
                         <h2
                             className="font-serif text-3xl md:text-4xl font-light"
                             style={{ color: '#FFFFFF' }}
                         >
-                            Valores - Espaço Fechado
+                            {eventsContent.pricing.title}
                         </h2>
                         <p className="text-white/60 mt-4 max-w-2xl mx-auto">
-                            Exclusivo para seu evento com segurança e limpeza para até 100 pessoas
+                            {eventsContent.pricing.description}
                         </p>
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-6">
-                        {spacePricing.map((plan, idx) => (
+                        {eventsContent.pricing.plans.map((plan, idx) => (
                             <div
-                                key={idx}
+                                key={`${plan.name}-${idx}`}
                                 className={`rounded-2xl p-8 ${plan.highlight
                                     ? 'bg-gradient-to-b from-[#d4a574] to-[#bc8e5e] text-white'
                                     : 'bg-white/5 border border-white/10'
@@ -264,8 +218,8 @@ export default function EventosPage() {
                                 </div>
                                 <ul className="space-y-3 mb-6">
                                     {plan.features.map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-3 text-sm">
-                                            <Check className={`h-4 w-4 ${plan.highlight ? 'text-white' : 'text-[#d4a574]'}`} />
+                                        <li key={i} className="flex items-start gap-3 text-sm">
+                                            <Check className={`h-4 w-4 flex-shrink-0 mt-0.5 ${plan.highlight ? 'text-white' : 'text-[#d4a574]'}`} />
                                             <span className={plan.highlight ? 'text-white/90' : 'text-white/70'}>{feature}</span>
                                         </li>
                                     ))}
@@ -283,21 +237,19 @@ export default function EventosPage() {
                         <div>
                             <div className="flex items-center gap-3 mb-4">
                                 <Wine className="h-6 w-6 text-[#d4a574]" />
-                                <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em]">Coquetelaria</p>
+                                <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em]">{eventsContent.bar.eyebrow}</p>
                             </div>
                             <h2 className="font-serif text-3xl md:text-4xl font-light text-[#2a2a2a] mb-4">
-                                Bar & Coquetelaria Aysú
+                                {eventsContent.bar.title}
                             </h2>
                             <p className="text-[#8a5c3f] mb-6 leading-relaxed">
-                                Drinks autorais, clássicos e tropicais para brindar momentos inesquecíveis.
-                                Nosso bar combina criatividade, frescor e estética praiana em uma carta pensada
-                                para harmonizar com o clima leve e vibrante do litoral.
+                                {eventsContent.bar.description}
                             </p>
 
                             <div className="bg-[#f5f0e8] rounded-xl p-6 mb-6">
-                                <h4 className="font-medium text-[#2a2a2a] mb-3">Inclui:</h4>
+                                <h4 className="font-medium text-[#2a2a2a] mb-3">{eventsContent.bar.includesTitle}</h4>
                                 <ul className="space-y-2">
-                                    {barIncludes.map((item, i) => (
+                                    {eventsContent.bar.includes.map((item, i) => (
                                         <li key={i} className="flex items-start gap-2 text-sm text-[#4a4a4a]">
                                             <Check className="h-4 w-4 text-[#d4a574] flex-shrink-0 mt-0.5" />
                                             {item}
@@ -310,11 +262,14 @@ export default function EventosPage() {
                                 <div className="text-center p-6 bg-white rounded-xl border border-[#e0d5c7] shadow-sm max-w-xs w-full">
                                     <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
                                         <Users className="h-4 w-4" />
-                                        <span className="text-sm">Por pessoa</span>
+                                        <span className="text-sm">{eventsContent.bar.priceLabel}</span>
                                     </div>
-                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">A partir de</div>
+                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">{eventsContent.bar.pricePrefix}</div>
                                     <div className="text-3xl font-bold text-[#2a2a2a]">
-                                        R$ 90,00
+                                        {formatCurrency(eventsContent.bar.price)}
+                                    </div>
+                                    <div className="text-xs text-[#8a5c3f] mt-3">
+                                        {eventsContent.bar.unitNote}
                                     </div>
                                 </div>
                             </div>
@@ -322,7 +277,7 @@ export default function EventosPage() {
 
                         <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
                             <Image
-                                src="/eventos/bar-cocktails.png"
+                                src={eventsContent.bar.imageUrl || '/eventos/bar-cocktails.png'}
                                 alt="Coquetel Tropical Aysú"
                                 fill
                                 className="object-cover"
@@ -338,7 +293,7 @@ export default function EventosPage() {
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="order-2 lg:order-1 relative aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
                             <Image
-                                src="/eventos/buffet-gourmet.png"
+                                src={eventsContent.buffet.imageUrl || '/eventos/buffet-gourmet.png'}
                                 alt="Buffet Finger Food Aysú"
                                 fill
                                 className="object-cover"
@@ -348,21 +303,19 @@ export default function EventosPage() {
                         <div className="order-1 lg:order-2">
                             <div className="flex items-center gap-3 mb-4">
                                 <UtensilsCrossed className="h-6 w-6 text-[#d4a574]" />
-                                <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em]">Alta Gastronomia</p>
+                                <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em]">{eventsContent.buffet.eyebrow}</p>
                             </div>
                             <h2 className="font-serif text-3xl md:text-4xl font-light text-[#2a2a2a] mb-4">
-                                Buffet Finger Food
+                                {eventsContent.buffet.title}
                             </h2>
                             <p className="text-[#8a5c3f] mb-6 leading-relaxed">
-                                Experiência gastronômica prática, saborosa e elegante, perfeita para eventos
-                                descontraídos à beira-mar. Porções em formato individual facilitando a
-                                circulação dos convidados.
+                                {eventsContent.buffet.description}
                             </p>
 
                             <div className="bg-white rounded-xl p-6 mb-6">
-                                <h4 className="font-medium text-[#2a2a2a] mb-3">Opções/Sugestões:</h4>
+                                <h4 className="font-medium text-[#2a2a2a] mb-3">{eventsContent.buffet.optionsTitle}</h4>
                                 <ul className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                                    {buffetOptions.map((item, i) => (
+                                    {eventsContent.buffet.options.map((item, i) => (
                                         <li key={i} className="flex items-start gap-2 text-sm text-[#4a4a4a]">
                                             <span className="text-[#d4a574]">•</span>
                                             {item}
@@ -370,8 +323,7 @@ export default function EventosPage() {
                                     ))}
                                 </ul>
                                 <p className="text-xs text-[#8a5c3f] italic mt-4">
-                                    Sabores e complementos são definidos antecipadamente.
-                                    Outras sugestões de buffet podem ser negociadas (Almoço, Jantar, Churrasco).
+                                    {eventsContent.buffet.note}
                                 </p>
                             </div>
 
@@ -379,11 +331,11 @@ export default function EventosPage() {
                                 <div className="text-center p-6 bg-white rounded-xl border border-[#e0d5c7] shadow-sm max-w-xs w-full">
                                     <div className="flex items-center justify-center gap-1 text-[#8a5c3f] mb-1">
                                         <Users className="h-4 w-4" />
-                                        <span className="text-sm">Por pessoa</span>
+                                        <span className="text-sm">{eventsContent.buffet.priceLabel}</span>
                                     </div>
-                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">A partir de</div>
+                                    <div className="text-xl font-medium text-[#8a5c3f] mb-1">{eventsContent.buffet.pricePrefix}</div>
                                     <div className="text-3xl font-bold text-[#2a2a2a]">
-                                        R$ 180,00
+                                        {formatCurrency(eventsContent.buffet.price)}
                                     </div>
                                 </div>
                             </div>
@@ -396,22 +348,26 @@ export default function EventosPage() {
             <section className="py-20 px-6" >
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">Parceiros</p>
+                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">{eventsContent.partners.eyebrow}</p>
                         <h2 className="font-serif text-3xl md:text-4xl font-light text-[#2a2a2a]">
-                            Serviços Parceiros
+                            {eventsContent.partners.title}
                         </h2>
                         <p className="text-[#8a5c3f] mt-4 max-w-2xl mx-auto">
-                            Indicamos profissionais de excelência para tornar seu evento completo
+                            {eventsContent.partners.description}
                         </p>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {partnerServices.map((service, idx) => (
-                            <div key={idx} className="bg-white rounded-xl p-5 shadow-sm border border-[#e0d5c7] text-center hover:shadow-md transition-shadow">
-                                <service.icon className="h-6 w-6 text-[#d4a574] mx-auto mb-3" />
-                                <p className="text-sm font-medium text-[#2a2a2a]">{service.name}</p>
-                            </div>
-                        ))}
+                        {eventsContent.partners.services.map((service, idx) => {
+                            const ServiceIcon = contentIconMap[service.icon as keyof typeof contentIconMap] ?? Star
+
+                            return (
+                                <div key={`${service.name}-${idx}`} className="bg-white rounded-xl p-5 shadow-sm border border-[#e0d5c7] text-center hover:shadow-md transition-shadow">
+                                    <ServiceIcon className="h-6 w-6 text-[#d4a574] mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-[#2a2a2a]">{service.name}</p>
+                                </div>
+                            )
+                        })}
                     </div>
                 </div>
             </section>
@@ -420,12 +376,12 @@ export default function EventosPage() {
             <section id="orcamento" className="py-20 px-6 bg-gradient-to-b from-[#2a2a2a] to-[#1a1a1a]" >
                 <div className="max-w-3xl mx-auto">
                     <div className="text-center mb-12">
-                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">Contato</p>
+                        <p className="text-xs text-[#d4a574] uppercase tracking-[0.3em] mb-3">{eventsContent.quoteForm.eyebrow}</p>
                         <h2 className="font-serif text-3xl md:text-4xl font-light text-white mb-4">
-                            Solicite seu Orçamento
+                            {eventsContent.quoteForm.title}
                         </h2>
                         <p className="text-white/60">
-                            Preencha o formulário e nossa equipe entrará em contato em até 24h
+                            {eventsContent.quoteForm.description}
                         </p>
                     </div>
 
@@ -517,21 +473,21 @@ export default function EventosPage() {
 
                     {/* Contato direto */}
                     <div className="mt-12 text-center">
-                        <p className="text-white/60 mb-4">Ou entre em contato diretamente:</p>
+                        <p className="text-white/60 mb-4">{eventsContent.quoteForm.directContactLabel}</p>
                         <div className="flex flex-wrap justify-center gap-6">
                             <a
-                                href="tel:+5512982896301"
+                                href={eventsContent.quoteForm.phoneHref}
                                 className="flex items-center gap-2 text-[#d4a574] hover:text-[#f1c595] transition-colors"
                             >
                                 <Phone className="h-5 w-5" />
-                                (12) 98289-6301
+                                {eventsContent.quoteForm.phoneLabel}
                             </a>
                             <a
-                                href="mailto:eventos@aysubeachlounge.com.br"
+                                href={eventsContent.quoteForm.emailHref}
                                 className="flex items-center gap-2 text-[#d4a574] hover:text-[#f1c595] transition-colors"
                             >
                                 <Mail className="h-5 w-5" />
-                                eventos@aysubeachlounge.com.br
+                                {eventsContent.quoteForm.emailLabel}
                             </a>
                         </div>
                     </div>
