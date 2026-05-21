@@ -3,7 +3,7 @@ import type { ApiResponse } from '@/lib/types'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const DEFAULT_TO_EMAIL = 'Aysubeachlounge@gmail.com'
-const DEFAULT_FROM_EMAIL = 'Aysu Beach Lounge <onboarding@resend.dev>'
+const DEFAULT_FROM_EMAIL = 'Aysu Beach Lounge <contato@aysubeachlounge.com.br>'
 
 interface ContactPayload {
     source?: string
