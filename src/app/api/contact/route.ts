@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { ApiResponse } from '@/lib/types'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const DEFAULT_TO_EMAIL = 'Aysubeachlounge@gmail.com'
+const DEFAULT_TO_EMAILS = ['Aysubeachlounge@gmail.com', 'agencialuminabrasil@gmail.com']
 const DEFAULT_FROM_EMAIL = 'Aysu Beach Lounge <contato@aysubeachlounge.com.br>'
 
 interface ContactPayload {
@@ -41,6 +41,15 @@ function escapeHtml(value: string): string {
 
 function isValidEmail(value: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function parseRecipientEmails(value: string | undefined): string[] {
+    const recipients = (value || DEFAULT_TO_EMAILS.join(','))
+        .split(/[,\s;]+/)
+        .map(email => email.trim())
+        .filter(email => email && isValidEmail(email))
+
+    return Array.from(new Set(recipients))
 }
 
 function formatOptional(value: string): string {
@@ -132,8 +141,15 @@ export async function POST(request: NextRequest) {
         }
 
         const { html, text } = buildEmailContent(payload)
-        const toEmail = process.env.CONTACT_TO_EMAIL || DEFAULT_TO_EMAIL
+        const toEmails = parseRecipientEmails(process.env.CONTACT_TO_EMAIL)
         const fromEmail = process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL
+
+        if (toEmails.length === 0) {
+            return NextResponse.json<ApiResponse>(
+                { success: false, error: 'Destinatários de e-mail não configurados' },
+                { status: 503 }
+            )
+        }
 
         const response = await fetch(RESEND_ENDPOINT, {
             method: 'POST',
@@ -143,7 +159,7 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 from: fromEmail,
-                to: [toEmail],
+                to: toEmails,
                 reply_to: payload.email,
                 subject: `Nova solicitação de evento - ${payload.name}`,
                 html,
