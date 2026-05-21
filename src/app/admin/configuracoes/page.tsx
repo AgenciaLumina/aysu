@@ -7,7 +7,6 @@ import {
     Plus,
     RotateCcw,
     Save,
-    Settings,
     Sparkles,
     Trash2,
     UtensilsCrossed,
@@ -203,7 +202,7 @@ export default function AdminConfiguracoesPage() {
             <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-2xl font-serif font-bold text-[#2a2a2a]">Configurações</h1>
-                    <p className="text-[#8a5c3f]">Conteúdo público da home e da página Faça seu Evento</p>
+                    <p className="text-[#8a5c3f]">Conteúdo público da página Faça seu Evento</p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
                     <Button type="button" variant="outline" onClick={handleReset} disabled={saving || loading}>
@@ -225,47 +224,7 @@ export default function AdminConfiguracoesPage() {
                 </Card>
             ) : (
                 <div className="space-y-6">
-                    <div className="grid gap-6 lg:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Settings className="h-5 w-5 text-[#d4a574]" />
-                                    Home
-                                </CardTitle>
-                                <CardDescription>Bloco de eventos privados exibido na página inicial</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <Input
-                                    label="Etiqueta"
-                                    value={eventsContent.homeEventSection.eyebrow}
-                                    onChange={(e) => patchEventSection('homeEventSection', { eyebrow: e.target.value })}
-                                />
-                                <Input
-                                    label="Título"
-                                    value={eventsContent.homeEventSection.title}
-                                    onChange={(e) => patchEventSection('homeEventSection', { title: e.target.value })}
-                                />
-                                <Textarea
-                                    label="Descrição"
-                                    rows={4}
-                                    value={eventsContent.homeEventSection.description}
-                                    onChange={(e) => patchEventSection('homeEventSection', { description: e.target.value })}
-                                />
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <Input
-                                        label="Botão principal"
-                                        value={eventsContent.homeEventSection.ctaLabel}
-                                        onChange={(e) => patchEventSection('homeEventSection', { ctaLabel: e.target.value })}
-                                    />
-                                    <Input
-                                        label="Botão orçamento"
-                                        value={eventsContent.homeEventSection.secondaryCtaLabel}
-                                        onChange={(e) => patchEventSection('homeEventSection', { secondaryCtaLabel: e.target.value })}
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
-
+                    <div className="grid gap-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">

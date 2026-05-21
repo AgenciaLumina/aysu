@@ -78,13 +78,6 @@ export interface SiteContentConfig {
             emailLabel: string
             emailHref: string
         }
-        homeEventSection: {
-            eyebrow: string
-            title: string
-            description: string
-            ctaLabel: string
-            secondaryCtaLabel: string
-        }
     }
 }
 
@@ -219,15 +212,8 @@ export const DEFAULT_SITE_CONTENT: SiteContentConfig = {
             directContactLabel: 'Ou entre em contato diretamente:',
             phoneLabel: '(12) 98289-6301',
             phoneHref: 'tel:+5512982896301',
-            emailLabel: 'eventos@aysubeachlounge.com.br',
-            emailHref: 'mailto:eventos@aysubeachlounge.com.br',
-        },
-        homeEventSection: {
-            eyebrow: 'Eventos Privados',
-            title: 'Faça seu evento no Aysú',
-            description: 'Espaço fechado à beira-mar, operação completa e uma tabela simples para planejar celebrações de 50 a 100 pessoas.',
-            ctaLabel: 'Ver detalhes',
-            secondaryCtaLabel: 'Solicitar orçamento',
+            emailLabel: 'Aysubeachlounge@gmail.com',
+            emailHref: 'mailto:Aysubeachlounge@gmail.com',
         },
     },
 }

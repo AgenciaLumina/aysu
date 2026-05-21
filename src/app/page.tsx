@@ -11,7 +11,6 @@ import InstagramStories from '@/components/InstagramStories'
 import InstagramFeed from '@/components/InstagramFeed'
 
 import { LocationSection } from '@/components/home/LocationSection'
-import EventPricingSection from '@/components/home/EventPricingSection'
 import PricingSection from '@/components/home/PricingSection'
 import UpcomingEventsSection from '@/components/home/UpcomingEventsSection'
 
@@ -91,8 +90,6 @@ export default function HomePage() {
 
 
       <UpcomingEventsSection />
-
-      <EventPricingSection />
 
       {/* Instagram Section */}
       <section className="py-16 md:py-20 bg-gradient-warm">

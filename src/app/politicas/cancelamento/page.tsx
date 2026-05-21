@@ -201,11 +201,11 @@ export default function PoliticaCancelamentoPage() {
                                     (12) 98289-6301
                                 </a>
                                 <a
-                                    href="mailto:contato@aysubeachlounge.com.br"
+                                    href="mailto:Aysubeachlounge@gmail.com"
                                     className="inline-flex items-center gap-2 text-[#d4a574] hover:text-[#bc8e5e] transition-colors"
                                 >
                                     <Mail className="h-4 w-4" />
-                                    contato@aysubeachlounge.com.br
+                                    Aysubeachlounge@gmail.com
                                 </a>
                             </div>
                         </section>

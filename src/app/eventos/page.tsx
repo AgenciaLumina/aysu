@@ -69,20 +69,36 @@ export default function EventosPage() {
         e.preventDefault()
         setSubmitting(true)
 
-        // Simula envio
-        await new Promise(r => setTimeout(r, 1500))
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source: 'event_quote',
+                    ...formData,
+                }),
+            })
+            const data = await response.json()
 
-        toast.success('Solicitação enviada! Entraremos em contato em breve.')
-        setFormData({
-            name: '',
-            email: '',
-            phone: '',
-            eventType: '',
-            eventDate: '',
-            guestCount: '',
-            message: '',
-        })
-        setSubmitting(false)
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.error || 'Não foi possível enviar sua solicitação')
+            }
+
+            toast.success('Solicitação enviada! Entraremos em contato em breve.')
+            setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                eventType: '',
+                eventDate: '',
+                guestCount: '',
+                message: '',
+            })
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao enviar solicitação')
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     return (
