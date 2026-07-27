@@ -106,8 +106,8 @@ async function main() {
 
     const menuItems = [
         // === ÁGUA E REFRI ===
-        { categorySlug: 'agua-e-refri', name: 'Água Mineral s/ Gás — 510ml', price: 5.00, description: 'Água mineral Caraguá.', imageUrl: '/cardapio/Água e Refri/Água Mineral s: Gás - 510ml .jpg' },
-        { categorySlug: 'agua-e-refri', name: 'Água Mineral c/ Gás — 510ml', price: 6.50, description: 'Água mineral com gás Caraguá.', imageUrl: '/cardapio/Água e Refri/Água Mineral c: Gás - 510ml .jpg' },
+        { categorySlug: 'agua-e-refri', name: 'Água Mineral s/ Gás — 510ml', price: 5.00, description: 'Água mineral Caraguá.', imageUrl: '/cardapio/Água e Refri/Água Mineral sem Gás - 510ml.jpg' },
+        { categorySlug: 'agua-e-refri', name: 'Água Mineral c/ Gás — 510ml', price: 6.50, description: 'Água mineral com gás Caraguá.', imageUrl: '/cardapio/Água e Refri/Água Mineral com Gás - 510ml.jpg' },
         { categorySlug: 'agua-e-refri', name: 'H2O Limão — 500ml', price: 12.00, description: 'Bebida levemente gaseificada sabor limão.', imageUrl: '/cardapio/Água e Refri/H2O Limão 500ml .jpg' },
         { categorySlug: 'agua-e-refri', name: 'H2O Limoneto — 500ml', price: 12.00, description: 'Bebida gaseificada sabor limão siciliano.', imageUrl: '/cardapio/Água e Refri/H2O Limoneto 500ml .jpg' },
         { categorySlug: 'agua-e-refri', name: 'Pepsi Cola — Lata 350ml', price: 9.00, description: 'Refrigerante Pepsi.', imageUrl: '/cardapio/Água e Refri/Pepsi Cola - Lata - 350ml .jpg' },

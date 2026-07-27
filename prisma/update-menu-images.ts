@@ -9,8 +9,8 @@ const prisma = new PrismaClient()
 // Baseado na estrutura: /cardapio/[Categoria]/[Nome do Arquivo].jpg
 const imageMapping: Record<string, string> = {
     // === ÁGUA E REFRI ===
-    'agua-mineral-s-gas-510ml': '/cardapio/Água e Refri/Água Mineral s: Gás - 510ml .jpg',
-    'agua-mineral-c-gas-510ml': '/cardapio/Água e Refri/Água Mineral c: Gás - 510ml .jpg',
+    'agua-mineral-s-gas-510ml': '/cardapio/Água e Refri/Água Mineral sem Gás - 510ml.jpg',
+    'agua-mineral-c-gas-510ml': '/cardapio/Água e Refri/Água Mineral com Gás - 510ml.jpg',
     'guarana-lata-350ml': '/cardapio/Água e Refri/Guarana Lata 350ml .jpg',
     'guarana-zero-lata-350ml': '/cardapio/Água e Refri/Guarana zero Lata 350ml .jpg',
     'pepsi-cola-lata-350ml': '/cardapio/Água e Refri/Pepsi Cola - Lata - 350ml .jpg',

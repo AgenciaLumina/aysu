@@ -41,8 +41,8 @@ const menuItems: Record<string, Array<{ name: string; description?: string; pric
         { name: 'Original', price: 22.00, tags: ['garrafa', '600ml'], imagePath: 'Cervejas - Garrafa 600ml/Original - 600ml.jpg' },
     ],
     'agua-refrigerantes': [
-        { name: 'Água Mineral sem Gás', description: '510ml - Caraguá', price: 5.00, imagePath: 'Água e Refri/Água Mineral s: Gás - 510ml .jpg' },
-        { name: 'Água Mineral com Gás', description: '510ml - Caraguá', price: 6.50, imagePath: 'Água e Refri/Água Mineral c: Gás - 510ml .jpg' },
+        { name: 'Água Mineral sem Gás', description: '510ml - Caraguá', price: 5.00, imagePath: 'Água e Refri/Água Mineral sem Gás - 510ml.jpg' },
+        { name: 'Água Mineral com Gás', description: '510ml - Caraguá', price: 6.50, imagePath: 'Água e Refri/Água Mineral com Gás - 510ml.jpg' },
         { name: 'Água São Lourenço com Gás', description: '510ml', price: 8.50 }, // Sem imagem
         { name: 'H2O Limão', description: '500ml', price: 12.00, imagePath: 'Água e Refri/H2O Limão 500ml .jpg' },
         { name: 'H2O Limoneto', description: '500ml', price: 12.00, imagePath: 'Água e Refri/H2O Limoneto 500ml .jpg' },

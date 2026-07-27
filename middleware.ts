@@ -30,17 +30,6 @@ function redirectToLoginAndClearToken(request: NextRequest) {
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
 
-    // 0. Modo Manutenção
-    // Define como ativo por padrão, a menos que a env MAINTENANCE_MODE seja explicitamente 'false'
-    const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'false' ? false : true;
-
-    if (MAINTENANCE_MODE) {
-        // Ignora rotas /admin, rotas /api e arquivos da página de manutenção
-        if (!pathname.startsWith('/admin') && !pathname.startsWith('/api') && pathname !== '/manutencao') {
-            return NextResponse.redirect(new URL('/manutencao', request.url))
-        }
-    }
-
     // 1. Proteção de Rotas Admin
     if (pathname.startsWith('/admin')) {
         // Se for rota pública, permite
@@ -90,14 +79,6 @@ export function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         '/api/:path*',
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes) -> already covered above by /api/:path*
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public files
-         */
-        '/((?!api|_next/static|_next/image|favicon.ico).*)',
+        '/admin/:path*',
     ],
 }

@@ -86,6 +86,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json<ApiResponse<AuthToken>>(response)
     } catch (error) {
         console.error('[Login Error]', error)
+
+        const isDatabaseUnavailable =
+            error instanceof Error &&
+            (
+                error.name === 'PrismaClientInitializationError' ||
+                error.message.includes("Can't reach database server")
+            )
+
+        if (isDatabaseUnavailable) {
+            return NextResponse.json<ApiResponse>(
+                {
+                    success: false,
+                    error: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
+                },
+                { status: 503 }
+            )
+        }
+
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro interno do servidor' },
             { status: 500 }
