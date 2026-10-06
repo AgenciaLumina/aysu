@@ -158,3 +158,7 @@ Backup e imagem de reversão ficam no Thor em
 Contêm material privado e não devem ser anexados nem copiados ao repositório.
 Em falha de aplicação, restaurar a imagem e o compose anterior; manter a migração
 aditiva. Restauração de banco exige reconciliação de novas reservas após o backup.
+
+A checagem do Coolify exige `GET /api/health` com HTTP 200. Validar essa rota na
+imagem candidata com o mesmo comando de healthcheck antes de substituir a aplicação.
+Ela confirma liveness; consultas de configuração/cotação confirmam acesso ao banco.
