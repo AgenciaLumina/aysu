@@ -1,3 +1,4 @@
+import { getCommercialCondition, inventoryConsumption, parseCommercialConditions } from '@/lib/reservation-commercial'
 // AISSU Beach Lounge - Reservation Availability API
 // GET /api/reservations/availability
 
@@ -29,6 +30,7 @@ async function ensureCabinVisibilityStatusColumn() {
 }
 
 interface ReservationLite {
+    participantCount: number
     cabinId: string
     checkIn: Date
     checkOut: Date
@@ -50,19 +52,13 @@ function formatLocalDate(date: Date): string {
 }
 
 function getDayRange(date: Date): { start: Date; end: Date } {
-    const start = new Date(date)
-    start.setHours(10, 0, 0, 0)
-    const end = new Date(date)
-    end.setHours(18, 0, 0, 0)
-    return { start, end }
+    const key = formatLocalDate(date)
+    return { start: new Date(`${key}T10:00:00-03:00`), end: new Date(`${key}T18:00:00-03:00`) }
 }
 
 function getCalendarDayRange(date: Date): { start: Date; end: Date } {
-    const start = new Date(date)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(date)
-    end.setHours(23, 59, 59, 999)
-    return { start, end }
+    const key = formatLocalDate(date)
+    return { start: new Date(`${key}T00:00:00-03:00`), end: new Date(`${key}T23:59:59.999-03:00`) }
 }
 
 function buildSpaceKeyFilter(spaceKey: string) {
@@ -123,6 +119,11 @@ async function getRelevantReservations(
 export async function GET(request: NextRequest) {
     try {
         await ensureCabinVisibilityStatusColumn()
+        const [globalRules, dateRules] = await Promise.all([
+            prisma.reservationGlobalConfig.findUnique({ where: { id: 'default' }, select: { commercialConditions: true } }),
+            prisma.reservationDayConfig.findMany({ select: { date: true, commercialConditions: true } }),
+        ])
+        const dayUseCapacity = (date: Date, fallback: number) => getCommercialCondition('day-use-praia', parseCommercialConditions(globalRules?.commercialConditions), parseCommercialConditions(dateRules.find(item => item.date.toISOString().slice(0, 10) === formatLocalDate(date))?.commercialConditions)).dayUseCapacity ?? fallback
         const { searchParams } = new URL(request.url)
         const cabinId = searchParams.get('cabinId')
         const dateParam = searchParams.get('date')
@@ -202,11 +203,12 @@ export async function GET(request: NextRequest) {
 
                 const reservedCount = relevantReservations.filter((reservation) =>
                     overlaps(start, end, reservation.checkIn, reservation.checkOut)
-                ).length
+                ).reduce((sum, reservation) => sum + inventoryConsumption(targetSpaceKey || '', reservation), 0)
+                const dayTotalUnits = targetSpaceKey === 'day-use-praia' ? dayUseCapacity(currentDay, totalUnits) : totalUnits
 
                 dayResults.push({
                     date: formatLocalDate(currentDay),
-                    available: reservedCount < totalUnits,
+                    available: reservedCount < dayTotalUnits,
                 })
             }
 
@@ -215,7 +217,7 @@ export async function GET(request: NextRequest) {
 
         // Disponibilidade por tipo para uma data (home/reservas)
         if (!cabinId && dateParam) {
-            const date = new Date(dateParam)
+            const date = new Date(`${dateParam}T12:00:00`)
             const { start, end } = getDayRange(date)
 
             const activeCabins = await prisma.cabin.findMany({
@@ -243,12 +245,12 @@ export async function GET(request: NextRequest) {
                 })
 
                 if (!(spaceKey in totalUnitsByType)) return
-                reservedByType[spaceKey] = (reservedByType[spaceKey] || 0) + 1
+                reservedByType[spaceKey] = (reservedByType[spaceKey] || 0) + inventoryConsumption(spaceKey, reservation)
             })
 
             const availability: Record<string, number> = {}
             Object.entries(totalUnitsByType).forEach(([spaceKey, totalUnitsForType]) => {
-                const available = totalUnitsForType - (reservedByType[spaceKey] || 0)
+                const available = (spaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnitsForType) : totalUnitsForType) - (reservedByType[spaceKey] || 0)
                 availability[spaceKey] = available > 0 ? available : 0
             })
 
@@ -257,7 +259,7 @@ export async function GET(request: NextRequest) {
 
         // Slots horários de um tipo específico em uma data
         if (cabinId && dateParam) {
-            const date = new Date(dateParam)
+            const date = new Date(`${dateParam}T12:00:00`)
             const { start, end } = getCalendarDayRange(date)
 
             const reservations = await getRelevantReservations(start, end)
@@ -273,16 +275,15 @@ export async function GET(request: NextRequest) {
 
             const slots = []
             for (let hour = 10; hour < 18; hour++) {
-                const slotStart = new Date(date)
-                slotStart.setHours(hour, 0, 0, 0)
-                const slotEnd = new Date(date)
-                slotEnd.setHours(hour + 1, 0, 0, 0)
+                const key = formatLocalDate(date)
+                const slotStart = new Date(`${key}T${hour}:00:00-03:00`)
+                const slotEnd = new Date(`${key}T${hour + 1}:00:00-03:00`)
 
                 const countAtSlot = relevantReservations.filter((reservation) =>
                     overlaps(slotStart, slotEnd, reservation.checkIn, reservation.checkOut)
-                ).length
+                ).reduce((sum, reservation) => sum + inventoryConsumption(targetSpaceKey || '', reservation), 0)
 
-                const isOccupied = countAtSlot >= totalUnits || slotStart < new Date()
+                const isOccupied = countAtSlot >= (targetSpaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnits) : totalUnits) || slotStart < new Date()
 
                 slots.push({
                     start: slotStart.toISOString(),

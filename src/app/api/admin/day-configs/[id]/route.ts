@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
+import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
-import { DEFAULT_RESERVABLE_ITEMS, parseDayConfig, parseTicketLots, toDbDate } from '@/lib/day-config'
+import { parseDayConfig, parseTicketLots, toDbDate } from '@/lib/day-config'
 import { updateDayConfigSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 
@@ -52,9 +53,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const ticketLots = payload.ticketLots ? parseTicketLots(payload.ticketLots) : undefined
 
-        const updated = await prisma.reservationDayConfig.update({
+        const updated = await prisma.$transaction(async tx => {
+            await lockCommercialSettings(tx)
+            return tx.reservationDayConfig.update({
             where: { id },
             data: {
+                commercialPeriodId: null,
                 ...(payload.date ? { date: toDbDate(payload.date) } : {}),
                 ...(payload.status ? { status: payload.status } : {}),
                 ...(payload.reservationsEnabled !== undefined ? { reservationsEnabled: payload.reservationsEnabled } : {}),
@@ -62,6 +66,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 ...(payload.release !== undefined ? { release: payload.release?.trim() || null } : {}),
                 ...(payload.flyerImageUrl !== undefined ? { flyerImageUrl: payload.flyerImageUrl?.trim() || null } : {}),
                 ...(payload.highlightOnHome !== undefined ? { highlightOnHome: payload.highlightOnHome } : {}),
+                ...(payload.commercialConditions !== undefined ? { commercialConditions: toJsonValueOrNull(payload.commercialConditions) } : {}),
                 ...(payload.priceOverrides !== undefined
                     ? { priceOverrides: toJsonValueOrNull(payload.priceOverrides) }
                     : {}),
@@ -75,6 +80,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                     : {}),
             },
         })
+        }, { timeout: 15000 })
 
         return NextResponse.json<ApiResponse>({
             success: true,

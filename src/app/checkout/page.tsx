@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,6 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { CancellationPolicyCheckbox, CancellationPolicyModal } from '@/components/reservas/CancellationPolicy'
 import { formatCurrency, formatDateUTC } from '@/lib/utils'
+import { useBookingQuote } from '@/hooks/useBookingQuote'
+import { QuoteSummary } from '@/components/reservas/CommercialConditions'
 import toast from 'react-hot-toast'
 
 // Chave Pix do Cliente
@@ -58,8 +60,9 @@ function CheckoutContent() {
     const cabinId = searchParams.get('cabinId')
     const cabinName = searchParams.get('cabinName')
     const date = searchParams.get('date')
-    const price = parseFloat(searchParams.get('price') || '0')
-    const consumable = parseFloat(searchParams.get('consumable') || '0')
+    const participants = Number(searchParams.get('participants') || '1')
+    const { quote, loading: quoteLoading, error: quoteError, reload: reloadQuote } = useBookingQuote(cabinId, date, participants)
+    const requestId = useRef<string | null>(null)
 
     const [submitting, setSubmitting] = useState(false)
     const [policyAccepted, setPolicyAccepted] = useState(false)
@@ -96,6 +99,7 @@ function CheckoutContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
+        if (submitting || !quote) return
         if (!policyAccepted) {
             toast.error('Você precisa aceitar a política de cancelamento para continuar.')
             return
@@ -107,9 +111,10 @@ function CheckoutContent() {
             // Parse da data garantindo o dia correto
             // Adicionamos "T12:00:00" para garantir que o dia não volte devido a UTC
             const targetDateStr = date || ''
-            const checkIn = new Date(`${targetDateStr}T10:00:00`)
-            const checkOut = new Date(`${targetDateStr}T18:00:00`)
+            const checkIn = new Date(`${targetDateStr}T10:00:00-03:00`)
+            const checkOut = new Date(`${targetDateStr}T18:00:00-03:00`)
 
+            requestId.current ??= crypto.randomUUID()
             // 1. Criar Reserva no Backend
             const reservationRes = await fetch('/api/reservations', {
                 method: 'POST',
@@ -123,7 +128,10 @@ function CheckoutContent() {
                     notes: formData.notes?.trim() || undefined,
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
-                    totalPrice: price, // Preço da diária (não multiplica por horas!)
+                    totalPrice: quote.totalPrice,
+                    participantCount: participants,
+                    requestId: requestId.current,
+                    policyAccepted,
                     source: 'ONLINE', // Status será PENDING automaticamente na API
                 }),
             })
@@ -131,6 +139,8 @@ function CheckoutContent() {
             const reservationData = await reservationRes.json()
 
             if (!reservationData.success) {
+                reloadQuote()
+                setPolicyAccepted(false)
                 throw new Error(reservationData.error || 'Erro ao criar reserva')
             }
 
@@ -139,19 +149,23 @@ function CheckoutContent() {
 
 👤 *Cliente:* ${formData.customerName}
 📅 *Data:* ${formatDateUTC(checkIn)}
-🎫 *Reserva:* ${checkIn ? 'Confirmada' : 'Pendente'}
+🎫 *Reserva:* Pendente de validação do comprovante
+🏖️ *Espaço:* ${quote.spaceName}
+👥 *Participantes:* ${participants}
+💰 *Total:* ${formatCurrency(Number(reservationData.data.totalPrice))}
+🍽️ *Crédito de consumação:* ${formatCurrency(Number(reservationData.data.consumptionCredit))}
 
 Estou enviando o comprovante do Pix em anexo.`
 
             const whatsappUrl = `https://wa.me/5512982896301?text=${encodeURIComponent(message)}`
 
             // 3. Redirecionar
-            window.open(whatsappUrl, '_blank')
-            router.push(`/reservas/sucesso?id=${reservationData.data.id}`)
+            window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+            router.push(`/reservas/sucesso?token=${encodeURIComponent(reservationData.data.receiptToken)}`)
             toast.success('Reserva iniciada! Envie o comprovante no WhatsApp.')
 
         } catch (error) {
-            console.error('Erro no checkout:', error)
+
             toast.error(error instanceof Error ? error.message : 'Erro ao processar reserva')
         } finally {
             setSubmitting(false)
@@ -182,7 +196,7 @@ Estou enviando o comprovante do Pix em anexo.`
 
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Formulário */}
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2 min-w-0">
                         <form onSubmit={handleSubmit} className="space-y-8">
                             {/* Dados pessoais */}
                             <Card>
@@ -288,7 +302,7 @@ Estou enviando o comprovante do Pix em anexo.`
                                 onOpenPolicy={() => setShowPolicyModal(true)}
                             />
 
-                            <Button type="submit" className="w-full" size="lg" isLoading={submitting} disabled={!policyAccepted}>
+                            <Button type="submit" className="w-full whitespace-normal" size="lg" isLoading={submitting} disabled={!quote || !policyAccepted}>
                                 <Lock className="h-4 w-4" />
                                 Confirmar Reserva e Enviar Comprovante
                             </Button>
@@ -303,7 +317,7 @@ Estou enviando o comprovante do Pix em anexo.`
                     </div>
 
                     {/* Resumo */}
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 min-w-0">
                         <Card className="sticky top-24">
                             <CardHeader>
                                 <CardTitle>Resumo da reserva</CardTitle>
@@ -314,8 +328,7 @@ Estou enviando o comprovante do Pix em anexo.`
                                         <Image src="/logo_aysu.png" alt="Aysú" width={32} height={32} className="rounded-full" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-[#2a2a2a]">{cabinName}</p>
-                                        <p className="text-sm text-[#8a5c3f]">{formatCurrency(consumable)} em consumo</p>
+                                        <p className="font-medium text-[#2a2a2a]">{quote?.spaceName || cabinName}</p>
                                     </div>
                                 </div>
 
@@ -330,12 +343,9 @@ Estou enviando o comprovante do Pix em anexo.`
                                     </div>
                                 </div>
 
-                                <div className="pt-4 border-t border-[#e0d5c7]">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[#8a5c3f]">Total a pagar</span>
-                                        <span className="text-2xl font-bold text-[#d4a574]">{formatCurrency(price)}</span>
-                                    </div>
-                                </div>
+                                {quoteLoading && <p role="status">Consultando valores e disponibilidade...</p>}
+                                {quoteError && <div role="alert"><p className="text-red-700">{quoteError}</p><button type="button" onClick={reloadQuote} className="mt-2 underline text-[#8a5c3f]">Consultar novamente</button></div>}
+                                {quote && <QuoteSummary quote={quote} />}
                             </CardContent>
                         </Card>
                     </div>

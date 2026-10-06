@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
+import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { DEFAULT_RESERVABLE_ITEMS, parseDayConfig, parseTicketLots, toDbDate } from '@/lib/day-config'
 import { createDayConfigSchema } from '@/lib/validations'
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
 
         const existingConfig = await prisma.reservationDayConfig.findUnique({
             where: { date: dbDate },
-            select: { id: true },
+            select: { id: true, commercialPeriodId: true },
         })
 
         const baseData = {
@@ -76,26 +78,36 @@ export async function POST(request: NextRequest) {
             flyerImageUrl: payload.flyerImageUrl?.trim() || null,
             highlightOnHome: payload.highlightOnHome,
             priceOverrides: toJsonValueOrNull(payload.priceOverrides),
+            ...(payload.commercialConditions !== undefined ? { commercialConditions: toJsonValueOrNull(payload.commercialConditions) } : {}),
             ticketLots: toJsonValueOrNull(ticketLots),
             reservableItems: toJsonValueOrNull(payload.reservableItems ?? DEFAULT_RESERVABLE_ITEMS),
         }
 
-        const saved = existingConfig
-            ? await prisma.reservationDayConfig.update({
-                where: { id: existingConfig.id },
-                data: baseData,
-            })
-            : await prisma.reservationDayConfig.create({
-                data: {
-                    date: dbDate,
-                    ...baseData,
-                },
-            })
+        const endDate = payload.endDate || payload.date
+        if (dbDate.toISOString().slice(0, 10) !== payload.date || toDbDate(endDate).toISOString().slice(0, 10) !== endDate) return NextResponse.json({ success: false, error: 'Data inválida.' }, { status: 400 })
+        const days = Math.round((toDbDate(endDate).getTime() - dbDate.getTime()) / 86400000)
+        if (days < 0 || days > 366 || Number.isNaN(days)) {
+            return NextResponse.json({ success: false, error: 'Selecione um período válido de até um ano.' }, { status: 400 })
+        }
+        const periodId = days > 0 ? existingConfig?.commercialPeriodId || randomUUID() : null
+        const dates = Array.from({ length: days + 1 }, (_, index) => new Date(dbDate.getTime() + index * 86400000))
+        const savedDates = await prisma.$transaction(async tx => {
+            await lockCommercialSettings(tx)
+            const saved = []
+            for (const date of dates) {
+                const current = await tx.reservationDayConfig.findUnique({ where: { date } })
+                if (days > 0 && current && current.commercialPeriodId !== periodId && (current.status !== 'NORMAL' || existingConfig?.commercialPeriodId)) continue
+                saved.push(await tx.reservationDayConfig.upsert({ where: { date }, update: { ...baseData, commercialPeriodId: periodId }, create: { date, ...baseData, commercialPeriodId: periodId } }))
+            }
+            return saved
+        }, { timeout: 15000 })
+        const saved = savedDates[0]
+        if (!saved) return NextResponse.json({ success: false, error: 'O período contém somente eventos ou bloqueios. Edite essas datas individualmente.' }, { status: 409 })
 
         return NextResponse.json<ApiResponse>({
             success: true,
             data: parseDayConfig(saved),
-            message: existingConfig
+            message: days > 0 ? `Condições salvas para ${savedDates.length} datas. Eventos e bloqueios existentes foram preservados.` : existingConfig
                 ? 'Configuração desta data atualizada com sucesso'
                 : 'Configuração de data criada com sucesso',
         }, { status: existingConfig ? 200 : 201 })

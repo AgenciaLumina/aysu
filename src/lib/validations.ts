@@ -1,3 +1,4 @@
+import { commercialConditionsSchema } from './reservation-commercial'
 // AISSU Beach Lounge - Validações Zod
 // Schemas de validação para todas as APIs
 
@@ -83,8 +84,11 @@ export const createReservationSchema = z.object({
     notes: z.string().optional(), // Added this line as per instruction
     checkIn: z.string().or(z.date()),
     checkOut: z.string().or(z.date()),
-    totalPrice: z.number().positive().optional(), // Se fornecido, ignora cálculo por hora
+    totalPrice: z.number().nonnegative().optional(), // Compared to the server quote; never used as the source of price.
     source: z.enum(['ONLINE', 'OFFLINE']).default('ONLINE'),
+    participantCount: z.number().int().positive().max(10000).default(1),
+    requestId: z.string().uuid().optional(),
+    policyAccepted: z.boolean().optional(),
 })
 
 export const updateReservationSchema = z.object({
@@ -241,7 +245,9 @@ const dayConfigReservableItemsSchema = z.object({
 })
 
 export const createDayConfigSchema = z.object({
+    commercialPeriodId: z.string().uuid().optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (YYYY-MM-DD)'),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     status: z.enum(['NORMAL', 'EVENT', 'PRIVATE_EVENT', 'BLOCKED']).default('NORMAL'),
     reservationsEnabled: z.boolean().default(true),
     title: z.string().max(150, 'Título muito longo').optional().or(z.literal('')),
@@ -249,6 +255,7 @@ export const createDayConfigSchema = z.object({
     flyerImageUrl: optionalMediaUrlOrPathSchema,
     highlightOnHome: z.boolean().default(false),
     priceOverrides: z.record(z.string(), dayConfigPriceOverrideSchema).optional(),
+    commercialConditions: commercialConditionsSchema.optional(),
     ticketLots: z.array(dayConfigTicketLotSchema).max(10, 'Máximo de 10 lotes').optional(),
     reservableItems: dayConfigReservableItemsSchema.optional(),
 })
@@ -258,6 +265,7 @@ export const updateDayConfigSchema = createDayConfigSchema.partial()
 export const updateReservationGlobalConfigSchema = z.object({
     reservableItems: dayConfigReservableItemsSchema.optional(),
     priceOverrides: z.record(z.string(), dayConfigPriceOverrideSchema).optional(),
+    commercialConditions: commercialConditionsSchema.optional(),
 })
 
 // ============================================================

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, User, Phone, Calendar as CalendarIcon, Home, MessageSquare, Save, Check, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { isHoliday, getHolidayName } from '@/lib/holidays'
 import { toLocalISODate } from '@/lib/utils'
 import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
+import { useBookingQuote } from '@/hooks/useBookingQuote'
+import { QuoteSummary } from '@/components/reservas/CommercialConditions'
+import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 interface Space {
@@ -92,6 +95,8 @@ export default function NovaReservaManualPage() {
 
     // Form state
     const [selectedSpace, setSelectedSpace] = useState<Space | null>(null)
+    const [participants, setParticipants] = useState(1)
+    const requestId = useRef<string | null>(null)
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [occupiedDates, setOccupiedDates] = useState<string[]>([])
     const [closedDates, setClosedDates] = useState<Array<{ date: string; reason: string }>>([])
@@ -103,6 +108,8 @@ export default function NovaReservaManualPage() {
         customerDocument: '',
         notes: '',
     })
+
+    const { quote, error: quoteError, loading: quoteLoading, reload: reloadQuote } = useBookingQuote(selectedSpace?.id ?? null, selectedDate ? toLocalISODate(selectedDate) : null, participants)
 
     const maskPhone = (value: string) => {
         return value
@@ -186,6 +193,8 @@ export default function NovaReservaManualPage() {
 
     const handleSpaceSelect = (space: Space) => {
         setSelectedSpace(space)
+                                        setParticipants(1)
+                                        requestId.current = null
         setStep(2)
     }
 
@@ -204,7 +213,7 @@ export default function NovaReservaManualPage() {
             return
         }
 
-        if (!selectedSpace || !selectedDate) {
+        if (!selectedSpace || !selectedDate || !quote) {
             toast.error('Selecione espaço e data')
             return
         }
@@ -217,7 +226,8 @@ export default function NovaReservaManualPage() {
             const checkOut = new Date(checkIn)
             checkOut.setHours(18, 0, 0, 0) // Padrão Day Use: Fim as 18:00
 
-            const totalPrice = getPrice(selectedSpace, selectedDate)
+            const totalPrice = quote.totalPrice
+            requestId.current ??= crypto.randomUUID()
 
             const res = await fetch('/api/reservations', {
                 method: 'POST',
@@ -231,6 +241,8 @@ export default function NovaReservaManualPage() {
                     checkIn: checkIn.toISOString(),
                     checkOut: checkOut.toISOString(),
                     totalPrice,
+                    participantCount: participants,
+                    requestId: requestId.current,
                     source: 'OFFLINE',
                     notes: form.notes,
                 }),
@@ -242,6 +254,7 @@ export default function NovaReservaManualPage() {
                 toast.success('Reserva criada com sucesso!')
                 router.push('/admin/reservas') // Redireciona para a lista de reservas
             } else {
+                reloadQuote()
                 toast.error(data.error || 'Erro ao criar reserva')
             }
         } catch (error) {
@@ -552,7 +565,7 @@ export default function NovaReservaManualPage() {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-medium text-[#2a2a2a]">{selectedSpace.name}</p>
-                                        <p className="text-sm text-[#8a5c3f]">{selectedSpace.capacity}</p>
+                                        <p className="text-sm text-[#8a5c3f]">{quote ? `Até ${quote.maxParticipants} pessoas` : selectedSpace.capacity}</p>
                                         <p className="text-sm text-[#8a5c3f] mt-2">
                                             <CalendarIcon className="h-4 w-4 inline mr-1" />
                                             {selectedDate.toLocaleDateString('pt-BR', {
@@ -564,17 +577,26 @@ export default function NovaReservaManualPage() {
                                         </p>
                                     </div>
                                     <p className="text-2xl font-bold text-[#d4a574]">
-                                        R$ {getPrice(selectedSpace, selectedDate).toLocaleString('pt-BR')}
+                                        {quote ? formatCurrency(quote.totalPrice) : 'Consultando...'}
                                     </p>
                                 </div>
                             </CardContent>
                         </Card>
 
+                        <label className="block text-sm font-semibold text-[#5C3D2E]">Quantidade de pessoas
+                            <select value={participants} onChange={event => { setParticipants(Number(event.target.value)); requestId.current = null }} className="mt-2 block w-full rounded-lg border border-[#e0d5c7] bg-white p-3 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]">
+                                {Array.from({ length: quote?.maxParticipants ?? (selectedSpace.id === 'day-use-praia' ? 6 : Number(selectedSpace.capacity.match(/\d+/)?.[0]) || 1) }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity} pessoas</option>)}
+                            </select>
+                        </label>
+                        {quoteLoading && <p role="status">Consultando disponibilidade...</p>}
+                        {quoteError && <div role="alert"><p className="text-red-700">{quoteError}</p><button type="button" onClick={reloadQuote} className="underline">Consultar novamente</button></div>}
+                        {quote && <QuoteSummary quote={quote} />}
+
                         {/* Actions */}
                         <div className="flex gap-4">
                             <Button
                                 onClick={handleSubmit}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || !quote}
                                 className="flex-1"
                             >
                                 <Save className="h-4 w-4" />

@@ -27,6 +27,9 @@ import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/Mo
 import { formatCurrency, formatDateUTC } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+import type { BookingQuote } from '@/lib/reservation-commercial'
+import { QuoteSummary } from '@/components/reservas/CommercialConditions'
+
 interface Reservation {
     id: string
     customerName: string
@@ -37,6 +40,9 @@ interface Reservation {
     spaceType: string
     date: string
     time: string
+    participantCount?: number
+    unitNumber?: number | null
+    bookingConditions?: BookingQuote | null
     totalPrice: number
     paymentStatus?: string | null
     checkIn?: string
@@ -711,6 +717,7 @@ export default function FrenteDeCaixaPage() {
                                 )}
                             </div>
 
+                            {selectedReservation.bookingConditions && <div className="rounded-xl border border-[#e0d5c7] p-4"><p className="font-semibold mb-3">{selectedReservation.unitNumber ? `Unidade ${selectedReservation.unitNumber}` : "Day Use por pessoa"}</p><QuoteSummary quote={selectedReservation.bookingConditions} /></div>}
                             <div className="rounded-xl border border-[#e0d5c7] p-4 grid grid-cols-2 gap-3">
                                 <div>
                                     <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Espaço</p>

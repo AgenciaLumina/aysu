@@ -1,5 +1,8 @@
 'use client'
 
+import { ReservationConditionsEditor } from '@/components/admin/ReservationConditionsEditor'
+import type { CommercialConditions } from '@/lib/reservation-commercial'
+
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -59,6 +62,7 @@ interface TicketLotForm {
 
 interface DayConfigForm {
     date: string
+    endDate: string
     status: 'NORMAL' | 'EVENT' | 'PRIVATE_EVENT' | 'BLOCKED'
     reservationsEnabled: boolean
     title: string
@@ -73,12 +77,14 @@ interface DayConfigForm {
         dayUse: boolean
     }
     priceOverrides: SpaceOverrideForm
+    commercialConditions: CommercialConditions
     ticketLots: TicketLotForm[]
 }
 
 interface GlobalConfigForm {
     reservableItems: DayConfigForm['reservableItems']
     priceOverrides: SpaceOverrideForm
+    commercialConditions: CommercialConditions
 }
 
 const createEmptyPriceOverrides = (): SpaceOverrideForm => {
@@ -94,6 +100,7 @@ const createEmptyPriceOverrides = (): SpaceOverrideForm => {
 
 const createDefaultForm = (): DayConfigForm => ({
     date: '',
+    endDate: '',
     status: 'NORMAL',
     reservationsEnabled: true,
     title: '',
@@ -102,12 +109,14 @@ const createDefaultForm = (): DayConfigForm => ({
     highlightOnHome: false,
     reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
     priceOverrides: createEmptyPriceOverrides(),
+    commercialConditions: {},
     ticketLots: DEFAULT_TICKET_LOTS.map(lot => ({ ...lot })),
 })
 
 const createDefaultGlobalForm = (): GlobalConfigForm => ({
     reservableItems: { ...DEFAULT_RESERVABLE_ITEMS },
     priceOverrides: createEmptyPriceOverrides(),
+    commercialConditions: {},
 })
 
 function applyPriceOverridesToForm(
@@ -225,6 +234,7 @@ function AdminCalendarioPageContent() {
             setGlobalConfig(config)
 
             const nextForm = createDefaultGlobalForm()
+            nextForm.commercialConditions = config.commercialConditions || {}
             nextForm.reservableItems = config.reservableItems
             applyPriceOverridesToForm(nextForm.priceOverrides, config.priceOverrides || {})
             setGlobalForm(nextForm)
@@ -261,12 +271,14 @@ function AdminCalendarioPageContent() {
             const nextForm = createDefaultForm()
 
             nextForm.date = existingConfig.date
+            nextForm.endDate = searchParams.get('endDate') || ''
             nextForm.status = existingConfig.status
             nextForm.reservationsEnabled = existingConfig.reservationsEnabled
             nextForm.title = existingConfig.title || ''
             nextForm.release = existingConfig.release || ''
             nextForm.flyerImageUrl = existingConfig.flyerImageUrl || ''
             nextForm.highlightOnHome = existingConfig.highlightOnHome
+            nextForm.commercialConditions = existingConfig.commercialConditions || {}
             nextForm.reservableItems = existingConfig.reservableItems
 
             applyPriceOverridesToForm(nextForm.priceOverrides, existingConfig.priceOverrides || {})
@@ -304,6 +316,7 @@ function AdminCalendarioPageContent() {
         const nextForm = createDefaultForm()
         nextForm.date = date || nextForm.date
         nextForm.title = title || nextForm.title
+        nextForm.endDate = searchParams.get('endDate') || ''
         nextForm.release = release || nextForm.release
         nextForm.flyerImageUrl = flyer || nextForm.flyerImageUrl
         nextForm.status = 'EVENT'
@@ -325,12 +338,14 @@ function AdminCalendarioPageContent() {
         const nextForm = createDefaultForm()
 
         nextForm.date = config.date
+        if (config.commercialPeriodId) nextForm.endDate = configs.filter(item => item.commercialPeriodId === config.commercialPeriodId).map(item => item.date).sort().at(-1) || ''
         nextForm.status = config.status
         nextForm.reservationsEnabled = config.reservationsEnabled
         nextForm.title = config.title || ''
         nextForm.release = config.release || ''
         nextForm.flyerImageUrl = config.flyerImageUrl || ''
         nextForm.highlightOnHome = config.highlightOnHome
+        nextForm.commercialConditions = config.commercialConditions || {}
         nextForm.reservableItems = config.reservableItems
 
         applyPriceOverridesToForm(nextForm.priceOverrides, config.priceOverrides || {})
@@ -462,6 +477,8 @@ function AdminCalendarioPageContent() {
 
         const payload = {
             date: form.date,
+            ...(form.endDate && form.endDate !== form.date ? { endDate: form.endDate } : {}),
+            commercialConditions: form.commercialConditions,
             status: form.status,
             reservationsEnabled: form.reservationsEnabled,
             title: form.title,
@@ -476,8 +493,9 @@ function AdminCalendarioPageContent() {
         setSaving(true)
 
         try {
-            const url = editingConfig ? `/api/admin/day-configs/${editingConfig.id}` : '/api/admin/day-configs'
-            const method = editingConfig ? 'PATCH' : 'POST'
+            const applyPeriod = Boolean(form.endDate && form.endDate !== form.date)
+            const url = editingConfig && !applyPeriod ? `/api/admin/day-configs/${editingConfig.id}` : '/api/admin/day-configs'
+            const method = editingConfig && !applyPeriod ? 'PATCH' : 'POST'
 
             const res = await fetch(url, {
                 method,
@@ -526,6 +544,7 @@ function AdminCalendarioPageContent() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    commercialConditions: globalForm.commercialConditions,
                     reservableItems: globalForm.reservableItems,
                     priceOverrides: enabledOverrides,
                 }),
@@ -540,6 +559,7 @@ function AdminCalendarioPageContent() {
             setGlobalConfig(config)
 
             const normalizedForm = createDefaultGlobalForm()
+            normalizedForm.commercialConditions = config.commercialConditions || {}
             normalizedForm.reservableItems = config.reservableItems
             applyPriceOverridesToForm(normalizedForm.priceOverrides, config.priceOverrides || {})
             setGlobalForm(normalizedForm)
@@ -559,7 +579,7 @@ function AdminCalendarioPageContent() {
                     <h1 className="text-2xl font-serif font-bold text-[#2a2a2a]">Calendário & Eventos</h1>
                     <p className="text-[#8a5c3f]">Defina regras comerciais por data: preços, lotes, bloqueios e liberação de mesas/sunbeds/bangalôs.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Link href="/admin/eventos">
                         <Button variant="secondary">
                             <CalendarClock className="h-4 w-4" />
@@ -660,6 +680,7 @@ function AdminCalendarioPageContent() {
                                 </div>
                             </div>
 
+                            <ReservationConditionsEditor value={globalForm.commercialConditions} onChange={commercialConditions => setGlobalForm(prev => ({ ...prev, commercialConditions }))} />
                             <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                                 <h3 className="font-semibold text-[#2a2a2a]">Ajuste comercial opcional do dia a dia</h3>
                                 <p className="text-xs text-[#8a5c3f]/80">
@@ -668,7 +689,7 @@ function AdminCalendarioPageContent() {
                                 <div className="space-y-3">
                                     <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">
                                         <span />
-                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva (Day Use: por pessoa)</span>
                                         <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                     </div>
                                     {SPACE_OVERRIDE_FIELDS.map(space => {
@@ -929,6 +950,9 @@ function AdminCalendarioPageContent() {
                             </div>
                         </div>
 
+                        {<Input label="Aplicar até (opcional, inclui a data final)" type="date" min={form.date} value={form.endDate} onChange={event => setForm(prev => ({ ...prev, endDate: event.target.value }))} />}
+                        <p className="text-sm text-[#8a5c3f]">Ao aplicar um período, eventos e bloqueios já cadastrados são preservados. Para alterar suas condições, edite a data individualmente.</p>
+                        <ReservationConditionsEditor value={form.commercialConditions} onChange={commercialConditions => setForm(prev => ({ ...prev, commercialConditions }))} />
                         <Textarea
                             label="Release para o calendário"
                             value={form.release}
@@ -1012,7 +1036,7 @@ function AdminCalendarioPageContent() {
                             <div className="space-y-3">
                                 <div className="hidden md:grid md:grid-cols-4 gap-3 items-center px-1 pb-1">
                                     <span />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva (Day Use: por pessoa)</span>
                                     <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                 </div>
                                 {SPACE_OVERRIDE_FIELDS.map(space => {

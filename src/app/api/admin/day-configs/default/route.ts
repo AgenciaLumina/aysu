@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db'
+import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
 import {
     DEFAULT_GLOBAL_PRICE_OVERRIDES,
@@ -128,17 +129,21 @@ export async function PATCH(request: NextRequest) {
         await ensureGlobalConfig()
 
         const payload = validation.data
-        const updated = await prisma.reservationGlobalConfig.update({
+        const updated = await prisma.$transaction(async tx => {
+            await lockCommercialSettings(tx)
+            return tx.reservationGlobalConfig.update({
             where: { id: GLOBAL_CONFIG_ID },
             data: {
                 ...(payload.reservableItems !== undefined
                     ? { reservableItems: toJsonValueOrNull(payload.reservableItems) }
                     : {}),
+                ...(payload.commercialConditions !== undefined ? { commercialConditions: toJsonValueOrNull(payload.commercialConditions) } : {}),
                 ...(payload.priceOverrides !== undefined
                     ? { priceOverrides: toJsonValueOrNull(payload.priceOverrides) }
                     : {}),
             },
         })
+        }, { timeout: 15000 })
 
         return NextResponse.json<ApiResponse>({
             success: true,

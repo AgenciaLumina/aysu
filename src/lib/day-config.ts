@@ -1,3 +1,4 @@
+import { parseCommercialConditions, type CommercialConditions } from './reservation-commercial'
 import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@prisma/client'
 
 export interface PriceOverride {
@@ -24,6 +25,7 @@ export interface ReservableItems {
 }
 
 export interface DayConfigPayload {
+    commercialPeriodId: string | null
     id: string
     date: string
     status: DayConfigStatus
@@ -33,6 +35,7 @@ export interface DayConfigPayload {
     flyerImageUrl: string | null
     highlightOnHome: boolean
     priceOverrides: PriceOverrides
+    commercialConditions: CommercialConditions
     ticketLots: TicketLot[]
     reservableItems: ReservableItems
     createdAt: string
@@ -53,6 +56,7 @@ export interface ReservationGlobalConfigPayload {
     id: string
     reservableItems: ReservableItems
     priceOverrides: PriceOverrides
+    commercialConditions: CommercialConditions
     createdAt: string
     updatedAt: string
 }
@@ -142,6 +146,7 @@ export function parseReservableItems(value: unknown): ReservableItems {
 
 export function parseDayConfig(config: ReservationDayConfig): DayConfigPayload {
     return {
+        commercialPeriodId: config.commercialPeriodId ?? null,
         id: config.id,
         date: config.date.toISOString().split('T')[0],
         status: config.status,
@@ -151,6 +156,7 @@ export function parseDayConfig(config: ReservationDayConfig): DayConfigPayload {
         flyerImageUrl: config.flyerImageUrl,
         highlightOnHome: config.highlightOnHome,
         priceOverrides: parsePriceOverrides(config.priceOverrides),
+        commercialConditions: parseCommercialConditions(config.commercialConditions),
         ticketLots: parseTicketLots(config.ticketLots),
         reservableItems: parseReservableItems(config.reservableItems),
         createdAt: config.createdAt.toISOString(),
@@ -167,6 +173,7 @@ export function parseReservationGlobalConfig(
             id: 'default',
             reservableItems: DEFAULT_RESERVABLE_ITEMS,
             priceOverrides: DEFAULT_GLOBAL_PRICE_OVERRIDES,
+            commercialConditions: {},
             createdAt: nowIso,
             updatedAt: nowIso,
         }
@@ -176,6 +183,7 @@ export function parseReservationGlobalConfig(
         id: config.id,
         reservableItems: parseReservableItems(config.reservableItems),
         priceOverrides: parsePriceOverrides(config.priceOverrides),
+        commercialConditions: parseCommercialConditions(config.commercialConditions),
         createdAt: config.createdAt.toISOString(),
         updatedAt: config.updatedAt.toISOString(),
     }

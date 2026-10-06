@@ -186,6 +186,12 @@ model Reservation {
   status           ReservationStatus @default(PENDING)
   source           ReservationSource @default(ONLINE)
   notes            String?
+  participantCount Int               @default(1)
+  unitNumber       Int?
+  consumptionCredit Decimal?          @db.Decimal(10, 2)
+  bookingConditions Json?
+  requestId        String?            @unique
+  receiptToken     String?            @unique
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -432,6 +438,7 @@ model ClosedDate {
 
 // Configuração avançada por data (preço, release, lotes, regras)
 model ReservationDayConfig {
+  commercialPeriodId String?
   id                  String          @id @default(uuid())
   date                DateTime        @unique @db.Date
   status              DayConfigStatus @default(NORMAL)
@@ -441,6 +448,7 @@ model ReservationDayConfig {
   flyerImageUrl       String?
   highlightOnHome     Boolean         @default(false)
   priceOverrides      Json? // { [spaceId]: { price: number, consumable?: number } }
+  commercialConditions Json?
   ticketLots          Json? // [{ name, endsAt, price, consumable?, soldOut? }]
   reservableItems     Json? // { bangalos, sunbeds, restaurantTables, beachTables, dayUse }
   createdAt           DateTime        @default(now())
@@ -456,6 +464,7 @@ model ReservationGlobalConfig {
   id              String   @id @default("default")
   reservableItems Json?
   priceOverrides  Json?
+  commercialConditions Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

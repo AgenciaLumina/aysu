@@ -407,7 +407,7 @@ export default function AdminEventsPage() {
                                     </Button>
 
                                     <Link
-                                        href={`/admin/calendario?date=${encodeURIComponent(toLocalISODate(event.startDate))}&title=${encodeURIComponent(event.title)}&release=${encodeURIComponent(event.description || '')}&flyer=${encodeURIComponent(event.posterImageUrl || '')}`}
+                                        href={`/admin/calendario?date=${encodeURIComponent(toLocalISODate(event.startDate))}${event.endDate ? `&endDate=${encodeURIComponent(toLocalISODate(event.endDate))}` : ''}&title=${encodeURIComponent(event.title)}&release=${encodeURIComponent(event.description || '')}&flyer=${encodeURIComponent(event.posterImageUrl || '')}`}
                                     >
                                         <Button size="sm">
                                             <CalendarClock className="h-4 w-4" />

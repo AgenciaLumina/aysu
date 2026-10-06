@@ -14,6 +14,9 @@ import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import type { DayConfigPayload, ReservationGlobalConfigPayload, TicketLot } from '@/lib/day-config'
 import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace } from '@/lib/day-config'
+import { useBookingQuote } from '@/hooks/useBookingQuote'
+import { getCommercialCondition } from '@/lib/reservation-commercial'
+import { CommercialConditions, QuoteSummary } from '@/components/reservas/CommercialConditions'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
 import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 
@@ -182,7 +185,7 @@ const LEGACY_SPACE_TYPES: SpaceType[] = [
     // DAY USE PRAIA COM ESPREGUIÇADEIRA
     {
         id: 'day-use-praia',
-        name: 'Day Use Praia com Espreguiçadeira',
+        name: 'Day Use Praia',
         slug: 'day-use-praia',
         image: '/espacos/Sunbeds.jpeg',
         capacity: '1 pessoa',
@@ -191,7 +194,7 @@ const LEGACY_SPACE_TYPES: SpaceType[] = [
         consumable: 100,
         holidayPrice: 160,
         holidayConsumable: 100,
-        description: 'Espreguiçadeira + guarda-sol',
+        description: 'Entrada individual e acomodação organizada pela equipe',
         units: 20,
         category: 'dayuse',
         tier: 'social',
@@ -499,6 +502,7 @@ function ReservasPageContent() {
         today.setHours(0, 0, 0, 0)
         return initialDateFromUrl < today ? null : initialDateFromUrl
     })
+    const [participants, setParticipants] = useState(1)
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
     const [spaces, setSpaces] = useState<SpaceType[]>(LEGACY_SPACE_TYPES)
     const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
@@ -566,18 +570,14 @@ function ReservasPageContent() {
     }, [dateParamFromQuery])
 
     useEffect(() => {
-        if (effectiveSelectedDate) {
-            // Fetch availability for specific date
-            const dateStr = toLocalISODate(effectiveSelectedDate)
-            fetch(`/api/reservations/availability?date=${dateStr}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        setAvailabilityCounts(data.data)
-                    }
-                })
-                .catch(err => console.error('Erro ao buscar disponibilidade:', err))
-        }
+        if (!effectiveSelectedDate) return
+        const controller = new AbortController()
+        const dateStr = toLocalISODate(effectiveSelectedDate)
+        fetch(`/api/reservations/availability?date=${dateStr}`, { signal: controller.signal, cache: 'no-store' })
+            .then(res => res.json())
+            .then(data => { if (!controller.signal.aborted && data.success) setAvailabilityCounts(data.data) })
+            .catch(() => {})
+        return () => controller.abort()
     }, [effectiveSelectedDate])
 
     // Fetch Public Closed Dates
@@ -687,6 +687,10 @@ function ReservasPageContent() {
 
 
 
+    const { quote, error: quoteError, loading: quoteLoading, reload: reloadQuote } = useBookingQuote(effectiveSelectedSpace?.id ?? null, effectiveSelectedDate ? toLocalISODate(effectiveSelectedDate) : null, participants)
+    const selectedCondition = effectiveSelectedSpace ? getCommercialCondition(effectiveSelectedSpace.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions) : {}
+    const participantLimit = quote?.maxParticipants ?? selectedCondition.maxParticipants ?? (effectiveSelectedSpace?.id === 'day-use-praia' ? 6 : effectiveSelectedSpace?.capacityNum ?? 1)
+
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
         const month = currentMonth.getMonth()
@@ -777,26 +781,25 @@ function ReservasPageContent() {
             scrollRetryTimeoutRef.current = null
         }
 
+        setAvailabilityCounts({})
         setSelectedDate(date)
         window.requestAnimationFrame(() => scrollToDateDetails())
     }
 
     const handleSpaceSelect = (space: SpaceType) => {
         setSelectedSpace(space)
+        setParticipants(1)
     }
 
     const handleReserve = () => {
-        if (lotReservationGate.isBlocked) return
+        if (lotReservationGate.isBlocked || !quote) return
 
         if (effectiveSelectedDate && effectiveSelectedSpace) {
-            const { finalPrice, finalConsumable } = getSpacePricing(effectiveSelectedSpace, effectiveSelectedDate)
-
             const params = new URLSearchParams({
                 cabinId: effectiveSelectedSpace.id,
                 cabinName: effectiveSelectedSpace.name,
                 date: toLocalISODate(effectiveSelectedDate),
-                price: finalPrice.toString(),
-                consumable: finalConsumable.toString(),
+                participants: participants.toString(),
             })
 
             if (selectedDateConfig?.title) {
@@ -1119,7 +1122,7 @@ function ReservasPageContent() {
                             {effectiveSelectedDate ? 'Escolha seu Espaço' : 'Nossos Espaços'}
                         </h2>
                     <p className="max-w-xl mx-auto" style={{ color: 'var(--aissu-wood)' }}>
-                        Todos os espaços incluem pulseira dourada com acesso VIP e valor em consumação
+                        Confira os benefícios, a consumação e as condições de cada categoria para a data escolhida.
                     </p>
                 </div>
 
@@ -1129,6 +1132,8 @@ function ReservasPageContent() {
                         if (space.visibilityStatus === 'HIDDEN') return null
 
                         const { finalPrice, finalConsumable } = getSpacePricing(space, effectiveSelectedDate)
+                        const condition = getCommercialCondition(space.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions)
+                        const perPerson = space.id === 'day-use-praia' || condition.pricingMode === 'PER_PERSON'
                         const availableCount = availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isRestaurantTable = space.id === 'mesa-restaurante'
@@ -1152,6 +1157,11 @@ function ReservasPageContent() {
                         return (
                             <article
                                 key={space.id}
+                                role="button"
+                                tabIndex={effectiveSelectedDate && !isSoldOut ? 0 : -1}
+                                aria-disabled={!effectiveSelectedDate || Boolean(isSoldOut)}
+                                aria-label={`Reservar ${space.name}`}
+                                onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && effectiveSelectedDate && !isSoldOut) { event.preventDefault(); handleSpaceSelect(space) } }}
                                 onClick={() => {
                                     if (!effectiveSelectedDate) return
                                     if (isSoldOut) return // Block sold-out
@@ -1265,7 +1275,7 @@ function ReservasPageContent() {
                                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
                                         <span className="inline-flex items-center gap-1.5 text-white text-sm">
                                             <Users className="h-4 w-4" />
-                                            {space.capacity}
+                                            {isDayUse ? `1 a ${condition.maxParticipants ?? 6} pessoas por reserva` : formatCapacityLabel(condition.maxParticipants ?? space.capacityNum)}
                                         </span>
                                     </div>
 
@@ -1286,12 +1296,14 @@ function ReservasPageContent() {
                                         <h3 className="text-xl font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{space.name}</h3>
                                     </div>
                                     <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
+                                    <CommercialConditions condition={condition} maxParticipants={condition.maxParticipants ?? (space.id === 'day-use-praia' ? undefined : space.capacityNum)} minimum={condition.minBillableParticipants} />
+                                    {isDayUse && <p className="my-3 text-sm text-[#8a5c3f]">Entrada individual com acomodação organizada pela equipe. Não inclui mesa exclusiva.</p>}
 
                                     {/* Pricing */}
                                     <div className="flex items-end justify-between pt-4 border-t border-[var(--aissu-border)]">
                                         <div>
                                             <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>{formatCurrency(finalPrice)}</p>
-                                            <p className="text-xs" style={{ color: 'var(--aissu-text-muted)' }}>por dia</p>
+                                            <p className="text-xs" style={{ color: 'var(--aissu-text-muted)' }}>{perPerson ? 'por pessoa' : 'por estrutura / dia'}</p>
                                         </div>
                                         <div className="text-right">
                                             <div className="flex items-center gap-1.5 text-emerald-600">
@@ -1306,6 +1318,17 @@ function ReservasPageContent() {
                         )
                     })}
                 </div>
+                {effectiveSelectedSpace && effectiveSelectedDate && <div className="mt-8 max-w-2xl mx-auto border-t border-[var(--aissu-border)] pt-6 pb-8" aria-live="polite">
+                    <h3 className="text-xl font-semibold text-[#5C3D2E] mb-4">Sua reserva: {effectiveSelectedSpace.name}</h3>
+                    <label className="block text-sm font-semibold text-[#5C3D2E] mb-5">Quantidade de pessoas
+                        <select value={participants} onChange={event => setParticipants(Number(event.target.value))} className="mt-2 block w-full rounded-lg border border-[#e0d5c7] bg-white p-3 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]">
+                            {Array.from({ length: participantLimit }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity} {quantity === 1 ? 'pessoa' : 'pessoas'}</option>)}
+                        </select>
+                    </label>
+                    {quoteLoading && <p>Consultando valores e disponibilidade...</p>}
+                    {quoteError && <div role="alert"><p className="text-red-700">{quoteError}</p><button type="button" onClick={reloadQuote} className="mt-2 underline text-[#8a5c3f]">Consultar novamente</button></div>}
+                    {quote && <QuoteSummary quote={quote} />}
+                </div>}
             </section>
 
             {/* ==========================================
@@ -1326,7 +1349,7 @@ function ReservasPageContent() {
                                 <Check className="h-5 w-5 text-white" />
                             </div>
                             <h3 className="font-semibold mb-2" style={{ color: 'var(--aissu-chocolate)' }}>Cancelamento Flexível</h3>
-                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Cancelamento gratuito até 48h antes da reserva</p>
+                            <p className="text-sm" style={{ color: 'var(--aissu-wood)' }}>Cancelamento com 72h ou mais de antecedência: 100% reembolsável</p>
                         </div>
                         <div className="p-6">
                             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--aissu-chocolate)' }}>
@@ -1365,24 +1388,12 @@ function ReservasPageContent() {
                             {/* Right: Price & CTA */}
                             <div className="flex items-center gap-6">
                                 <div className="text-right hidden sm:block">
-                                    {(() => {
-                                        const { finalPrice, finalConsumable } = getSpacePricing(effectiveSelectedSpace, effectiveSelectedDate)
-                                        return (
-                                            <>
-                                                <p className="text-2xl font-bold" style={{ color: 'var(--aissu-chocolate)' }}>
-                                                    {formatCurrency(finalPrice)}
-                                                </p>
-                                                <p className="text-xs" style={{ color: 'var(--aissu-terra)' }}>
-                                                    {formatCurrency(finalConsumable)} consumação
-                                                </p>
-                                            </>
-                                        )
-                                    })()}
+                                    {quote ? <><p className="text-2xl font-bold text-[#5C3D2E]">{formatCurrency(quote.totalPrice)}</p><p className="text-xs text-[#8a5c3f]">{participants} pessoas · {formatCurrency(quote.consumptionCredit)} em consumação</p></> : <p className="text-sm text-[#8a5c3f]">{quoteLoading ? 'Consultando...' : 'Confira a disponibilidade'}</p>}
                                 </div>
                                 <div className="flex flex-col items-end gap-1.5">
                                     <button
                                         onClick={handleReserve}
-                                        disabled={lotReservationGate.isBlocked}
+                                        disabled={lotReservationGate.isBlocked || !quote}
                                         className={`px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg ${
                                             lotReservationGate.isBlocked ? 'cursor-not-allowed opacity-70' : ''
                                         }`}

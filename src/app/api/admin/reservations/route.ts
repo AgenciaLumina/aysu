@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         // Transform to match frontend interface
         const formatted = reservations.map((r) => {
             const checkInTime = new Date(r.checkIn).toLocaleTimeString('pt-BR', {
+                ...(r.bookingConditions ? { timeZone: 'America/Sao_Paulo' } : {}),
                 hour: '2-digit',
                 minute: '2-digit',
             })
@@ -109,6 +110,10 @@ export async function GET(request: NextRequest) {
                 spaceType: r.cabin.category.toLowerCase(),
                 date: r.checkIn.toISOString().split('T')[0],
                 time: checkInTime,
+                participantCount: r.participantCount,
+                unitNumber: r.unitNumber,
+                consumptionCredit: r.consumptionCredit === null ? null : Number(r.consumptionCredit),
+                bookingConditions: r.bookingConditions,
                 totalPrice: Number(r.totalPrice),
                 status,
                 source: r.source === 'ONLINE' ? 'online' : 'manual',

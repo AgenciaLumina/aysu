@@ -117,21 +117,21 @@ export function CancellationPolicyModal({ isOpen, onClose }: CancellationPolicyM
                             <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                                 <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                                 <div className="text-sm">
-                                    <span className="font-medium text-green-800">Até 72h de antecedência:</span>
+                                    <span className="font-medium text-green-800">72h ou mais de antecedência:</span>
                                     <span className="text-green-700 ml-1">100% reembolsável</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                                 <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
                                 <div className="text-sm">
-                                    <span className="font-medium text-amber-800">Até 48h de antecedência:</span>
+                                    <span className="font-medium text-amber-800">De 48h a menos de 72h:</span>
                                     <span className="text-amber-700 ml-1">50% reembolsável</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                                 <X className="h-5 w-5 text-red-600 flex-shrink-0" />
                                 <div className="text-sm">
-                                    <span className="font-medium text-red-800">Menos de 24h ou no-show:</span>
+                                    <span className="font-medium text-red-800">Menos de 48h ou no-show:</span>
                                     <span className="text-red-700 ml-1">Não reembolsável</span>
                                 </div>
                             </div>
@@ -224,15 +224,15 @@ export function CancellationPolicySummary() {
                 <div className="p-4 bg-white border-t border-[#e0d5c7] text-sm space-y-3 text-[#4a4a4a]">
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span><strong>Até 72h:</strong> 100% reembolsável</span>
+                        <span><strong>72h ou mais:</strong> 100% reembolsável</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                        <span><strong>Até 48h:</strong> 50% reembolsável</span>
+                        <span><strong>48h a menos de 72h:</strong> 50% reembolsável</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span><strong>Menos de 24h:</strong> Não reembolsável</span>
+                        <span><strong>Menos de 48h:</strong> Não reembolsável</span>
                     </div>
                     <p className="text-xs text-[#8a5c3f] mt-2">
                         Condições climáticas não caracterizam motivo para cancelamento ou reembolso.

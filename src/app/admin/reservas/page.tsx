@@ -19,6 +19,9 @@ interface ClosedDate {
     reason: string
 }
 
+import type { BookingQuote } from '@/lib/reservation-commercial'
+import { QuoteSummary } from '@/components/reservas/CommercialConditions'
+
 interface Reservation {
     id: string
     customerName: string
@@ -27,6 +30,10 @@ interface Reservation {
     checkIn: string
     checkOut: string
     status: string
+    participantCount?: number
+    unitNumber?: number | null
+    consumptionCredit?: number | null
+    bookingConditions?: BookingQuote | null
     totalPrice: number
     cabin: { name: string }
     notes?: string | null
@@ -496,6 +503,7 @@ export default function AdminReservasPage() {
                                                 {formatDateUTC(reservation.checkIn)} {formatTime(reservation.checkIn)}
                                             </p>
                                             <p className="font-bold text-[#d4a574]">{formatCurrency(reservation.totalPrice)}</p>
+                                            {reservation.bookingConditions && <p className="text-xs text-[#8a5c3f]">{reservation.participantCount} pessoas{reservation.unitNumber ? ` · Unidade ${reservation.unitNumber}` : ''}</p>}
                                         </div>
 
                                         {/* Actions */}
@@ -595,6 +603,7 @@ export default function AdminReservasPage() {
                                 </p>
                             </div>
 
+                            {selectedReservation.bookingConditions && <div className="rounded-xl border border-[#e0d5c7] p-4"><QuoteSummary quote={selectedReservation.bookingConditions} /></div>}
                             <div className="rounded-xl border border-[#e0d5c7] p-4 grid grid-cols-2 gap-3">
                                 <div>
                                     <p className="text-xs uppercase tracking-wide text-[#8a5c3f]">Espaço</p>
