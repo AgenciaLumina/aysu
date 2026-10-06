@@ -135,8 +135,10 @@ não é inferida. Novas reservas de estruturas recebem número interno de unidad
 
 O checkout consulta e recalcula o preço no servidor. Valores na URL não são aceitos
 como preço. Criação, aprovação, check-in e remarcação usam trava transacional por
-categoria; alterações comerciais usam as mesmas travas. A aprovação revalida estoque,
-inclusive quando `PENDING_HOLD_MINUTES` está habilitado. Reenvio com o mesmo `requestId`
+categoria; alterações comerciais usam as mesmas travas. Reativação, remarcação e
+aprovação de reserva pendente cujo prazo de retenção expirou revalidam estoque.
+Aprovar uma reserva que ainda ocupa estoque preserva as condições contratadas,
+inclusive após redução da capacidade futura. Reenvio com o mesmo `requestId`
 não duplica reservas. O recibo utiliza token aleatório e não expõe dados pessoais.
 A solicitação permanece PENDING até validação do comprovante pela equipe.
 
@@ -166,3 +168,11 @@ Ela confirma liveness; consultas de configuração/cotação confirmam acesso ao
 Preservar também `GET /api/ready`, que consulta o banco e retorna HTTP 503 se ele
 não estiver acessível. Comparar os manifests de rotas da imagem anterior e candidata
 para detectar outras divergências entre repositório e produção antes de implantar.
+
+Em 06/10/2026, a imagem `sha-d29251f02c2b1d772a24f8f5e7c625ba803b71ec`
+foi verificada em produção com healthcheck saudável e `/api/health` e `/api/ready`
+respondendo HTTP 200. Os 33 cenários comerciais passaram em banco isolado. A seleção
+e o checkout públicos foram conferidos no celular sem criar reservas reais. As 1.356
+reservas e os demais dados comerciais mantiveram todos os valores anteriores; o Day
+Use permaneceu desativado globalmente. O registro privado da verificação fica em
+`/root/aysu-ops/20261006-conditions/verification.json`.
