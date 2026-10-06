@@ -196,7 +196,7 @@ Estou enviando o comprovante do Pix em anexo.`
 
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Formulário */}
-                    <div className="lg:col-span-2 min-w-0">
+                    <div className="lg:col-span-2 min-w-0 order-last lg:order-first">
                         <form onSubmit={handleSubmit} className="space-y-8">
                             {/* Dados pessoais */}
                             <Card>
@@ -317,8 +317,8 @@ Estou enviando o comprovante do Pix em anexo.`
                     </div>
 
                     {/* Resumo */}
-                    <div className="lg:col-span-1 min-w-0">
-                        <Card className="sticky top-24">
+                    <div className="lg:col-span-1 min-w-0 order-first lg:order-last">
+                        <Card className="lg:sticky lg:top-24">
                             <CardHeader>
                                 <CardTitle>Resumo da reserva</CardTitle>
                             </CardHeader>
