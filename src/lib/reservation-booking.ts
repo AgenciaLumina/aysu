@@ -3,7 +3,7 @@ import { Prisma, ReservationStatus } from '@prisma/client'
 import prisma from '@/lib/db'
 import { parseDayConfig, parseReservationGlobalConfig } from '@/lib/day-config'
 import { isHoliday } from '@/lib/holidays'
-import { getActiveReservationFilter } from '@/lib/reservation-hold'
+import { getActiveReservationFilter, getPendingCutoff } from '@/lib/reservation-hold'
 import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
 import { allocateUnit, CANCELLATION_TERMS, calculateBookingAmounts, getCommercialCondition, inventoryConsumption, LEGACY_PRICING, POLICY_VERSION, type BookingQuote } from '@/lib/reservation-commercial'
 import type { createReservationSchema } from '@/lib/validations'
@@ -118,7 +118,9 @@ export async function updateBooking(id: string, data: z.infer<typeof updateReser
         const activeStatuses: string[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS']
         const status = data.status ?? current.status
         const datesChanged = Boolean(data.checkIn || data.checkOut)
-        const needsInventory = activeStatuses.includes(status) && (datesChanged || Boolean(data.status))
+        const pendingCutoff = getPendingCutoff()
+        const alreadyOccupiesInventory = ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(current.status) || (current.status === 'PENDING' && (!pendingCutoff || current.createdAt >= pendingCutoff))
+        const needsInventory = activeStatuses.includes(status) && (datesChanged || !alreadyOccupiesInventory)
         if (data.status === 'CHECKED_IN' && !['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'].includes(current.status)) throw new BookingError('Esta reserva não está ativa para check-in.', 409)
         let allocation: { cabinId: string; unitNumber: number | null } | undefined
         const checkIn = data.checkIn ? new Date(data.checkIn) : current.checkIn

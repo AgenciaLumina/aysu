@@ -114,5 +114,8 @@ check('authorized manual reservation uses the same price and participants', () =
 const cashier = await call('/api/admin/reservations?date=2027-01-03', null, true, 'GET')
 const cashierRecord = cashier.data.find(item => item.id === offline.data.id)
 check('cashier receives quantity, contract and Sao Paulo arrival time', () => { assert.equal(cashierRecord.participantCount, 2); assert.equal(cashierRecord.time, '10:00'); assert.ok(cashierRecord.bookingConditions) })
+await call('/api/admin/day-configs', { date: '2027-01-03', reservableItems: items, commercialConditions: { 'day-use-praia': { dayUseCapacity: 0 } } }, true)
+const preservedApproval = await call(`/api/reservations/${offline.data.id}/status`, { status: 'CONFIRMED' }, true, 'PATCH')
+check('lowering future capacity does not invalidate an existing active contract', () => { assert.ok(preservedApproval.success); assert.equal(Number(preservedApproval.data.totalPrice), 320) })
 await db.$disconnect()
 console.log(`${passed} checks passed; isolated data only; no payment or message sent.`)
