@@ -162,3 +162,7 @@ aditiva. Restauração de banco exige reconciliação de novas reservas após o 
 A checagem do Coolify exige `GET /api/health` com HTTP 200. Validar essa rota na
 imagem candidata com o mesmo comando de healthcheck antes de substituir a aplicação.
 Ela confirma liveness; consultas de configuração/cotação confirmam acesso ao banco.
+
+Preservar também `GET /api/ready`, que consulta o banco e retorna HTTP 503 se ele
+não estiver acessível. Comparar os manifests de rotas da imagem anterior e candidata
+para detectar outras divergências entre repositório e produção antes de implantar.
