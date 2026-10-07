@@ -203,3 +203,17 @@ verificar se já existem datas `WAITING_RELEASE`. Se existirem, salvar seus regi
 em arquivo privado e representá-las temporariamente como `BLOCKED`, mantendo
 `reservationsEnabled=false`, pois o cliente Prisma antigo não conhece o novo valor.
 Não remover o valor do enum nem restaurar o banco inteiro para uma reversão de código.
+
+Publicada a imagem `sha-8a4f0c6e4a6873636b218b6dfca2ac6ccdf3c1e5` com 46 verificações
+comerciais em banco isolado, tipos/lint/build aprovados e conferência de desktop e
+celular na imagem compilada. A seleção pública de 11/10/2026 foi verificada com
+Mesa Praia oculta, estoque zero para essa categoria e Day Use ainda habilitado.
+As 1.373 reservas e os demais registros comerciais preservaram todos os valores.
+Evidências privadas: `/root/aysu-ops/20261007-calendar/verification.json`.
+
+Após a troca do container, validar primeiro `/api/ready` internamente e depois o
+domínio público. O proxy pode retornar `503 no available server` brevemente após
+o container ficar saudável. Usar tentativas limitadas durante até 30 segundos para
+permitir a atualização da rota; nesta implantação a segunda tentativa, após dois
+segundos, respondeu HTTP 200. Se não recuperar, restaurar a imagem anterior com as
+precauções para o novo status acima. Um HTTP 200 interno isolado não conclui o deploy.
