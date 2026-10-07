@@ -85,6 +85,7 @@ enum DayConfigStatus {
   EVENT
   PRIVATE_EVENT
   BLOCKED
+  WAITING_RELEASE
 }
 
 enum PDVOrderStatus {

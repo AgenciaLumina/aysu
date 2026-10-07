@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { reservationDateMessage } from '@/lib/day-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ export async function GET() {
                 where: {
                     date: { gte: today },
                     OR: [
-                        { status: 'BLOCKED' },
+                        { status: { in: ['BLOCKED', 'PRIVATE_EVENT', 'WAITING_RELEASE'] } },
                         { reservationsEnabled: false },
                     ],
                 },
@@ -28,6 +29,7 @@ export async function GET() {
                 select: {
                     date: true,
                     status: true,
+                    reservationsEnabled: true,
                     title: true,
                     release: true,
                 },
@@ -46,9 +48,9 @@ export async function GET() {
 
         for (const config of blockedConfigs) {
             const date = config.date.toISOString().split('T')[0]
-            const reason = config.title?.trim()
+            const reason = reservationDateMessage(config, config.title?.trim()
                 || config.release?.trim()
-                || (config.status === 'BLOCKED' ? 'Data indisponível' : 'Reservas indisponíveis')
+                || (config.status === 'BLOCKED' ? 'Data indisponível' : 'Reservas indisponíveis'))
 
             map.set(date, {
                 date,

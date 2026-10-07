@@ -248,7 +248,7 @@ export const createDayConfigSchema = z.object({
     commercialPeriodId: z.string().uuid().optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (YYYY-MM-DD)'),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    status: z.enum(['NORMAL', 'EVENT', 'PRIVATE_EVENT', 'BLOCKED']).default('NORMAL'),
+    status: z.enum(['NORMAL', 'EVENT', 'PRIVATE_EVENT', 'BLOCKED', 'WAITING_RELEASE']).default('NORMAL'),
     reservationsEnabled: z.boolean().default(true),
     title: z.string().max(150, 'Título muito longo').optional().or(z.literal('')),
     release: z.string().max(5000, 'Release muito longo').optional().or(z.literal('')),
@@ -260,7 +260,12 @@ export const createDayConfigSchema = z.object({
     reservableItems: dayConfigReservableItemsSchema.optional(),
 })
 
-export const updateDayConfigSchema = createDayConfigSchema.partial()
+// Zod defaults still run inside partial objects. A PATCH must preserve omitted fields.
+export const updateDayConfigSchema = createDayConfigSchema.partial().extend({
+    status: createDayConfigSchema.shape.status.removeDefault().optional(),
+    reservationsEnabled: createDayConfigSchema.shape.reservationsEnabled.removeDefault().optional(),
+    highlightOnHome: createDayConfigSchema.shape.highlightOnHome.removeDefault().optional(),
+})
 
 export const updateReservationGlobalConfigSchema = z.object({
     reservableItems: dayConfigReservableItemsSchema.optional(),

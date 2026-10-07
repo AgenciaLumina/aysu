@@ -52,6 +52,25 @@ export const DEFAULT_RESERVABLE_ITEMS: ReservableItems = {
 
 export const DEFAULT_GLOBAL_PRICE_OVERRIDES: PriceOverrides = {}
 
+export function isReservationDateBlocked(config?: { status: string; reservationsEnabled: boolean } | null): boolean {
+    return Boolean(config && (!config.reservationsEnabled || ['BLOCKED', 'PRIVATE_EVENT', 'WAITING_RELEASE'].includes(config.status)))
+}
+
+export function isSpaceEnabled(spaceKey: string, items: ReservableItems): boolean {
+    if (spaceKey.startsWith('bangalo-')) return items.bangalos
+    if (spaceKey === 'sunbed-casal') return items.sunbeds
+    if (spaceKey === 'mesa-restaurante') return items.restaurantTables
+    if (spaceKey === 'mesa-praia') return items.beachTables
+    if (spaceKey === 'day-use-praia') return items.dayUse
+    return true
+}
+
+export function reservationDateMessage(config?: { status: string; reservationsEnabled: boolean } | null, reason?: string): string {
+    if (config?.status === 'WAITING_RELEASE') return 'Aguarde programação. As reservas para esta data ainda não foram liberadas.'
+    if (config?.status === 'PRIVATE_EVENT') return 'Evento privado. Não haverá abertura ao público nesta data.'
+    return reason || 'Esta data não está disponível para reservas.'
+}
+
 export interface ReservationGlobalConfigPayload {
     id: string
     reservableItems: ReservableItems

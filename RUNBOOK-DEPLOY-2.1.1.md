@@ -176,3 +176,30 @@ e o checkout públicos foram conferidos no celular sem criar reservas reais. As 
 reservas e os demais dados comerciais mantiveram todos os valores anteriores; o Day
 Use permaneceu desativado globalmente. O registro privado da verificação fica em
 `/root/aysu-ops/20261006-conditions/verification.json`.
+
+## Correção do calendário de 07/10/2026
+
+Desmarcar um produto em **Produtos liberados para esta data** retira a categoria da
+seleção pública daquela data. A disponibilidade diária, mensal e por horário passa
+a respeitar a mesma configuração usada pela cotação e pela criação da reserva.
+Editar parcialmente uma data preserva status, liberação e destaque não enviados.
+
+Em **Calendário Comercial**, editar a data e escolher **Status do dia → Aguarde
+programação**. Esse status impede novas reservas e informa
+ao público que a programação ainda será divulgada. A opção de reservas online fica
+desmarcada e bloqueada enquanto o status estiver ativo. Para liberar, selecionar
+o status adequado e marcar **Reservas online habilitadas**. Uma programação especial
+liberada mantém a precedência existente sobre um bloqueio antigo de evento fechado;
+operação normal continua respeitando esses bloqueios antigos.
+
+Não há conversão automática de datas bloqueadas ou eventos privados. Aplicações de
+condições por período preservam datas independentes que aguardam programação.
+A migração `20261007130000_waiting_reservation_release` somente acrescenta o valor
+`WAITING_RELEASE` ao enum, sem alterar registros comerciais ou reservas.
+
+Backup desta correção: `/root/aysu-ops/20261007-calendar/rollback/`; imagem anterior:
+`aysu:rollback-20261007-calendar`. Antes de reverter para uma imagem sem esse status,
+verificar se já existem datas `WAITING_RELEASE`. Se existirem, salvar seus registros
+em arquivo privado e representá-las temporariamente como `BLOCKED`, mantendo
+`reservationsEnabled=false`, pois o cliente Prisma antigo não conhece o novo valor.
+Não remover o valor do enum nem restaurar o banco inteiro para uma reversão de código.

@@ -24,6 +24,7 @@ import { optimizeImageBeforeUpload, readUploadApiResponse, validateImageUpload }
 const STATUS_OPTIONS = [
     { value: 'NORMAL', label: 'Operação Normal', badge: 'secondary' as const },
     { value: 'EVENT', label: 'Programação Especial (Ingressos)', badge: 'info' as const },
+    { value: 'WAITING_RELEASE', label: 'Aguarde programação', badge: 'secondary' as const },
     { value: 'PRIVATE_EVENT', label: 'Locação Privada (Fechado)', badge: 'warning' as const },
     { value: 'BLOCKED', label: 'Bloqueado/Manutenção', badge: 'error' as const },
 ]
@@ -63,7 +64,7 @@ interface TicketLotForm {
 interface DayConfigForm {
     date: string
     endDate: string
-    status: 'NORMAL' | 'EVENT' | 'PRIVATE_EVENT' | 'BLOCKED'
+    status: 'NORMAL' | 'EVENT' | 'PRIVATE_EVENT' | 'BLOCKED' | 'WAITING_RELEASE'
     reservationsEnabled: boolean
     title: string
     release: string
@@ -885,7 +886,8 @@ function AdminCalendarioPageContent() {
                                 <label className="block text-sm font-medium text-[#2a2a2a] mb-1.5">Status do dia</label>
                                 <select
                                     value={form.status}
-                                    onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as DayConfigForm['status'] }))}
+                                    aria-label="Status do dia"
+                                    onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as DayConfigForm['status'], reservationsEnabled: e.target.value === 'WAITING_RELEASE' ? false : prev.reservationsEnabled }))}
                                     className="w-full h-11 px-4 rounded-lg border border-[#e0d5c7] text-sm focus:ring-2 focus:ring-[#d4a574]"
                                 >
                                     {STATUS_OPTIONS.map(option => (
@@ -965,6 +967,7 @@ function AdminCalendarioPageContent() {
                             <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">
                                 <input
                                     type="checkbox"
+                                    disabled={form.status === 'WAITING_RELEASE'}
                                     checked={form.reservationsEnabled}
                                     onChange={(e) => setForm(prev => ({ ...prev, reservationsEnabled: e.target.checked }))}
                                     className="rounded"
@@ -982,6 +985,7 @@ function AdminCalendarioPageContent() {
                             </label>
                         </div>
 
+                        {form.status === 'WAITING_RELEASE' && <p className="text-sm text-[#8a5c3f]">O site exibirá “Aguarde programação” e impedirá novas reservas. Para liberar, altere o status e marque “Reservas online habilitadas”.</p>}
                         <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                             <h3 className="font-semibold text-[#2a2a2a]">Produtos liberados para esta data</h3>
                             <div className="grid md:grid-cols-3 gap-3 text-sm">

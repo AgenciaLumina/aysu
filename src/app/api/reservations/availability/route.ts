@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
 import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
+import { isReservationDateBlocked, isSpaceEnabled, parseReservableItems } from '@/lib/day-config'
 
 const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
 DO $$ BEGIN
@@ -119,10 +120,20 @@ async function getRelevantReservations(
 export async function GET(request: NextRequest) {
     try {
         await ensureCabinVisibilityStatusColumn()
-        const [globalRules, dateRules] = await Promise.all([
-            prisma.reservationGlobalConfig.findUnique({ where: { id: 'default' }, select: { commercialConditions: true } }),
-            prisma.reservationDayConfig.findMany({ select: { date: true, commercialConditions: true } }),
+        const [globalRules, dateRules, closedDates] = await Promise.all([
+            prisma.reservationGlobalConfig.findUnique({ where: { id: 'default' }, select: { commercialConditions: true, reservableItems: true } }),
+            prisma.reservationDayConfig.findMany({ select: { date: true, commercialConditions: true, reservableItems: true, status: true, reservationsEnabled: true } }),
+            prisma.closedDate.findMany({ select: { date: true } }),
         ])
+        const rulesByDate = new Map(dateRules.map(rule => [rule.date.toISOString().slice(0, 10), rule]))
+        const closedDateKeys = new Set(closedDates.map(item => item.date.toISOString().slice(0, 10)))
+        const isEnabled = (date: Date, spaceKey: string) => {
+            const dateKey = formatLocalDate(date)
+            const rule = rulesByDate.get(dateKey)
+            if (isReservationDateBlocked(rule)) return false
+            if (closedDateKeys.has(dateKey) && !(rule?.status === 'EVENT' && rule.reservationsEnabled)) return false
+            return isSpaceEnabled(spaceKey, parseReservableItems(rule ? rule.reservableItems : globalRules?.reservableItems))
+        }
         const dayUseCapacity = (date: Date, fallback: number) => getCommercialCondition('day-use-praia', parseCommercialConditions(globalRules?.commercialConditions), parseCommercialConditions(dateRules.find(item => item.date.toISOString().slice(0, 10) === formatLocalDate(date))?.commercialConditions)).dayUseCapacity ?? fallback
         const { searchParams } = new URL(request.url)
         const cabinId = searchParams.get('cabinId')
@@ -208,7 +219,7 @@ export async function GET(request: NextRequest) {
 
                 dayResults.push({
                     date: formatLocalDate(currentDay),
-                    available: reservedCount < dayTotalUnits,
+                    available: isEnabled(currentDay, targetSpaceKey || '') && reservedCount < dayTotalUnits,
                 })
             }
 
@@ -251,7 +262,7 @@ export async function GET(request: NextRequest) {
             const availability: Record<string, number> = {}
             Object.entries(totalUnitsByType).forEach(([spaceKey, totalUnitsForType]) => {
                 const available = (spaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnitsForType) : totalUnitsForType) - (reservedByType[spaceKey] || 0)
-                availability[spaceKey] = available > 0 ? available : 0
+                availability[spaceKey] = isEnabled(date, spaceKey) && available > 0 ? available : 0
             })
 
             return NextResponse.json({ success: true, data: availability })
@@ -283,7 +294,7 @@ export async function GET(request: NextRequest) {
                     overlaps(slotStart, slotEnd, reservation.checkIn, reservation.checkOut)
                 ).reduce((sum, reservation) => sum + inventoryConsumption(targetSpaceKey || '', reservation), 0)
 
-                const isOccupied = countAtSlot >= (targetSpaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnits) : totalUnits) || slotStart < new Date()
+                const isOccupied = !isEnabled(date, targetSpaceKey || '') || countAtSlot >= (targetSpaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnits) : totalUnits) || slotStart < new Date()
 
                 slots.push({
                     start: slotStart.toISOString(),

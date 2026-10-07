@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { Prisma, ReservationStatus } from '@prisma/client'
 import prisma from '@/lib/db'
-import { parseDayConfig, parseReservationGlobalConfig } from '@/lib/day-config'
+import { isReservationDateBlocked, isSpaceEnabled, parseDayConfig, parseReservationGlobalConfig, reservationDateMessage } from '@/lib/day-config'
 import { isHoliday } from '@/lib/holidays'
 import { getActiveReservationFilter, getPendingCutoff } from '@/lib/reservation-hold'
 import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
@@ -46,10 +46,10 @@ export async function readBookingContext(db: Database, cabinId: string, date: st
     if (!cabins.length) throw new BookingError('Este espaço está indisponível.', 404)
     const day = dayRaw ? parseDayConfig(dayRaw) : null
     const global = parseReservationGlobalConfig(globalRaw)
-    if (day && (!day.reservationsEnabled || ['BLOCKED', 'PRIVATE_EVENT'].includes(day.status))) throw new BookingError('Esta data está indisponível para reservas.', 409)
+    if (isReservationDateBlocked(day)) throw new BookingError(reservationDateMessage(day), 409)
     if (closed && !(day?.status === 'EVENT' && day.reservationsEnabled)) throw new BookingError('Esta data está fechada para reservas.', 409)
     const items = day?.reservableItems ?? global.reservableItems
-    const enabled = spaceKey.startsWith('bangalo-') ? items.bangalos : spaceKey === 'sunbed-casal' ? items.sunbeds : spaceKey === 'mesa-praia' ? items.beachTables : spaceKey === 'mesa-restaurante' ? items.restaurantTables : spaceKey === 'day-use-praia' ? items.dayUse : true
+    const enabled = isSpaceEnabled(spaceKey, items)
     if (!enabled) throw new BookingError('Esta categoria não está disponível para reserva nesta data.', 409)
     if (day?.ticketLots.length) {
         const today = dateKeyInSaoPaulo(new Date())

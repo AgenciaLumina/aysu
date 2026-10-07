@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
         const baseData = {
             status: payload.status,
-            reservationsEnabled: payload.reservationsEnabled,
+            reservationsEnabled: payload.status === 'WAITING_RELEASE' ? false : payload.reservationsEnabled,
             title: payload.title?.trim() || null,
             release: payload.release?.trim() || null,
             flyerImageUrl: payload.flyerImageUrl?.trim() || null,

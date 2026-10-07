@@ -13,7 +13,7 @@ import { isHoliday } from '@/lib/holidays'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import type { DayConfigPayload, ReservationGlobalConfigPayload, TicketLot } from '@/lib/day-config'
-import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace } from '@/lib/day-config'
+import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace, isReservationDateBlocked, isSpaceEnabled, reservationDateMessage } from '@/lib/day-config'
 import { useBookingQuote } from '@/hooks/useBookingQuote'
 import { getCommercialCondition } from '@/lib/reservation-commercial'
 import { CommercialConditions, QuoteSummary } from '@/components/reservas/CommercialConditions'
@@ -452,11 +452,7 @@ interface ClosedDateInfo {
     reason: string
 }
 
-function getDateFromUrlParam(): Date | null {
-    if (typeof window === 'undefined') return null
-
-    const params = new URLSearchParams(window.location.search)
-    const dateParam = params.get('date')
+function getDateFromUrlParam(dateParam: string | null): Date | null {
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return null
 
     const date = new Date(`${dateParam}T12:00:00`)
@@ -481,11 +477,7 @@ function isDateSelectable(
     // Evento da casa continua vendável mesmo com fechamento do público geral no calendário.
     if (isHouseEventOpen) return true
 
-    const isBlocked = !!config && (
-        !config.reservationsEnabled ||
-        config.status === 'BLOCKED' ||
-        config.status === 'PRIVATE_EVENT'
-    )
+    const isBlocked = isReservationDateBlocked(config)
 
     return !isClosedDate && !isBlocked
 }
@@ -494,7 +486,7 @@ function ReservasPageContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const dateParamFromQuery = searchParams.get('date')
-    const [initialDateFromUrl] = useState<Date | null>(() => getDateFromUrlParam())
+    const [initialDateFromUrl] = useState<Date | null>(() => getDateFromUrlParam(dateParamFromQuery))
     const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
         if (!initialDateFromUrl) return null
 
@@ -619,14 +611,16 @@ function ReservasPageContent() {
         const year = currentMonth.getFullYear()
         const month = currentMonth.getMonth() + 1
 
-        fetch(`/api/day-configs?year=${year}&month=${month}`)
+        const controller = new AbortController()
+        fetch(`/api/day-configs?year=${year}&month=${month}`, { signal: controller.signal, cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    setDayConfigs(data.data)
+                    if (!controller.signal.aborted) setDayConfigs(data.data)
                 }
             })
-            .catch(err => console.error('Erro ao buscar configurações do calendário:', err))
+            .catch(err => { if (!controller.signal.aborted) console.error('Erro ao buscar configurações do calendário:', err) })
+        return () => controller.abort()
     }, [currentMonth])
 
     useEffect(() => {
@@ -679,13 +673,11 @@ function ReservasPageContent() {
         : null
     const lotReservationGate = getLotReservationGate(selectedDateConfig?.ticketLots ?? [])
 
-    const effectiveSelectedSpace = useMemo(() => {
-        if (!selectedSpace) return null
-        const next = spaces.find((space) => space.id === selectedSpace.id && space.visibilityStatus === 'AVAILABLE')
-        return next || null
-    }, [selectedSpace, spaces])
-
-
+    const selectedAvailableSpace = selectedSpace
+        ? spaces.find(space => space.id === selectedSpace.id && space.visibilityStatus === 'AVAILABLE')
+        : null
+    const selectedItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
+    const effectiveSelectedSpace = selectedAvailableSpace && isSpaceEnabled(selectedAvailableSpace.id, selectedItems) ? selectedAvailableSpace : null
 
     const { quote, error: quoteError, loading: quoteLoading, reload: reloadQuote } = useBookingQuote(effectiveSelectedSpace?.id ?? null, effectiveSelectedDate ? toLocalISODate(effectiveSelectedDate) : null, participants)
     const selectedCondition = effectiveSelectedSpace ? getCommercialCondition(effectiveSelectedSpace.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions) : {}
@@ -724,11 +716,7 @@ function ReservasPageContent() {
             const closedInfo = closedDates.find(cd => cd.date === dateStr)
             const dayConfig = dayConfigs.find(config => config.date === dateStr)
             const isHouseEventOpen = dayConfig?.status === 'EVENT' && dayConfig.reservationsEnabled !== false
-            const isConfigBlocked = !!dayConfig && (
-                !dayConfig.reservationsEnabled ||
-                dayConfig.status === 'BLOCKED' ||
-                dayConfig.status === 'PRIVATE_EVENT'
-            )
+            const isConfigBlocked = isReservationDateBlocked(dayConfig)
             const isClosedByCalendar = !!closedInfo && !isHouseEventOpen
 
             days.push({
@@ -918,6 +906,7 @@ function ReservasPageContent() {
                                 const isDisabled = day.isPast || day.isSoldOut
                                 const isToday = toLocalISODate(new Date()) === dateStr
                                 const hasEventInfo = !!(day.config?.title || day.config?.release)
+                                const isWaiting = day.config?.status === 'WAITING_RELEASE'
                                 const isEventDate = day.config?.status === 'EVENT' || day.config?.status === 'PRIVATE_EVENT'
 
                                 return (
@@ -939,13 +928,14 @@ function ReservasPageContent() {
                                                     handleDateSelect(day.date!)
                                                 }
                                             }}
+                                            aria-label={`${day.date.toLocaleDateString('pt-BR')}${isWaiting ? ': Aguarde programação' : ''}`}
                                             disabled={isDisabled}
                                             className={`
                                                 w-full aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all
                                                 ${isSelected
                                                     ? 'bg-gray-900 text-white shadow-lg scale-105'
                                                     : day.isClosed
-                                                        ? 'bg-red-100 text-red-500 hover:bg-red-200'
+                                                        ? isWaiting ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-red-100 text-red-500 hover:bg-red-200'
                                                         : isDisabled
                                                             ? 'text-gray-200 cursor-not-allowed'
                                                             : isToday
@@ -960,7 +950,7 @@ function ReservasPageContent() {
                                         >
                                             <span>{day.date.getDate()}</span>
                                             {day.isClosed && !isSelected && (
-                                                <span className="w-1 h-1 rounded-full bg-red-500 mt-0.5" />
+                                                <span className={`w-1 h-1 rounded-full mt-0.5 ${isWaiting ? 'bg-slate-500' : 'bg-red-500'}`} />
                                             )}
                                             {day.isHoliday && !day.isClosed && !isSelected && (
                                                 <span className="w-1 h-1 rounded-full bg-amber-500 mt-0.5" />
@@ -971,9 +961,9 @@ function ReservasPageContent() {
                                         </button>
                                         {/* Closed Date Tooltip */}
                                         {day.isClosed && (
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-red-600 text-white text-xs rounded-lg max-w-[220px] text-center whitespace-normal break-words opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                                                {day.closedReason || 'Evento Fechado'} — Não abriremos ao público
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent border-b-red-600" />
+                                            <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 ${isWaiting ? 'bg-slate-700' : 'bg-red-600'} text-white text-xs rounded-lg w-44 text-center whitespace-normal break-words opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl`}>
+                                                {reservationDateMessage(day.config, day.closedReason)}
+                                                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 border-4 border-transparent ${isWaiting ? 'border-b-slate-700' : 'border-b-red-600'}`} />
                                             </div>
                                         )}
                                         {/* Event Tooltip */}
@@ -1009,6 +999,10 @@ function ReservasPageContent() {
                             <span className="inline-flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-red-500" />
                                 Data bloqueada
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                Aguarde programação
                             </span>
                         </div>
                     </div>
@@ -1136,17 +1130,10 @@ function ReservasPageContent() {
                         const perPerson = space.id === 'day-use-praia' || condition.pricingMode === 'PER_PERSON'
                         const availableCount = availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
-                        const isRestaurantTable = space.id === 'mesa-restaurante'
-                        const isBeachTable = space.id === 'mesa-praia'
                         const isDayUse = space.id === 'day-use-praia'
                         const blockedByVisibility = space.visibilityStatus === 'UNAVAILABLE'
-                        const blockedByRule = (
-                            (space.category === 'bangalo' && !reservableItems.bangalos) ||
-                            (space.category === 'sunbed' && !reservableItems.sunbeds) ||
-                            (isRestaurantTable && !reservableItems.restaurantTables) ||
-                            (isBeachTable && !reservableItems.beachTables) ||
-                            (isDayUse && !reservableItems.dayUse)
-                        )
+                        const blockedByRule = !isSpaceEnabled(space.id, reservableItems)
+                        if (effectiveSelectedDate && blockedByRule) return null
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
                         const isSoldOut = blockedByVisibility
                             || (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)
@@ -1220,7 +1207,7 @@ function ReservasPageContent() {
                                                 if (blockedByRule) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-slate-700 text-white">
-                                                            Disponível somente em evento
+                                                            Indisponível nesta data
                                                         </span>
                                                     )
                                                 }

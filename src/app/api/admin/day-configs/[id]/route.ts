@@ -61,7 +61,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 commercialPeriodId: null,
                 ...(payload.date ? { date: toDbDate(payload.date) } : {}),
                 ...(payload.status ? { status: payload.status } : {}),
-                ...(payload.reservationsEnabled !== undefined ? { reservationsEnabled: payload.reservationsEnabled } : {}),
+                ...((payload.status ?? existing.status) === 'WAITING_RELEASE'
+                    ? { reservationsEnabled: false }
+                    : payload.reservationsEnabled !== undefined ? { reservationsEnabled: payload.reservationsEnabled } : {}),
                 ...(payload.title !== undefined ? { title: payload.title?.trim() || null } : {}),
                 ...(payload.release !== undefined ? { release: payload.release?.trim() || null } : {}),
                 ...(payload.flyerImageUrl !== undefined ? { flyerImageUrl: payload.flyerImageUrl?.trim() || null } : {}),

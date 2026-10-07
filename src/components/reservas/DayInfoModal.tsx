@@ -6,7 +6,7 @@
 import { useEffect } from 'react'
 import { X, Lock, Sparkles, Ban, Ticket, CalendarDays } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import type { DayConfigPayload, TicketLot } from '@/lib/day-config'
+import { reservationDateMessage, type DayConfigPayload, type TicketLot } from '@/lib/day-config'
 
 // ============================================================
 // TIPOS
@@ -57,6 +57,7 @@ function getActiveLot(lots: TicketLot[]): TicketLot | null {
 // ============================================================
 
 function StatusBadge({ isPrivate, isClosed, status }: { isPrivate: boolean; isClosed: boolean; status?: string }) {
+    if (status === 'WAITING_RELEASE') return <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700"><CalendarDays className="h-3.5 w-3.5" />Aguarde programação</span>
     if (isPrivate) {
         return (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-800 text-white">
@@ -166,18 +167,18 @@ export default function DayInfoModal({
 
     if (!isOpen) return null
 
-    const title = config?.title || closedReason || 'Data Indisponível'
+    const title = config?.status === 'WAITING_RELEASE' ? 'Aguarde programação' : config?.title || closedReason || 'Data Indisponível'
     const release = config?.release
     const flyerUrl = config?.flyerImageUrl
     const lots = config?.ticketLots ?? []
     const activeLot = getActiveLot(lots)
-    const canReserve = !isClosed && !isPrivate && typeof onReserve === 'function'
+    const canReserve = config?.status !== 'WAITING_RELEASE' && !isClosed && !isPrivate && typeof onReserve === 'function'
 
     return (
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
                 onClick={onClose}
                 aria-hidden="true"
             />
@@ -187,7 +188,7 @@ export default function DayInfoModal({
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className="fixed z-50 inset-x-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center md:p-4"
+                className="fixed z-[60] inset-x-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center md:p-4"
             >
                 <div
                     className="relative w-full md:max-w-lg md:w-full bg-white rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden
@@ -296,11 +297,7 @@ export default function DayInfoModal({
                                     <Ban className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                                 )}
                                 <p className="text-xs text-gray-500 leading-relaxed">
-                                    {isPrivate
-                                        ? 'Este dia está reservado para um evento privado. Não haverá abertura ao público.'
-                                        : closedReason
-                                          ? `${closedReason} — não haverá abertura ao público nesta data.`
-                                          : 'Esta data não está disponível para reservas ao público.'}
+                                    {reservationDateMessage(config, closedReason)}
                                 </p>
                             </div>
                         )}
