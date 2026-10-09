@@ -217,3 +217,27 @@ o container ficar saudável. Usar tentativas limitadas durante até 30 segundos 
 permitir a atualização da rota; nesta implantação a segunda tentativa, após dois
 segundos, respondeu HTTP 200. Se não recuperar, restaurar a imagem anterior com as
 precauções para o novo status acima. Um HTTP 200 interno isolado não conclui o deploy.
+
+
+## Seleção de participantes
+
+Na seleção pública, a quantidade de pessoas aparece diretamente abaixo do espaço
+escolhido e na barra antes de continuar. **Alterar** leva novamente ao seletor;
+selecionar o mesmo espaço preserva a quantidade já escolhida.
+
+Day Use limita pessoas pelas vagas restantes e pelo máximo por reserva. Estruturas
+continuam distinguindo capacidade de integrantes e número de unidades. Se o estoque
+cair, a quantidade é ajustada com aviso. Sem vagas, o seletor e Continuar ficam
+bloqueados. **Consultar novamente** permite atualizar a consulta. Continuar confere
+novamente a disponibilidade antes de avançar; respostas antigas de cotação são
+descartadas. O botão do WhatsApp não cobre Continuar.
+
+A alteração preserva preços, consumação, capacidade total, regras e reservas
+existentes e utiliza o schema atual, sem migração.
+
+Para conferir a interface, usar larguras de 320, 390, 768 e 1280 pixels e cenários
+isolados de uma vaga restante, esgotamento, redução de estoque e resposta atrasada.
+Verificar a quantidade na barra, a ação Alterar e o avanço ao checkout. Interceptar
+as APIs com fixtures sintéticas em testes visuais para não criar reservas nem
+pagamentos reais. Consultas reais somente de leitura devem ser registradas
+separadamente; uma data de teste não comprova um incidente de data desconhecida.
