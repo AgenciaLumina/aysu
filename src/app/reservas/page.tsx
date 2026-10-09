@@ -15,6 +15,7 @@ import { Footer } from '@/components/layout/Footer'
 import type { DayConfigPayload, ReservationGlobalConfigPayload, TicketLot } from '@/lib/day-config'
 import { DEFAULT_RESERVABLE_ITEMS, getPriceOverrideForSpace, isReservationDateBlocked, isSpaceEnabled, reservationDateMessage } from '@/lib/day-config'
 import { useBookingQuote } from '@/hooks/useBookingQuote'
+import { getParticipantLimit } from '@/lib/booking-selection'
 import { getCommercialCondition } from '@/lib/reservation-commercial'
 import { CommercialConditions, QuoteSummary } from '@/components/reservas/CommercialConditions'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
@@ -495,6 +496,9 @@ function ReservasPageContent() {
         return initialDateFromUrl < today ? null : initialDateFromUrl
     })
     const [participants, setParticipants] = useState(1)
+    const [selectionNotice, setSelectionNotice] = useState<string | null>(null)
+    const selectedBookingRef = useRef<HTMLDivElement | null>(null)
+    const participantSelectRef = useRef<HTMLSelectElement | null>(null)
     const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
     const [spaces, setSpaces] = useState<SpaceType[]>(LEGACY_SPACE_TYPES)
     const [closedDates, setClosedDates] = useState<ClosedDateInfo[]>([])
@@ -679,9 +683,19 @@ function ReservasPageContent() {
     const selectedItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
     const effectiveSelectedSpace = selectedAvailableSpace && isSpaceEnabled(selectedAvailableSpace.id, selectedItems) ? selectedAvailableSpace : null
 
-    const { quote, error: quoteError, loading: quoteLoading, reload: reloadQuote } = useBookingQuote(effectiveSelectedSpace?.id ?? null, effectiveSelectedDate ? toLocalISODate(effectiveSelectedDate) : null, participants)
+    const { quote, error: quoteError, availability: quoteAvailability, loading: quoteLoading, reload: reloadQuote, refresh: refreshQuote } = useBookingQuote(effectiveSelectedSpace?.id ?? null, effectiveSelectedDate ? toLocalISODate(effectiveSelectedDate) : null, participants)
     const selectedCondition = effectiveSelectedSpace ? getCommercialCondition(effectiveSelectedSpace.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions) : {}
-    const participantLimit = quote?.maxParticipants ?? selectedCondition.maxParticipants ?? (effectiveSelectedSpace?.id === 'day-use-praia' ? 6 : effectiveSelectedSpace?.capacityNum ?? 1)
+    const maximumParticipants = quoteAvailability?.maxParticipants ?? selectedCondition.maxParticipants ?? (effectiveSelectedSpace?.id === 'day-use-praia' ? 6 : effectiveSelectedSpace?.capacityNum ?? 1)
+    const participantLimit = getParticipantLimit(effectiveSelectedSpace?.id, maximumParticipants, quoteAvailability)
+
+    useEffect(() => {
+        if (!participantLimit || participants <= participantLimit) return
+        const frame = window.requestAnimationFrame(() => {
+            setParticipants(participantLimit)
+            setSelectionNotice(`A disponibilidade mudou. Ajustamos a quantidade para ${participantLimit} ${participantLimit === 1 ? 'pessoa' : 'pessoas'}. Confira antes de continuar.`)
+        })
+        return () => window.cancelAnimationFrame(frame)
+    }, [participantLimit, participants, effectiveSelectedSpace?.id])
 
     const calendarDays = useMemo(() => {
         const year = currentMonth.getFullYear()
@@ -775,19 +789,28 @@ function ReservasPageContent() {
     }
 
     const handleSpaceSelect = (space: SpaceType) => {
-        setSelectedSpace(space)
-        setParticipants(1)
+        if (selectedSpace?.id !== space.id) {
+            setSelectedSpace(space)
+            setParticipants(1)
+            setSelectionNotice(null)
+        }
+        window.requestAnimationFrame(() => {
+            selectedBookingRef.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+            selectedBookingRef.current?.focus({ preventScroll: true })
+        })
     }
 
-    const handleReserve = () => {
+    const handleReserve = async () => {
         if (lotReservationGate.isBlocked || !quote) return
+        const latestQuote = await refreshQuote()
+        if (!latestQuote || latestQuote.participantCount !== participants) return
 
         if (effectiveSelectedDate && effectiveSelectedSpace) {
             const params = new URLSearchParams({
                 cabinId: effectiveSelectedSpace.id,
                 cabinName: effectiveSelectedSpace.name,
                 date: toLocalISODate(effectiveSelectedDate),
-                participants: participants.toString(),
+                participants: latestQuote.participantCount.toString(),
             })
 
             if (selectedDateConfig?.title) {
@@ -811,7 +834,7 @@ function ReservasPageContent() {
                 : null
 
     return (
-        <div className="min-h-screen bg-white overflow-x-hidden">
+        <div className={`min-h-screen bg-white overflow-x-hidden ${effectiveSelectedSpace && effectiveSelectedDate ? 'pb-36' : ''}`}>
             <Header variant="transparent" />
 
             {/* ==========================================
@@ -1128,7 +1151,7 @@ function ReservasPageContent() {
                         const { finalPrice, finalConsumable } = getSpacePricing(space, effectiveSelectedDate)
                         const condition = getCommercialCondition(space.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions)
                         const perPerson = space.id === 'day-use-praia' || condition.pricingMode === 'PER_PERSON'
-                        const availableCount = availabilityCounts[space.id]
+                        const availableCount = effectiveSelectedSpace?.id === space.id && quoteAvailability ? quoteAvailability.available : availabilityCounts[space.id]
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isDayUse = space.id === 'day-use-praia'
                         const blockedByVisibility = space.visibilityStatus === 'UNAVAILABLE'
@@ -1142,8 +1165,8 @@ function ReservasPageContent() {
                             || isLoadingAvailability
 
                         return (
+                            <div key={space.id} className="min-w-0">
                             <article
-                                key={space.id}
                                 role="button"
                                 tabIndex={effectiveSelectedDate && !isSoldOut ? 0 : -1}
                                 aria-disabled={!effectiveSelectedDate || Boolean(isSoldOut)}
@@ -1196,7 +1219,7 @@ function ReservasPageContent() {
                                                         </span>
                                                     )
                                                 }
-                                                const count = availabilityCounts[space.id]
+                                                const count = availableCount
                                                 if (count === undefined) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">
@@ -1235,13 +1258,13 @@ function ReservasPageContent() {
                                                 if (count <= 2) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white ring-2 ring-amber-300 ring-offset-1">
-                                                            🔥 {count === 1 ? 'Última unidade!' : `Últimas ${count}!`}
+                                                            🔥 {count === 1 ? isDayUse ? 'Última vaga!' : 'Última unidade!' : `Últimas ${count}${isDayUse ? ' vagas' : ''}!`}
                                                         </span>
                                                     )
                                                 }
                                                 return (
                                                     <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-sm bg-white/95 text-gray-900">
-                                                        {count} disponíveis
+                                                        {count} {isDayUse ? 'vagas de pessoas' : 'disponíveis'}
                                                     </span>
                                                 )
                                             })()
@@ -1302,20 +1325,24 @@ function ReservasPageContent() {
                                     </div>
                                 </div>
                             </article>
+                            {effectiveSelectedSpace?.id === space.id && effectiveSelectedDate && (
+                                <div ref={selectedBookingRef} tabIndex={-1} className="mt-4 rounded-2xl border border-[#d4a574] bg-[#faf7f2] p-5 scroll-mt-28 scroll-mb-40 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]" aria-label={`Participantes da reserva de ${space.name}`} aria-live="polite">
+                                    <h3 className="text-lg font-semibold text-[#5C3D2E] mb-4">Sua reserva: {space.name}</h3>
+                                    <label htmlFor="booking-participants" className="block text-sm font-semibold text-[#5C3D2E]">Quantidade de pessoas</label>
+                                    <select id="booking-participants" ref={participantSelectRef} value={participantLimit ? Math.min(participants, participantLimit) : ''} disabled={!participantLimit} aria-describedby="participant-stock-hint" onChange={event => { setParticipants(Number(event.target.value)); setSelectionNotice(null) }} className="mt-2 mb-2 block min-h-12 w-full rounded-lg border border-[#e0d5c7] bg-white p-3 text-base focus-visible:outline-2 focus-visible:outline-[#8a5c3f] disabled:opacity-60">
+                                        {participantLimit ? Array.from({ length: participantLimit }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity} {quantity === 1 ? 'pessoa' : 'pessoas'}</option>) : <option value="">{quoteLoading ? 'Consultando disponibilidade...' : 'Sem disponibilidade confirmada'}</option>}
+                                    </select>
+                                    <p id="participant-stock-hint" className="mb-4 text-sm text-[#8a5c3f]">{isDayUse && quoteAvailability ? quoteAvailability.available ? `${quoteAvailability.available} ${quoteAvailability.available === 1 ? 'vaga restante para esta data' : 'vagas restantes para esta data'}. Até ${participantLimit} ${participantLimit === 1 ? 'pessoa' : 'pessoas'} por reserva.` : 'Não há vagas de Day Use para esta data.' : 'Escolha a quantidade antes de continuar.'}</p>
+                                    {selectionNotice && <p role="status" className="mb-4 text-sm font-medium text-[#8a5c3f]">{selectionNotice}</p>}
+                                    {quoteLoading && <p role="status">Consultando valores e disponibilidade...</p>}
+                                    {quoteError && <div role="alert"><p className="text-red-700">{quoteError}</p><button type="button" onClick={reloadQuote} className="mt-2 min-h-11 underline text-[#8a5c3f]">Consultar novamente</button></div>}
+                                    {quote && <QuoteSummary quote={quote} />}
+                                </div>
+                            )}
+                            </div>
                         )
                     })}
                 </div>
-                {effectiveSelectedSpace && effectiveSelectedDate && <div className="mt-8 max-w-2xl mx-auto border-t border-[var(--aissu-border)] pt-6 pb-8" aria-live="polite">
-                    <h3 className="text-xl font-semibold text-[#5C3D2E] mb-4">Sua reserva: {effectiveSelectedSpace.name}</h3>
-                    <label className="block text-sm font-semibold text-[#5C3D2E] mb-5">Quantidade de pessoas
-                        <select value={participants} onChange={event => setParticipants(Number(event.target.value))} className="mt-2 block w-full rounded-lg border border-[#e0d5c7] bg-white p-3 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]">
-                            {Array.from({ length: participantLimit }, (_, index) => index + 1).map(quantity => <option key={quantity} value={quantity}>{quantity} {quantity === 1 ? 'pessoa' : 'pessoas'}</option>)}
-                        </select>
-                    </label>
-                    {quoteLoading && <p>Consultando valores e disponibilidade...</p>}
-                    {quoteError && <div role="alert"><p className="text-red-700">{quoteError}</p><button type="button" onClick={reloadQuote} className="mt-2 underline text-[#8a5c3f]">Consultar novamente</button></div>}
-                    {quote && <QuoteSummary quote={quote} />}
-                </div>}
             </section>
 
             {/* ==========================================
@@ -1353,11 +1380,11 @@ function ReservasPageContent() {
                 STICKY BOTTOM BAR
                 ========================================== */}
             {effectiveSelectedSpace && effectiveSelectedDate && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-2xl shadow-black/10" style={{ borderColor: 'var(--aissu-border)' }}>
-                    <div className="max-w-5xl mx-auto px-6 py-4">
-                        <div className="flex items-center justify-between">
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-[60] shadow-2xl shadow-black/10" style={{ borderColor: 'var(--aissu-border)' }}>
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                        <div className="flex items-center justify-between gap-3">
                             {/* Left: Selection Info */}
-                            <div className="flex items-center gap-4">
+                            <div className="flex min-w-0 items-center gap-4">
                                 <div className="hidden sm:block w-16 h-16 rounded-xl overflow-hidden relative shadow-lg">
                                     <Image
                                         src={effectiveSelectedSpace.image}
@@ -1366,14 +1393,15 @@ function ReservasPageContent() {
                                         className="object-cover"
                                     />
                                 </div>
-                                <div>
-                                    <p className="font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{effectiveSelectedSpace.name}</p>
+                                <div className="min-w-0">
+                                    <p className="truncate font-semibold" style={{ color: 'var(--aissu-chocolate)' }}>{effectiveSelectedSpace.name}</p>
                                     <p className="text-sm capitalize" style={{ color: 'var(--aissu-wood)' }}>{formatDateShort(effectiveSelectedDate)}</p>
+                                    <button type="button" onClick={() => { selectedBookingRef.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); participantSelectRef.current?.focus({ preventScroll: true }) }} className="min-h-11 text-sm font-semibold text-[#5C3D2E] underline" aria-label="Alterar quantidade de pessoas">{participants} {participants === 1 ? 'pessoa' : 'pessoas'} · Alterar</button>
                                 </div>
                             </div>
 
                             {/* Right: Price & CTA */}
-                            <div className="flex items-center gap-6">
+                            <div className="flex shrink-0 items-center gap-3 sm:gap-6">
                                 <div className="text-right hidden sm:block">
                                     {quote ? <><p className="text-2xl font-bold text-[#5C3D2E]">{formatCurrency(quote.totalPrice)}</p><p className="text-xs text-[#8a5c3f]">{participants} pessoas · {formatCurrency(quote.consumptionCredit)} em consumação</p></> : <p className="text-sm text-[#8a5c3f]">{quoteLoading ? 'Consultando...' : 'Confira a disponibilidade'}</p>}
                                 </div>
@@ -1381,9 +1409,7 @@ function ReservasPageContent() {
                                     <button
                                         onClick={handleReserve}
                                         disabled={lotReservationGate.isBlocked || !quote}
-                                        className={`px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg ${
-                                            lotReservationGate.isBlocked ? 'cursor-not-allowed opacity-70' : ''
-                                        }`}
+                                        className="px-4 sm:px-8 py-4 rounded-xl font-semibold transition-colors flex items-center gap-2 shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                                         style={{
                                             backgroundColor: lotReservationGate.isBlocked ? '#9ca3af' : 'var(--aissu-chocolate)',
                                             color: 'white',

@@ -9,10 +9,11 @@ import { allocateUnit, CANCELLATION_TERMS, calculateBookingAmounts, getCommercia
 import type { createReservationSchema } from '@/lib/validations'
 import type { updateReservationSchema } from '@/lib/validations'
 import type { z } from 'zod'
+import type { BookingAvailability } from '@/lib/booking-selection'
 
 type Database = Pick<Prisma.TransactionClient, 'cabin' | 'reservation' | 'reservationDayConfig' | 'reservationGlobalConfig' | 'closedDate'>
 export class BookingError extends Error {
-    constructor(message: string, public status = 400) { super(message) }
+    constructor(message: string, public status = 400, public availability?: BookingAvailability) { super(message) }
 }
 export function dateKeyInSaoPaulo(date: Date) {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
@@ -63,7 +64,7 @@ export async function readBookingContext(db: Database, cabinId: string, date: st
     const capacity = spaceKey === 'day-use-praia' ? condition.dayUseCapacity ?? units : units
     const used = reservations.reduce((sum, reservation) => sum + inventoryConsumption(spaceKey, reservation), 0)
     const available = Math.max(0, capacity - used)
-    if (inventoryConsumption(spaceKey, { participantCount: quantity }) > available) throw new BookingError(spaceKey === 'day-use-praia' ? `Restam ${available} vagas de Day Use para esta data. Escolha outra quantidade ou data.` : 'Não há unidade disponível para esta data.', 409)
+    if (inventoryConsumption(spaceKey, { participantCount: quantity }) > available) throw new BookingError(spaceKey === 'day-use-praia' ? `Restam ${available} vagas de Day Use para esta data. Escolha outra quantidade ou data.` : 'Não há unidade disponível para esta data.', 409, { available, maxParticipants })
     const legacy = LEGACY_PRICING[spaceKey]
     const holiday = Boolean(isHoliday(date))
     const basePrice = holiday && legacy ? legacy.holidayPrice : Number(cabins[0].pricePerHour) || legacy?.price || 0
