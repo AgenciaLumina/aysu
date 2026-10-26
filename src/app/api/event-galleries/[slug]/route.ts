@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { ensureEventGalleryTables, serializeEventGalleryDateField } from '@/lib/event-gallery'
+import { serializeEventGalleryDateField } from '@/lib/event-gallery'
 import type { ApiResponse } from '@/lib/types'
 
 interface RouteParams {
@@ -9,8 +9,6 @@ interface RouteParams {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
     try {
-        await ensureEventGalleryTables()
-
         const { slug } = await params
 
         const gallery = await prisma.eventGallery.findFirst({

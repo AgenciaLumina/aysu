@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 import { createEventGallerySchema } from '@/lib/validations'
 import {
-    ensureEventGalleryTables,
     normalizeEventGallerySlug,
     parseEventGalleryDate,
     serializeEventGalleryDateField,
@@ -16,8 +15,6 @@ export async function GET(request: NextRequest) {
         if (!canAccessAdminPanel(authUser)) {
             return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
         }
-
-        await ensureEventGalleryTables()
 
         const galleries = await prisma.eventGallery.findMany({
             orderBy: [
@@ -52,8 +49,6 @@ export async function POST(request: NextRequest) {
         if (!canAccessAdminPanel(authUser)) {
             return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
         }
-
-        await ensureEventGalleryTables()
 
         const body = await request.json()
         const validation = createEventGallerySchema.safeParse(body)

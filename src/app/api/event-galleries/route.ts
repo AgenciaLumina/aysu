@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { ensureEventGalleryTables, serializeEventGalleryDateField } from '@/lib/event-gallery'
+import { serializeEventGalleryDateField } from '@/lib/event-gallery'
 import type { ApiResponse } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
     try {
-        await ensureEventGalleryTables()
-
         const { searchParams } = new URL(request.url)
         const limitParam = Number(searchParams.get('limit') || 24)
         const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 24

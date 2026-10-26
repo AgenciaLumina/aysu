@@ -1,7 +1,18 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "installCommand": "npm ci --no-audit --no-fund",
+  "buildCommand": "npm run build:vercel",
+  "git": {
+    "deploymentEnabled": false
+  },
+  "functions": {
+    "src/app/api/**/route.ts": {
+      "maxDuration": 60
+    }
+  },
   "regions": [
-    "gru1"
+    "iad1"
   ],
   "headers": [
     {

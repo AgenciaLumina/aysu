@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
 import {
-    ensureEventGalleryTables,
     normalizeEventGallerySlug,
     parseEventGalleryDate,
     serializeEventGalleryDateField,
@@ -26,8 +25,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         if (!canAccessAdminPanel(authUser)) {
             return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
         }
-
-        await ensureEventGalleryTables()
 
         const { id } = await params
 
@@ -60,8 +57,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         if (!canAccessAdminPanel(authUser)) {
             return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
         }
-
-        await ensureEventGalleryTables()
 
         const { id } = await params
         const body = await request.json()
@@ -167,8 +162,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         if (!canAccessAdminPanel(authUser)) {
             return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
         }
-
-        await ensureEventGalleryTables()
 
         const { id } = await params
 

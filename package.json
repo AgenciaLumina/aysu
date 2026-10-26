@@ -2,9 +2,15 @@
   "name": "aissu-beach-lounge",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:vercel": "npm run deploy:check && npm run build",
+    "deploy:check": "node scripts/check-deploy-env.mjs",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"

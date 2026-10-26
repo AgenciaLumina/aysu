@@ -13,31 +13,9 @@ interface RouteParams {
     params: Promise<{ id: string }>
 }
 
-const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
-DO $$ BEGIN
-  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
-`
-
-const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
-ALTER TABLE "Cabin"
-  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
-`
-
-const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
-
-async function ensureCabinVisibilityStatusColumn() {
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
-}
-
 // GET - Detalhes da reserva
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        await ensureCabinVisibilityStatusColumn()
         const { id } = await params
         const authUser = getAuthUser(request)
 
@@ -102,7 +80,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE - Cancela reserva (soft delete)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
-        await ensureCabinVisibilityStatusColumn()
         const { id } = await params
         const authUser = getAuthUser(request)
 

@@ -9,27 +9,6 @@ import { getActiveReservationFilter } from '@/lib/reservation-hold'
 import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
 import { isReservationDateBlocked, isSpaceEnabled, parseReservableItems } from '@/lib/day-config'
 
-const ENSURE_CABIN_VISIBILITY_ENUM_SQL = `
-DO $$ BEGIN
-  CREATE TYPE "CabinVisibilityStatus" AS ENUM ('AVAILABLE', 'UNAVAILABLE', 'HIDDEN');
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
-`
-
-const ENSURE_CABIN_VISIBILITY_COLUMN_SQL = `
-ALTER TABLE "Cabin"
-  ADD COLUMN IF NOT EXISTS "visibilityStatus" "CabinVisibilityStatus" NOT NULL DEFAULT 'AVAILABLE';
-`
-
-const ENSURE_CABIN_VISIBILITY_INDEX_SQL = `CREATE INDEX IF NOT EXISTS "Cabin_visibilityStatus_idx" ON "Cabin"("visibilityStatus");`
-
-async function ensureCabinVisibilityStatusColumn() {
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
-}
-
 interface ReservationLite {
     participantCount: number
     cabinId: string
@@ -119,7 +98,6 @@ async function getRelevantReservations(
 
 export async function GET(request: NextRequest) {
     try {
-        await ensureCabinVisibilityStatusColumn()
         const [globalRules, dateRules, closedDates] = await Promise.all([
             prisma.reservationGlobalConfig.findUnique({ where: { id: 'default' }, select: { commercialConditions: true, reservableItems: true } }),
             prisma.reservationDayConfig.findMany({ select: { date: true, commercialConditions: true, reservableItems: true, status: true, reservationsEnabled: true } }),

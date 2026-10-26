@@ -241,3 +241,152 @@ Verificar a quantidade na barra, a ação Alterar e o avanço ao checkout. Inter
 as APIs com fixtures sintéticas em testes visuais para não criar reservas nem
 pagamentos reais. Consultas reais somente de leitura devem ser registradas
 separadamente; uma data de teste não comprova um incidente de data desconhecida.
+
+## Preparacao Vercel e Loki em 26/10/2026
+
+O pedido atual define Vercel para site, APIs e painel, e Loki para PostgreSQL.
+Esta seção substitui o destino Thor apenas para a futura implantação deste projeto.
+**A produção permanece no Thor. Esta preparação não publica nem altera DNS.**
+As imagens persistentes continuam no bucket R2 `aysu` e na CDN existente.
+Não foi encontrada dependência de volume local ou worker contínuo na aplicação.
+
+### Origem e preservação
+
+- Origem conferida: app Coolify `aclqgsecaugacfoijjslivtg`, imagem
+  `ghcr.io/agencialumina/aysu:sha-da3bdd05c160bec0176dd44c9af5223f2615f186`.
+- O código de preparação parte de `origin/main` em `619e192`, incluindo a correção
+  de seleção de participantes. A branch local é `codex/preparacao-vercel-loki`.
+- Banco original: container `gyyqmlviiyip8eeecvgqkfjk`, PostgreSQL 17.11, database
+  `aysu`. Snapshot com 19 tabelas, 1.505 reservas, 55 espaços e zero pagamentos.
+- O dump e as assinaturas de todas as tabelas usam o mesmo snapshot exportado em
+  transação `REPEATABLE READ READ ONLY`. Nenhuma reserva foi congelada ou alterada.
+- SHA-256 do dump de ensaio:
+  `54208d1f1d289a3201a50a4e495d3e35897e0f698bbf5cf320bda2a9c4cdfa85`.
+- Evidências privadas e backup: `/root/aysu-ops/20261026-vercel-loki/` em Thor e
+  Loki; cópia local em `~/.local/share/aysu-ops/20261026-vercel-loki/`.
+  Os diretórios têm acesso restrito. Não anexar dumps, configurações de autenticação
+  ou arquivos `*private*` e `*env*` ao Git, chamados ou relatórios públicos.
+
+### Destino preparado
+
+- Vercel: projeto `aysu`, equipe `agencialuminaportoalegre02-7627s-projects`,
+  Node `22.x`, Next.js, região `gru1` e funções de API com limite de 60 segundos.
+  Sem vínculo Git, deployments ou domínio de produção nesta preparação.
+  `vercel.json` desativa deploys automáticos por Git; ativá-los exige decisão própria.
+- Build Vercel: `npm run build:vercel`. Instalação: `npm ci --no-audit --no-fund`.
+  `prisma generate` faz parte do build; `prisma migrate deploy` não faz.
+- Loki: cópia `aysu_rehearsal_20261026` no cluster PostgreSQL 17, porta local 5417.
+  Owner exclusivo sem login `aysu_stage_owner_20261026`; login exclusivo
+  `aysu_preview_20261026` com SELECT e transações somente leitura, sem privilégios
+  administrativos. As 19 assinaturas conferem integralmente após a restauração.
+- PgBouncer 1.26.1: alias `aysu_rehearsal`, modo transaction, pool de 3 conexões,
+  máximo de 4 para a base. Foram acrescentadas somente a entrada e a credencial
+  desta cópia, com backup das configurações anteriores e reload, sem restart.
+- Endpoint `db-loki.agencialumina.com.br:6432`, certificado TLS válido para o host.
+  Prisma usa `sslmode=require&sslaccept=strict&connection_limit=2&pool_timeout=20&connect_timeout=15`.
+  `max_prepared_statements=100` já está habilitado; não foi necessário `pgbouncer=true`.
+- SSH direto apresentou intermitência; a rota `ssh -J thor loki` funcionou.
+  Nenhum alias SSH ou regra de firewall foi alterado.
+
+### Variáveis e isolamento
+
+As sete variáveis de Preview estão configuradas: `DATABASE_URL`, `DIRECT_URL`,
+`JWT_SECRET`, `APP_READ_ONLY_MODE=1`, `PENDING_HOLD_MINUTES=0`, `MAINTENANCE_MODE=false`
+e `R2_PUBLIC_URL`. As três primeiras estão marcadas como Secret na Vercel.
+Preview usa a cópia isolada e JWT próprio. Não recebeu chaves de R2, Resend ou Rede.
+Não há credenciais de produção cadastradas no projeto Vercel nesta etapa.
+
+Na Vercel, `DIRECT_URL` repete a URL pooled apenas para satisfazer a configuração
+Prisma; ela **não serve para migrar**. Operações Prisma de schema devem usar conexão
+direta pela porta 5417 através de túnel SSH, com credencial operacional apropriada.
+O usuário de Preview não pode migrar nem gravar. Nenhuma porta PostgreSQL direta
+foi exposta publicamente.
+
+`npm run deploy:check` não acessa serviços. Verifica variáveis obrigatórias, TLS,
+limites de conexão, segredo JWT e modo de escrita. Bloqueia Preview com credenciais
+de serviços operacionais e Production sem R2, Resend ou escrita explicitamente
+habilitada. O exemplo completo está em `.env.example`, sem valores secretos.
+
+### Validação executada
+
+O teste com login somente leitura encontrou DDL legado em consultas de reservas
+e nas rotas de galeria: `CREATE TYPE`, `ALTER TABLE` e `CREATE INDEX` eram executados
+mesmo com as migrações aplicadas. Essa inicialização redundante foi retirada dessas
+rotas, que agora dependem das migrações versionadas já presentes no banco restaurado.
+Não foram alterados layout, preços, regras de reserva ou dados comerciais.
+Outros fallbacks legados para bancos incompletos permanecem fora desta correção;
+o deploy deve restaurar o schema completo, nunca iniciar sobre uma base vazia.
+
+- `npm run build` e `npm run typecheck` aprovados.
+- `vercel build` de Preview executado localmente: instalação pelo lockfile,
+  preflight, compilação e geração das funções aprovados. Não é execução remota.
+  Não publicar o artefato prebuilt gerado neste Mac; a publicação final deve ser
+  recompilada no ambiente Linux da Vercel com as variáveis de Production.
+- `npm run lint`: zero erros e 35 avisos preexistentes, preservados nesta mudança.
+- `node scripts/test-reservation-logic.mjs`: 46 cenários aprovados em PostgreSQL 17
+  descartável, database local `aysu_isolated`, sem dados reais, e-mails ou pagamentos.
+  Reexecutados com sucesso após retirar o DDL das requisições.
+- `node scripts/test-read-only-preview.mjs`: 16 verificações aprovadas com o app
+  compilado em localhost e a cópia real no Loki. Disponibilidade, conteúdo e galeria
+  consultados; APIs privadas negaram acesso e as quatro tentativas de escrita com
+  payload vazio foram bloqueadas pelo middleware. Nenhum dado pessoal foi exibido.
+- Galeria em banco sintético: sete verificações de permissão, criação, duplicação,
+  leitura pública, edição, exclusão e registro inexistente aprovadas. Sem upload.
+- Sete casos do preflight conferidos: Preview válido, TLS ausente, JWT ausente,
+  Preview com escrita, Preview com e-mail, Production incompleta e URL inválida.
+- Conexão externa ao Loki validada com certificado e hostname (`verify-full` no
+  psql e `sslaccept=strict` no Prisma). Contagem de 1.505 reservas confirmada.
+- Três transações Prisma concorrentes com trava transacional passaram pelo pool.
+  Uma tentativa de UPDATE sem linhas afetadas foi recusada pelo usuário de leitura.
+- Após os testes, as 19 assinaturas da cópia permaneceram idênticas ao snapshot.
+  O endpoint público `/api/ready` da produção no Thor continuou respondendo 200.
+  Leitura final da Vercel confirmou zero deployments e nenhuma variável Production.
+  Os servidores de teste e o PostgreSQL descartável local foram encerrados.
+
+`prisma migrate diff` somente de leitura, pela conexão direta via túnel SSH,
+identificou divergências **preexistentes** entre o banco restaurado e o schema:
+coluna adicional `Event.spacePricesOverrides`, defaults `now()` em `updatedAt`
+de cinco tabelas e default `{}` em `SiteContentConfig.content`.
+O retorno 2 desse comando indica essas diferenças; não foi aplicado SQL.
+Todos esses campos/defaults e os nove registros de migração foram preservados.
+Não usar `db push` nem aplicar o SQL sugerido pelo diff, que removeria a coluna.
+O escopo desta transferência é restaurar fielmente o banco operacional existente.
+
+### Publicação futura e reversão
+
+1. Autorizar a janela de publicação. Validar a capacidade agregada do Loki, pois
+   o cluster e PgBouncer atendem outros projetos. Não aumentar limites globais
+   ou reiniciar serviços compartilhados como parte desta loja.
+2. Criar destino operacional separado da cópia de ensaio, com usuário de aplicação
+   exclusivo e limites dimensionados. Não promover o login somente leitura.
+3. Congelar temporariamente as escritas do app Thor, com responsável operacional.
+   Gerar **novo** snapshot consistente e fingerprints. O dump desta preparação
+   envelhece enquanto novas reservas entram no Thor e não pode ser o backup final.
+4. Restaurar no destino operacional vazio, conferir todas as tabelas, schema e
+   histórico de migrações. Nunca usar reset, db push ou restore destrutivo na origem.
+5. Configurar Production na Vercel: banco operacional, JWT atual do Thor para
+   preservar sessões, R2 e Resend atuais, contatos existentes, hold `0`, manutenção
+   `false` e `APP_READ_ONLY_MODE=0`. Não habilitar Rede: suas credenciais não estavam
+   presentes na produção conferida e o fluxo atual tem aprovação manual.
+6. Fazer novo build Production e publicar somente após esses itens. Não promover
+   diretamente o artefato de Preview, que utiliza somente leitura e JWT próprio.
+   Conferir no runtime Vercel: readiness com
+   banco, login/permissões, disponibilidade/cotação, cabeçalhos sem cache nas rotas
+   privadas e upload respeitando o limite existente de 4 MB após otimização.
+   Testes com envio de e-mail, upload real ou operação financeira exigem escopo
+   próprio. Não gerar reservas de teste na operação sem controle explícito.
+7. Só então trocar o domínio e validar acesso externo. Manter a imagem e os dados
+   do Thor para reversão, com apenas um banco aceitando novas reservas de produção.
+8. Antes de qualquer escrita no Loki, a reversão pode devolver tráfego ao Thor.
+   Depois de novas reservas no Loki, não apontar simplesmente ao banco antigo:
+   congelar escritas, reconciliar os registros e definir a única fonte válida.
+
+Para desfazer somente o ensaio, remover apenas o alias/login `aysu_rehearsal` do
+PgBouncer e recarregar, após conferir que não há conexões. Não restaurar o arquivo
+global de backup por cima de alterações de outros projetos. A exclusão da cópia
+e das roles fica para uma limpeza explicitamente autorizada.
+
+Referências técnicas consultadas:
+[configuração Vercel](https://vercel.com/docs/project-configuration/vercel-json),
+[limites de funções](https://vercel.com/docs/functions/limitations) e
+[Prisma 6 com PgBouncer](https://www.prisma.io/docs/orm/v6/prisma-client/setup-and-configuration/databases-connections/pgbouncer).
