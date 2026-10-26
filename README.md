@@ -2,12 +2,13 @@
 
 Site, reservas e administração em Next.js 16, React 19 e Prisma 6. Usar Node 22
 e `npm ci`, preservando o lockfile. A configuração de implantação fica em
-[RUNBOOK-DEPLOY-2.1.1.md](RUNBOOK-DEPLOY-2.1.1.md#preparacao-vercel-e-loki-em-26102026).
+[RUNBOOK-DEPLOY-2.1.1.md](RUNBOOK-DEPLOY-2.1.1.md#producao-vercel-e-loki-concluida-em-26102026).
 
-Em 26/10/2026 foi preparada a arquitetura Vercel para o app e PostgreSQL no Loki.
-O projeto Vercel e uma cópia isolada do banco estão preparados; a produção continua
-no Thor. Não executar migrações no build nem vincular previews ao banco operacional.
-Verificar o runbook antes da publicação.
+Produção migrada em 26/10/2026: aplicação na Vercel, região `iad1`, PostgreSQL 17
+no Loki e mídia no R2. O domínio público é https://aysubeachlounge.com.br.
+A aplicação e o banco antigos da Aysú estão parados no Thor, preservados somente
+para recuperação. Não executar migrações no build nem vincular previews ao banco
+operacional. Consultar o runbook antes de publicar ou restaurar dados.
 
 `npm run build` compila localmente. `npm run build:vercel` verifica primeiro as
 variáveis do destino, sem exibir valores nem conectar ao banco. Esse preflight não

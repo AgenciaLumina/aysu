@@ -1,5 +1,10 @@
 # Runbook de Deploy - Sprint 2.1.1
 
+> Estado atual em 26/10/2026: produção na Vercel e no Loki. A aplicação e o banco
+> da Aysú no Thor estão parados. A seção final
+> [Produção Vercel e Loki](#producao-vercel-e-loki-concluida-em-26102026)
+> prevalece sobre os registros históricos de preparação e publicação no Thor.
+
 ## Objetivo
 
 Publicar a versao 2.1.1 sem perda de dados e sem impacto em reservas ativas.
@@ -390,3 +395,172 @@ Referências técnicas consultadas:
 [configuração Vercel](https://vercel.com/docs/project-configuration/vercel-json),
 [limites de funções](https://vercel.com/docs/functions/limitations) e
 [Prisma 6 com PgBouncer](https://www.prisma.io/docs/orm/v6/prisma-client/setup-and-configuration/databases-connections/pgbouncer).
+
+## Producao Vercel e Loki concluida em 26/10/2026
+
+Paulo confirmou diretamente a conclusão da migração, incluindo DNS e retirada do
+Thor, e depois autorizou cadastrar e verificar o domínio na mesma conta Resend.
+O corte final ocorreu às 13:28 UTC, 10:28 BRT. O DNS foi conferido após 13:29 UTC.
+A primeira tentativa foi revertida automaticamente por interrupção SSH antes da
+troca do DNS. A tentativa final abriu uma sessão SSH direta persistente para o
+Loki antes de pausar a origem e gerou um novo snapshot consistente.
+
+### Arquitetura operacional
+
+| Componente | Destino atual |
+| --- | --- |
+| Aplicação | Vercel, projeto `aysu`, Node 22, funções em `iad1` |
+| Revisão publicada | `02dee22`, branch `codex/preparacao-vercel-loki` |
+| Deployment | `dpl_7pm7KQwpDJ3Z22WLry7eT7p5ctmi` |
+| Domínio principal | `https://aysubeachlounge.com.br` |
+| PostgreSQL | Loki, versão 17, database `aysu_production_20261026` |
+| Conexão da aplicação | TLS estrito em `db-loki.agencialumina.com.br:6432`, alias `aysu` |
+| Porta PostgreSQL interna | `127.0.0.1:5417`, administração por SSH |
+| Papéis exclusivos | `aysu_prod_owner` sem login; `aysu_app` sem superusuário |
+| Limites do pool | 4 conexões padrão, máximo 6; Prisma usa 2 por instância |
+| Mídia | R2, bucket `aysu`, CDN existente preservado |
+| Preview | Banco `aysu_rehearsal_20261026`, leitura, JWT separado, sem chaves operacionais |
+
+As credenciais administrativas e hashes de senha foram preservados integralmente
+na cópia. O JWT original foi mantido para preservar sessões. A proteção dos URLs
+`vercel.app` permanece ativa; os domínios próprios atendem o público. O deployment
+Production foi compilado na Vercel; não foi usado artefato prebuilt do Mac.
+
+### DNS efetivamente aplicado
+
+| Nome | Tipo | Destino | TTL / estado |
+| --- | --- | --- | --- |
+| `aysubeachlounge.com.br` | A | `216.150.1.1` | 60 s, somente DNS |
+| `www` | CNAME | `369d8df2484618cf.vercel-dns-016.com` | 60 s, somente DNS |
+| `_vercel` | TXT | Verificação de controle de domínio fornecida pela Vercel, para apex e www | Verificados |
+| `rsend` | CNAME | `send.forge.rmta.net` | Automático, somente DNS, verificado no Resend |
+
+O `www` redireciona com HTTP 308 para o apex, preservando caminho e consulta.
+Os nameservers Cloudflare e os registros de recebimento de e-mail foram mantidos.
+Antes da troca, os dois registros web apontavam para `179.198.126.210`, TTL 600 s.
+A exportação BIND anterior está no diretório privado de evidências.
+
+### Variáveis e integrações
+
+Production contém 17 variáveis de aplicação conferidas: `DATABASE_URL`,
+`DIRECT_URL`, `DATABASE_URL_UNPOOLED`, `JWT_SECRET`, `R2_ACCOUNT_ID`,
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`,
+`R2_PUBLIC_URL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CONTACT_TO_EMAIL`,
+`MAINTENANCE_MODE`, `APP_READ_ONLY_MODE`, `PENDING_HOLD_MINUTES` e
+`NEXT_PUBLIC_APP_URL`. Credenciais e URLs com senha foram cadastradas como Secret.
+Variáveis de sistema como `NODE_ENV`, `PORT` e `HOSTNAME` pertencem à plataforma.
+
+- Os três nomes de conexão apontam para Loki com certificado estrito,
+  `connection_limit=2`, `pool_timeout=20` e `connect_timeout=15`.
+- `DIRECT_URL` e `DATABASE_URL_UNPOOLED` são aliases de compatibilidade do runtime
+  e também usam PgBouncer. **Não executar migrações por essas URLs.** Usar conexão
+  operacional local no Loki para uma migração futura explicitamente planejada.
+- `APP_READ_ONLY_MODE=0`, `PENDING_HOLD_MINUTES=0`, `MAINTENANCE_MODE=false`.
+- `NEXT_PUBLIC_APP_URL` preserva o valor anterior com `www`; o redirecionamento
+  canônico mantém o acesso ao domínio principal.
+- JWT, R2, remetente e destinatários foram reaproveitados da origem. Não foram
+  habilitadas credenciais Rede. O checkout Pix com aprovação manual foi preservado.
+- Preview mantém somente sete variáveis, banco de leitura e bloqueio de escrita.
+  Nenhuma chave R2 privada, Resend ou Rede foi fornecida ao preview.
+
+A chave Resend anterior não apresentava o domínio Aysú na listagem. Após aprovação
+específica, foi cadastrado `aysubeachlounge.com.br`, região `sa-east-1`, na mesma
+conta acessada pela chave já configurada no Thor. Não foi criada ou trocada chave.
+Identificador do domínio no provedor: `d9ee9c5c-40e9-44af-a8a9-4445140a0245`.
+A API usada não retornou nome ou ID da conta; não se deve inferi-lo do outro domínio
+listado. O efeito da alteração é autenticar o envio da Aysú; recebimento permanece
+desabilitado no Resend e os MX da caixa postal não foram alterados.
+
+| Registro de envio | Tipo | Conteúdo/finalidade | Verificação |
+| --- | --- | --- | --- |
+| `resend._domainkey` | TXT | Chave pública DKIM já presente, conferida com o retorno da API | Verificado |
+| `send` | MX | Prioridade 10, `feedback-smtp.sa-east-1.amazonses.com`, retorno de envio | Verificado, preservado |
+| `send` | TXT | `v=spf1 include:amazonses.com ~all` | Verificado, preservado |
+| `rsend` | CNAME | `send.forge.rmta.net`, autenticação da infraestrutura de envio | Verificado, adicionado |
+
+Status final do domínio no Resend: `verified`, quatro registros verificados.
+Não foram enviados e-mails reais. Cadastro e verificação seguem a
+[API de domínios do Resend](https://resend.com/docs/api-reference/domains/verify-domain).
+
+### Integridade, validação e limites do aceite
+
+O snapshot final preservou as 19 tabelas e seus fingerprints, 1.505 reservas,
+55 espaços, dois usuários e nove migrações. Divergências preexistentes de schema
+foram mantidas. Não foi aplicado `db push`, reset ou migração na origem.
+SHA-256 do dump final:
+`35c76680d3c6b972d075ff4c36dcae27ec325303d153509a6c79c0145a93e1a7`.
+
+A inicialização da primeira candidata criou uma configuração padrão no destino
+novo, ainda sem tráfego público. Essa tabela foi preservada em dump privado antes
+da restauração integral. A comparação final confirmou os valores da origem.
+
+Evidências adicionais aos testes isolados documentados na preparação:
+
+- 13 verificações na prévia real da Vercel: consultas públicas, acesso indevido e
+  bloqueio das escritas com payload vazio. Readiness confirmou Loki conectado.
+- Nove verificações na candidata Production: readiness, espaços, configuração,
+  conteúdo, galeria, disponibilidade e restrição de rotas privadas.
+- Oito verificações no domínio público: sessão JWT curta de administrador validada
+  contra usuário existente, leitura administrativa e conteúdo, acesso não autenticado
+  negado, payloads inválidos de contato/reserva/pagamento recusados com 400.
+  O token de validação expirou em dois minutos e não foi documentado.
+- Escrita no Loki verificada por UPDATE dentro de transação com ROLLBACK, sem
+  persistir alteração de cliente. Não foram criadas reservas fictícias em produção.
+- Fluxo renderizado no Chrome: home, calendário, disponibilidade para 30/10,
+  cotação de Bangalô Lateral e checkout com resumo e campos de cliente. Sem envio
+  do pedido, pagamento ou comprovante. Nenhuma mudança de layout foi realizada.
+- R2 autenticado, listagem e leitura de metadados de objeto existentes bem-sucedidas.
+  Upload e exclusão reais não foram executados.
+- TLS público válido, `server: Vercel`, função em `iad1`, `/api/ready` 200 e banco
+  conectado, inclusive após parar aplicação **e banco** da Aysú no Thor.
+- DNS validado no autoritativo e nos resolvedores 1.1.1.1 e 8.8.8.8.
+- Inspeção de cinco páginas e 21 arquivos JavaScript públicos não encontrou os
+  valores das credenciais de banco, JWT, R2 ou Resend cadastradas em Production.
+- Consulta dos logs entre 13:29 e 13:35 UTC: nenhum erro de runtime e nenhum HTTP
+  5xx retornado pela Vercel. Essa evidência é limitada à janela consultada.
+
+Os testes isolados anteriores continuam sendo a evidência de criação, concorrência
+transacional e idempotência. O aceite da migração não representa cobrança real,
+entrega de e-mail, teste de senha digitada pelo usuário ou validação visual mobile.
+
+### Backup e independência do Thor
+
+Os containers antigos `aclqgsecaugacfoijjslivtg` (app) e
+`gyyqmlviiyip8eeecvgqkfjk` (banco) estão `exited`, com restart `no`.
+Volumes, imagens e configuração de reversão foram preservados. O servidor Thor
+como um todo não foi desligado e os projetos de terceiros não foram alterados.
+O acesso operacional e a transferência final usaram SSH direto ao Loki.
+
+- Backup pgBackRest do cluster 17 concluído após a migração:
+  `20261025-140955F_20261026-133422D`, incluindo WAL confirmado.
+- O banco pertence ao cluster já coberto pelos timers `loki-db-backup.timer` e
+  `loki-drive-backup.timer`; nenhuma configuração global desses serviços foi editada.
+- Pacote dedicado Aysú criptografado e enviado ao remoto de backup existente do Loki:
+  `aysu-recovery-20261026T133540Z.tar.gpg`, 189.847 bytes. Inclui dump atual do Loki,
+  variáveis de aplicação, configuração dos papéis e manifesto do corte.
+- Upload e leitura de retorno confirmaram SHA-256
+  `040a00e022bc868e47f3412916dd711dbda04f2ab4edb3fbe27b80dec555ecb1`.
+  A descriptografia também foi conferida, com a lista dos arquivos esperados.
+  Chave de recuperação guardada separadamente no Mac e no Loki; não está no Git
+  nem no pacote enviado. Variáveis futuras exigem renovar esse pacote de configuração.
+
+Evidências privadas, com dados e segredos fora do repositório:
+`~/.local/share/aysu-ops/20261026-cutover/` no Mac;
+`/root/aysu-ops/20261026-cutover-final/` e
+`/root/aysu-ops/recovery-20261026/` no Loki.
+
+### Publicações e recuperação a partir deste estado
+
+1. Usar a revisão atual do repositório, Node 22, `npm ci`, lint/tipos e testes
+   isolados proporcionais à alteração. Manter `iad1` e o pool exclusivo da Aysú.
+2. Publicar com build Linux na Vercel e as variáveis Production. Não incluir `.env`,
+   dumps ou chaves no upload. Usar `--skip-domain` para validar antes da promoção.
+3. Conferir domínio público, logs, autenticação e banco após a promoção. Não executar
+   migração de schema automaticamente no build ou reaplicar o dump de 26/10.
+4. Para falha de código, preferir uma versão Vercel compatível com o banco Loki atual.
+   A prévia de leitura não é candidata de rollback operacional.
+5. Para recuperação de dados, restaurar primeiro em banco separado e validar
+   fingerprints e operação. Desde o corte, Loki é a única fonte operacional.
+6. **Não reativar simplesmente o Thor nem restaurar seu DNS.** Novas operações
+   podem ter ocorrido no Loki. Congelar escrita e reconciliar os dados antes de uma
+   eventual volta de infraestrutura; manter somente um banco operacional.
