@@ -564,3 +564,50 @@ Evidências privadas, com dados e segredos fora do repositório:
 6. **Não reativar simplesmente o Thor nem restaurar seu DNS.** Novas operações
    podem ter ocorrido no Loki. Congelar escrita e reconciliar os dados antes de uma
    eventual volta de infraestrutura; manter somente um banco operacional.
+
+### Ensaio de recuperacao do backup externo em 26/10/2026
+
+Concluído às 10:57 BRT, 13:57 UTC. Foi verificada a ausência de ensaio anterior
+desse pacote específico antes de iniciar. As restaurações registradas anteriormente
+usavam os dumps do corte e da preparação, não o pacote externo de recuperação.
+
+- Artefato efetivamente baixado novamente do remoto externo existente:
+  `aysu-recovery-20261026T133540Z.tar.gpg`, 189.847 bytes, SHA-256
+  `040a00e022bc868e47f3412916dd711dbda04f2ab4edb3fbe27b80dec555ecb1`.
+- A descriptografia usou a chave de recuperação existente. Foram extraídos somente
+  o dump e o manifesto do corte, sem extrair as variáveis privadas da aplicação.
+  Dump restaurado: 275.929 bytes, SHA-256
+  `9322dd7f3a0edf48d3eaa6d49a0425df6194002769693ea7701c81c160cc5a9d`.
+- Destino: database novo e vazio `aysu_recovery_external_20261026`, no PostgreSQL
+  17.11 local de testes, em
+  `~/.local/share/aysu-ops/20261026-vercel-loki/pg-test`. Esse cluster estava parado
+  antes do ensaio. Foi reutilizado o papel de teste existente `aysu_test`.
+- O servidor foi iniciado temporariamente com `listen_addresses` vazio e socket
+  Unix em diretório privado, modo 0700. Nenhuma porta TCP foi aberta, e nenhum
+  cluster previamente ativo ou banco preexistente recebeu a restauração. Não foram alterados
+  papéis, senhas ou grants; o restore usou `--no-owner --no-acl`, transação única
+  e interrupção em erro, sem `--clean` ou remoção de objetos existentes.
+
+O `cutover-manifest.json` embutido se refere ao corte anterior, não ao mesmo dump
+gerado posteriormente para esse pacote. Por isso, **não foi usado como referência
+de hash desse dump**, e a produção atual não foi consultada para comparação.
+Antes do restore foi gerado `same-artifact-data-manifest.json` diretamente dos
+blocos COPY do dump externo identificado pelo SHA acima. Para cada tabela, ele
+registra colunas, contagem e SHA-256 da concatenação ordenada dos hashes SHA-256
+binários das linhas COPY, incluindo a quebra de linha. O mesmo formato COPY foi
+extraído do banco restaurado para comparação, sem depender da ordem das linhas.
+
+Resultado: **19 de 19 tabelas com contagens e hashes idênticos ao próprio backup**,
+1.505 reservas, 55 espaços, dois usuários e nove migrações concluídas. A conexão
+e leitura foram verificadas por socket, com endereço e porta TCP nulos; nenhum
+índice inválido ou constraint não validada foi encontrado no schema público.
+Nenhuma consulta foi feita ao banco de produção durante esse ensaio.
+
+O PostgreSQL local foi encerrado ao final. O banco restaurado e os arquivos de
+evidência foram mantidos, sem serviço em execução. Evidências locais privadas:
+`~/.local/share/aysu-ops/20261026-external-recovery/`, incluindo o pacote original,
+dump, manifesto da própria cópia, script reproduzível, logs e
+`restore-verification.json`. A cópia baixada e extrações restritas também foram
+preservadas em `/root/aysu-ops/external-recovery-validation-20261026/` no Loki.
+Backups e dados de recuperação anteriores permanecem intactos. Não houve deploy,
+alteração de produção/DNS, envio de e-mail, cobrança ou mudança de outros projetos.
