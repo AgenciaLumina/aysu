@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { DayConfigStatus } from '@prisma/client'
+import { DayConfigStatus } from '@/lib/db'
 import prisma from '@/lib/db'
 import { parseDayConfig } from '@/lib/day-config'
 import type { ApiResponse } from '@/lib/types'

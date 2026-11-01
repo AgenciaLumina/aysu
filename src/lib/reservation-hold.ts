@@ -1,4 +1,4 @@
-import { Prisma, ReservationStatus } from '@prisma/client'
+import { Prisma, ReservationStatus } from '@/lib/db'
 
 const ACTIVE_STATUSES_WITHOUT_PENDING: ReservationStatus[] = [
     ReservationStatus.CONFIRMED,

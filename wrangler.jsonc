@@ -1,0 +1,59 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "aysu",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "aysubeachlounge.com.br/*",
+      "zone_id": "9a076681ba494aad4b3c99b2b4289304"
+    },
+    {
+      "pattern": "www.aysubeachlounge.com.br/*",
+      "zone_id": "9a076681ba494aad4b3c99b2b4289304"
+    }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "aysu"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aysu-db",
+      "database_id": "a2a3b8a6-3811-4a7d-ba68-38d52c9f1e89"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "aysu"
+    },
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "aysu-opennext-cache"
+    }
+  ],
+  "vars": {
+    "APP_READ_ONLY_MODE": "0",
+    "CONTACT_TO_EMAIL": "Aysubeachlounge@gmail.com,agencialuminabrasil@gmail.com",
+    "MAINTENANCE_MODE": "false",
+    "NEXT_PUBLIC_APP_URL": "https://www.aysubeachlounge.com.br",
+    "PENDING_HOLD_MINUTES": "0",
+    "R2_ACCOUNT_ID": "082470a50b13e1a72fb29987889950ea",
+    "R2_BUCKET": "aysu",
+    "R2_ENDPOINT": "https://082470a50b13e1a72fb29987889950ea.r2.cloudflarestorage.com",
+    "R2_PUBLIC_URL": "https://cdn.aysubeachlounge.com.br",
+    "RESEND_FROM_EMAIL": "Aysu Beach Lounge <contato@aysubeachlounge.com.br>"
+  }
+}

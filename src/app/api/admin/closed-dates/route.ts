@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { canManageReservations, getAuthUser } from '@/lib/auth'

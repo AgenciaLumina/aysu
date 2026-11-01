@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { updateReservationSchema } from '@/lib/validations'
 import type { ApiResponse, ReservationWithDetails } from '@/lib/types'
-import { ReservationStatus } from '@prisma/client'
+import { ReservationStatus } from '@/lib/db'
 import { BookingError, updateBooking } from '@/lib/reservation-booking'
 
 interface RouteParams {

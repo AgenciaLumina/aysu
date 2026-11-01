@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { CabinVisibilityStatus, Prisma, type Cabin } from '@prisma/client'
+import { CabinVisibilityStatus, Prisma, type Cabin } from '@/lib/db'
 import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getCabinGroupKey, listCabinGroupMembers } from '@/lib/cabin-groups'
@@ -53,15 +53,17 @@ function isMissingCabinColumnError(error: unknown): boolean {
 }
 
 async function ensureCabinColumns() {
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
+    try {
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
+    } catch {}
 }
 
 async function findDeletedGroupMembers(cabin: Pick<Cabin, 'id' | 'name' | 'slug' | 'deletedAt'>): Promise<Cabin[]> {

@@ -5,8 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { createCabinSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
-import type { Cabin } from '@prisma/client'
-import { CabinCategory, CabinVisibilityStatus, Prisma } from '@prisma/client'
+import type { Cabin } from '@/lib/db'
+import { CabinCategory, CabinVisibilityStatus, Prisma } from '@/lib/db'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 import { buildDeletedCabinName } from '@/lib/cabin-trash'
 
@@ -155,15 +155,17 @@ function isMissingCabinColumnError(error: unknown): boolean {
 }
 
 async function ensureCabinColumns() {
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
-    await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
+    try {
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_COLUMNS_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_ENUM_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_COLUMN_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_COLUMN_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_SLUG_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_VISIBILITY_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_ORIGINAL_NAME_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_VISIBILITY_INDEX_SQL)
+        await prisma.$executeRawUnsafe(ENSURE_CABIN_DELETED_AT_INDEX_SQL)
+    } catch {}
 }
 
 async function normalizeDeletedCabinsForNameReuse() {
@@ -199,7 +201,6 @@ async function bootstrapDefaultCabinsIfEmpty() {
 
     await prisma.cabin.createMany({
         data: DEFAULT_CABINS,
-        skipDuplicates: true,
     })
 }
 

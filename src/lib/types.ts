@@ -19,7 +19,7 @@ import type {
     CardBrand,
     EventType,
     PDVOrderStatus
-} from '@prisma/client'
+} from '@/lib/db'
 
 // ============================================================
 // RE-EXPORTS DOS TIPOS PRISMA

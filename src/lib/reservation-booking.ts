@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { Prisma, ReservationStatus } from '@prisma/client'
+import { Prisma, ReservationStatus } from '@/lib/db'
 import prisma from '@/lib/db'
 import { isReservationDateBlocked, isSpaceEnabled, parseDayConfig, parseReservationGlobalConfig, reservationDateMessage } from '@/lib/day-config'
 import { isHoliday } from '@/lib/holidays'
@@ -84,7 +84,6 @@ export async function createBooking(data: z.infer<typeof createReservationSchema
     const date = dateKeyInSaoPaulo(new Date(data.checkIn))
     return prisma.$transaction(async tx => {
         const spaceKey = await resolveSpace(tx, data.cabinId)
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`aysu-reservation:${spaceKey}`}))`
         if (data.requestId) {
             const previous = await tx.reservation.findUnique({ where: { requestId: data.requestId }, include: { cabin: true } })
             if (previous) {
@@ -113,7 +112,6 @@ export async function updateBooking(id: string, data: z.infer<typeof updateReser
         let current = await tx.reservation.findUnique({ where: { id }, include: { cabin: true } })
         if (!current) throw new BookingError('Reserva não encontrada.', 404)
         const spaceKey = getCabinSpaceKey(current.cabin)
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`aysu-reservation:${spaceKey}`}))`
         current = await tx.reservation.findUnique({ where: { id }, include: { cabin: true } })
         if (!current) throw new BookingError('Reserva não encontrada.', 404)
         const activeStatuses: string[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS']

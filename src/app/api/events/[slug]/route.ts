@@ -7,7 +7,7 @@ import { getAuthUser, isAdmin } from '@/lib/auth'
 import { updateEventSchema } from '@/lib/validations'
 import { syncDayConfigFromActiveEventsForDate } from '@/lib/event-day-sync'
 import type { ApiResponse } from '@/lib/types'
-import type { Event } from '@prisma/client'
+import type { Event } from '@/lib/db'
 
 interface RouteParams {
     params: Promise<{ slug: string }>

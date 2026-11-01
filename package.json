@@ -7,7 +7,9 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build --webpack",
+    "cf:build": "opennextjs-cloudflare build && node scripts/prune-wasm-bundle.mjs",
+    "cf:deploy": "npm run cf:build && wrangler deploy",
     "build:vercel": "npm run deploy:check && npm run build",
     "deploy:check": "node scripts/check-deploy-env.mjs",
     "typecheck": "tsc --noEmit",
@@ -17,21 +19,23 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.965.0",
-    "@prisma/client": "^6.19.1",
+    "@prisma/adapter-better-sqlite3": "7.10.1",
+    "@prisma/adapter-d1": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.562.0",
-    "next": "16.1.1",
+    "next": "16.4.3",
     "next-themes": "^0.4.6",
-    "prisma": "^6.19.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
@@ -41,8 +45,10 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.15",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "9.6.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -50,8 +56,10 @@
     "@types/uuid": "^10.0.0",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.1.1",
+    "eslint-config-next": "16.4.3",
+    "prisma": "7.10.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "4.156.0"
   }
 }

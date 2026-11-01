@@ -7,8 +7,8 @@ import { getAuthUser, isAdmin } from '@/lib/auth'
 import { createEventSchema, paginationSchema, eventFiltersSchema } from '@/lib/validations'
 import { syncDayConfigFromActiveEventsForDate } from '@/lib/event-day-sync'
 import type { ApiResponse, PaginatedResponse } from '@/lib/types'
-import type { Event } from '@prisma/client'
-import { Prisma } from '@prisma/client'
+import type { Event } from '@/lib/db'
+import { Prisma } from '@/lib/db'
 
 // GET - Lista eventos
 export async function GET(request: NextRequest) {

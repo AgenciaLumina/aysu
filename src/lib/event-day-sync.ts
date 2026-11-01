@@ -1,4 +1,4 @@
-import { DayConfigStatus, PrismaClient } from '@prisma/client'
+import { DayConfigStatus, PrismaClient } from '@/lib/db'
 import { toDbDate } from '@/lib/day-config'
 
 type EventDaySyncClient = Pick<PrismaClient, 'event' | 'reservationDayConfig'>

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/lib/db'
 import prisma from '@/lib/db'
 import {
     DEFAULT_SITE_CONTENT,
@@ -47,27 +47,28 @@ function isMissingSiteContentTableError(error: unknown): boolean {
 }
 
 async function bootstrapSiteContentTableIfNeeded() {
-    await prisma.$executeRawUnsafe(CREATE_SITE_CONTENT_TABLE_SQL)
-    await prisma.$executeRawUnsafe(
-        `
-        INSERT INTO "SiteContentConfig" ("id", "content")
-        VALUES ($1, $2::jsonb)
-        ON CONFLICT ("id") DO NOTHING
-        `,
-        SITE_CONTENT_CONFIG_ID,
-        JSON.stringify(DEFAULT_SITE_CONTENT)
-    )
+    try {
+        await prisma.siteContentConfig.upsert({
+            where: { id: SITE_CONTENT_CONFIG_ID },
+            update: {},
+            create: {
+                id: SITE_CONTENT_CONFIG_ID,
+                content: DEFAULT_SITE_CONTENT as any,
+            },
+        })
+    } catch {}
 }
 
 async function findSiteContentRow(): Promise<SiteContentConfigRow | null> {
-    const rows = await prisma.$queryRaw<SiteContentConfigRow[]>`
-        SELECT "content", "updatedAt"
-        FROM "SiteContentConfig"
-        WHERE "id" = ${SITE_CONTENT_CONFIG_ID}
-        LIMIT 1
-    `
-
-    return rows[0] ?? null
+    try {
+        const row = await prisma.siteContentConfig.findUnique({
+            where: { id: SITE_CONTENT_CONFIG_ID },
+            select: { content: true, updatedAt: true },
+        })
+        return row as SiteContentConfigRow | null
+    } catch {
+        return null
+    }
 }
 
 export async function getSiteContentConfig(): Promise<StoredSiteContentConfig> {
@@ -101,20 +102,12 @@ export async function getSiteContentConfig(): Promise<StoredSiteContentConfig> {
 export async function updateSiteContentConfig(value: unknown): Promise<StoredSiteContentConfig> {
     const content = parseSiteContentConfig(value)
 
-    await bootstrapSiteContentTableIfNeeded()
-    await prisma.$executeRawUnsafe(
-        `
-        INSERT INTO "SiteContentConfig" ("id", "content")
-        VALUES ($1, $2::jsonb)
-        ON CONFLICT ("id") DO UPDATE
-        SET "content" = EXCLUDED."content",
-            "updatedAt" = CURRENT_TIMESTAMP
-        `,
-        SITE_CONTENT_CONFIG_ID,
-        JSON.stringify(content)
-    )
-
-    const row = await findSiteContentRow()
+    const row = await prisma.siteContentConfig.upsert({
+        where: { id: SITE_CONTENT_CONFIG_ID },
+        update: { content: content as any },
+        create: { id: SITE_CONTENT_CONFIG_ID, content: content as any },
+        select: { content: true, updatedAt: true },
+    })
 
     return {
         content: parseSiteContentConfig(row?.content),

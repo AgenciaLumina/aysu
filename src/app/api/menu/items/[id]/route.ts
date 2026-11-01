@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db'
 import { getAuthUser, canManageMenu } from '@/lib/auth'
 import { updateMenuItemSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
-import type { MenuItem } from '@prisma/client'
+import type { MenuItem } from '@/lib/db'
 
 interface RouteParams {
     params: Promise<{ id: string }>

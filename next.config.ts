@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const publicPageCacheHeaders = [
   { key: "Vercel-CDN-Cache-Control", value: "s-maxage=300, stale-while-revalidate=86400" },
@@ -26,7 +27,19 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  serverExternalPackages: ["@prisma/client"],
+  webpack: (config: any) => {
+    config.externals = [
+      ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
+      ({ request }: any, callback: any) => {
+        if (request && /\.wasm(\?.*)?$/.test(request)) {
+          return callback(null, `import ${request}`);
+        }
+        callback();
+      },
+    ];
+    return config;
+  },
   poweredByHeader: false,
   compress: true,
   reactCompiler: true,

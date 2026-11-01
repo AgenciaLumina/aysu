@@ -6,8 +6,8 @@ import { prisma } from '@/lib/db'
 import { getAuthUser, canManageMenu } from '@/lib/auth'
 import { createMenuItemSchema, paginationSchema, menuFiltersSchema } from '@/lib/validations'
 import type { ApiResponse, PaginatedResponse } from '@/lib/types'
-import type { MenuItem } from '@prisma/client'
-import { Prisma } from '@prisma/client'
+import type { MenuItem } from '@/lib/db'
+import { Prisma } from '@/lib/db'
 
 // GET - Lista itens do cardápio
 export async function GET(request: NextRequest) {
@@ -33,16 +33,19 @@ export async function GET(request: NextRequest) {
 
             if (search) {
                 where.OR = [
-                    { name: { contains: search, mode: 'insensitive' } },
-                    { description: { contains: search, mode: 'insensitive' } },
+                    { name: { contains: search } },
+                    { description: { contains: search } },
                 ]
             }
 
             // Filtro por tags (JSON array)
             if (tags && tags.length > 0) {
-                where.tags = {
-                    array_contains: tags,
-                }
+                where.OR = [
+                    ...(where.OR || []),
+                    ...tags.map((tag: string) => ({
+                        tags: { string_contains: tag },
+                    })),
+                ]
             }
         }
 

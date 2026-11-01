@@ -7,7 +7,7 @@ import { canManageReservations, getAuthUser } from '@/lib/auth'
 import { createBooking, BookingError } from '@/lib/reservation-booking'
 import { createReservationSchema, paginationSchema, reservationFiltersSchema } from '@/lib/validations'
 import type { ApiResponse, PaginatedResponse, ReservationWithDetails } from '@/lib/types'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/lib/db'
 
 // GET - Lista reservas (com filtros e paginação)
 export async function GET(request: NextRequest) {
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
 
             if (search) {
                 where.OR = [
-                    { customerName: { contains: search, mode: 'insensitive' } },
-                    { customerEmail: { contains: search, mode: 'insensitive' } },
+                    { customerName: { contains: search } },
+                    { customerEmail: { contains: search } },
                     { customerPhone: { contains: search } },
                 ]
             }

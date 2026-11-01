@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/lib/db'
 import prisma from '@/lib/db'
 import {
     DEFAULT_GLOBAL_PRICE_OVERRIDES,
@@ -44,8 +44,10 @@ function isMissingGlobalConfigTableError(error: unknown): boolean {
 }
 
 async function bootstrapGlobalConfigTableIfNeeded() {
-    await prisma.$executeRawUnsafe(CREATE_GLOBAL_CONFIG_TABLE_SQL)
-    await prisma.$executeRawUnsafe(INSERT_DEFAULT_GLOBAL_CONFIG_SQL)
+    try {
+        await prisma.$executeRawUnsafe(CREATE_GLOBAL_CONFIG_TABLE_SQL)
+        await prisma.$executeRawUnsafe(INSERT_DEFAULT_GLOBAL_CONFIG_SQL)
+    } catch {}
 }
 
 async function ensureGlobalConfig() {

@@ -5,7 +5,7 @@ import 'dotenv/config'
 import fs from 'fs'
 import path from 'path'
 import { uploadToR2 } from '../lib/r2'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@/lib/db'
 import sharp from 'sharp'
 
 const prisma = new PrismaClient()

@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { NextRequest } from 'next/server'
 import type { JWTPayload, AuthUser } from './types'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@/lib/db'
 
 // ============================================================
 // CONSTANTES

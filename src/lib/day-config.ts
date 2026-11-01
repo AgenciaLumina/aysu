@@ -1,5 +1,5 @@
 import { parseCommercialConditions, type CommercialConditions } from './reservation-commercial'
-import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@prisma/client'
+import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@/lib/db'
 
 export interface PriceOverride {
     price: number

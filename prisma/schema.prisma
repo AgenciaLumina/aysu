@@ -2,13 +2,13 @@
 // Maior Beach Club do Litoral Norte de SP
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/client"
+  runtime  = "cloudflare"
 }
 
 datasource db {
-  provider = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
 }
 
 // ============================================================
@@ -147,7 +147,7 @@ model Cabin {
   slug         String?
   capacity     Int
   units        Int           @default(1)
-  pricePerHour Decimal       @db.Decimal(10, 2)
+  pricePerHour Decimal
   description  String?
   imageUrl     String?
   category     CabinCategory @default(CABANA)
@@ -183,13 +183,13 @@ model Reservation {
   checkIn          DateTime
   checkOut         DateTime
   hoursBooked      Int
-  totalPrice       Decimal           @db.Decimal(10, 2)
+  totalPrice       Decimal
   status           ReservationStatus @default(PENDING)
   source           ReservationSource @default(ONLINE)
   notes            String?
   participantCount Int               @default(1)
   unitNumber       Int?
-  consumptionCredit Decimal?          @db.Decimal(10, 2)
+  consumptionCredit Decimal?
   bookingConditions Json?
   requestId        String?            @unique
   receiptToken     String?            @unique
@@ -213,7 +213,7 @@ model Reservation {
 model Payment {
   id                String        @id @default(uuid())
   reservationId     String        @unique
-  amount            Decimal       @db.Decimal(10, 2)
+  amount            Decimal
   currency          String        @default("BRL")
   status            PaymentStatus @default(PENDING)
   redeTransactionId String?       @unique
@@ -260,7 +260,7 @@ model MenuItem {
   name            String
   description     String?
   ingredients     String?
-  price           Decimal  @db.Decimal(10, 2)
+  price           Decimal
   imageUrl        String?
   isAvailable     Boolean  @default(true)
   preparationTime Int?     // Em minutos
@@ -299,7 +299,7 @@ model Event {
   isActive        Boolean   @default(true)
   isFeatured      Boolean   @default(false) // Destaque na homepage
   maxCapacity     Int?
-  ticketPrice     Decimal?  @db.Decimal(10, 2)
+  ticketPrice     Decimal?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -315,8 +315,8 @@ model PDVOrder {
   reservationId String
   userId        String         // Quem registrou o pedido
   status        PDVOrderStatus @default(PENDING)
-  totalPrice    Decimal        @db.Decimal(10, 2)
-  discount      Decimal        @default(0) @db.Decimal(10, 2)
+  totalPrice    Decimal
+  discount      Decimal        @default(0)
   notes         String?
   createdAt     DateTime       @default(now())
   completedAt   DateTime?
@@ -337,8 +337,8 @@ model PDVOrderItem {
   orderId             String
   menuItemId          String
   quantity            Int
-  unitPrice           Decimal  @db.Decimal(10, 2)
-  totalPrice          Decimal  @db.Decimal(10, 2)
+  unitPrice           Decimal
+  totalPrice          Decimal
   specialInstructions String?
   createdAt           DateTime @default(now())
 
@@ -391,7 +391,7 @@ model EventGallery {
   id               String             @id @default(uuid())
   title            String
   slug             String             @unique
-  eventDate        DateTime?          @db.Date
+  eventDate        DateTime?
   shortDescription String?
   description      String?
   coverImageUrl    String?
@@ -430,7 +430,7 @@ model EventGalleryPhoto {
 // Datas Fechadas (Evento Fechado - sem abertura ao público)
 model ClosedDate {
   id        String   @id @default(uuid())
-  date      DateTime @unique @db.Date
+  date      DateTime @unique
   reason    String   @default("Evento Fechado")
   createdAt DateTime @default(now())
 
@@ -441,7 +441,7 @@ model ClosedDate {
 model ReservationDayConfig {
   commercialPeriodId String?
   id                  String          @id @default(uuid())
-  date                DateTime        @unique @db.Date
+  date                DateTime        @unique
   status              DayConfigStatus @default(NORMAL)
   reservationsEnabled Boolean         @default(true)
   title               String?
