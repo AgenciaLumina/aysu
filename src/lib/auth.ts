@@ -6,12 +6,19 @@ import bcrypt from 'bcryptjs'
 import { NextRequest } from 'next/server'
 import type { JWTPayload, AuthUser } from './types'
 import { UserRole } from '@/lib/db'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 // ============================================================
 // CONSTANTES
 // ============================================================
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+function jwtSecret(): string {
+    let secret: string | undefined
+    try { secret = (getCloudflareContext().env as unknown as { JWT_SECRET?: string }).JWT_SECRET } catch { /* Node runtime */ }
+    secret ||= process.env.JWT_SECRET
+    if (!secret || secret === 'fallback-secret-change-in-production') throw new Error('JWT_SECRET_REQUIRED')
+    return secret
+}
 const JWT_EXPIRATION = '24h'
 const SALT_ROUNDS = 10
 
@@ -47,7 +54,7 @@ export function generateToken(user: AuthUser): string {
         role: user.role,
     }
 
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRATION })
+    return jwt.sign(payload, jwtSecret(), { expiresIn: JWT_EXPIRATION, algorithm: 'HS256' })
 }
 
 /**
@@ -55,7 +62,7 @@ export function generateToken(user: AuthUser): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
+        const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] }) as JWTPayload
         return decoded
     } catch {
         return null

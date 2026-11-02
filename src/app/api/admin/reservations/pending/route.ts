@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
+import { dateKeyInSaoPaulo } from '@/lib/reservation-booking'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,13 +27,7 @@ export async function GET(request: NextRequest) {
             customerName: r.customerName,
             customerPhone: r.customerPhone,
             spaceName: r.cabin.name,
-            date: (() => {
-                const d = new Date(r.checkIn)
-                const year = d.getFullYear()
-                const month = String(d.getMonth() + 1).padStart(2, '0')
-                const day = String(d.getDate()).padStart(2, '0')
-                return `${year}-${month}-${day}`
-            })(),
+            date: dateKeyInSaoPaulo(r.checkIn),
             totalPrice: Number(r.totalPrice),
             createdAt: r.createdAt.toISOString(),
             notes: r.notes,

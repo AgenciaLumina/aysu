@@ -9,22 +9,21 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   __globalPrismaD1?: PrismaClient;
 };
+const requestClients = new WeakMap<object, PrismaClient>();
 
 export function getPrismaClient(): PrismaClient {
   // 1. Cloudflare request context
-  try {
-    const cf = getCloudflareContext({ async: false });
-    const env = (cf as any)?.env;
-    if (env?.DB) {
-      if (!env.__prismaClient) {
-        env.__prismaClient = new PrismaClient({
-          adapter: new PrismaD1(env.DB),
-        });
-      }
-      return env.__prismaClient;
+  let cf: { env: { DB?: ConstructorParameters<typeof PrismaD1>[0] }; ctx: object } | undefined;
+  try { cf = getCloudflareContext({ async: false }) as unknown as typeof cf; }
+  catch { /* Outside a Cloudflare request. */ }
+  if (cf) {
+    if (!cf.env.DB || !cf.ctx) throw new Error('CLOUDFLARE_DATABASE_CONTEXT_REQUIRED');
+    let client = requestClients.get(cf.ctx);
+    if (!client) {
+      client = new PrismaClient({ adapter: new PrismaD1(cf.env.DB) });
+      requestClients.set(cf.ctx, client);
     }
-  } catch {
-    // getCloudflareContext throws outside Cloudflare worker request scope
+    return client;
   }
 
   // 2. Global DB binding

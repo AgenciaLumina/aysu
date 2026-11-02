@@ -611,3 +611,50 @@ dump, manifesto da própria cópia, script reproduzível, logs e
 preservadas em `/root/aysu-ops/external-recovery-validation-20261026/` no Loki.
 Backups e dados de recuperação anteriores permanecem intactos. Não houve deploy,
 alteração de produção/DNS, envio de e-mail, cobrança ou mudança de outros projetos.
+
+## Recuperação no Cloudflare/D1 em 02/11/2026
+
+A operação atual usa o Worker `aysu`, o banco `aysu-db` e os buckets R2 já
+configurados no `wrangler.jsonc`. As orientações Vercel/Loki acima são históricas.
+Por decisão do responsável, manter Cloudflare/D1 após o cliente confirmar a
+recuperação das reservas. Não restaurar DNS ou reabrir uma origem antiga sem
+congelar os escritores e reconciliar novas operações do D1.
+
+O incidente não era ausência de reservas: havia 1.562 registros com os mesmos IDs
+da origem. Foram corrigidas 16 células JSON afetadas pelo escape da importação e
+normalizadas 7.168 células de data em 2.050 linhas, preservando os instantes e os
+valores de negócio. A comparação seguinte das 19 tabelas não encontrou diferenças.
+Às 09:34 BRT o D1 já continha 1.563 reservas, incluindo uma nova operação recebida
+após a recuperação. Esse número é uma evidência pontual, não uma contagem fixa.
+
+Criação, aprovação, rejeição, check-in e remarcação usam batch nativo D1 com
+revalidação das leituras antes da escrita. Não usar callbacks Prisma `$transaction`
+no D1 nem substituir transação por execução sequencial sem rollback. A tabela
+`_aysu_atomic_read_guard` é uma estrutura interna vazia para detecção de conflitos;
+a migração aditiva de 02/11 já foi aplicada. JWT e Prisma são resolvidos no contexto
+da requisição. Segredos permanecem nos bindings, fora do bundle gerado.
+
+A listagem administrativa formata todos os horários em `America/Sao_Paulo`, inclusive
+reservas legadas sem condições comerciais, e filtra dias civis de Brasília. Os
+instantes persistidos continuam em UTC. Não converter o armazenamento inteiro
+para horário local. As consultas administrativas não devem ser cacheadas.
+
+Validações: concorrência de oito pedidos para uma única vaga, reenvio idempotente,
+resposta perdida após commit, rollback integral, autenticação pelo binding e
+regras de status em D1 isolado. O bundle OpenNext passou pela rota exata do botão
+`PATCH /api/reservations/[id]/status`, incluindo aprovação, repetição, rejeição,
+check-in, acesso negado e estado inválido, com reserva sintética. Nenhuma reserva
+real foi aprovada, rejeitada, cancelada ou alterada para testar. Nenhum pagamento
+ou mensagem real foi disparado. Consultas autenticadas em produção retornaram
+reservas do dia, histórico e pendentes; health confirmou o banco disponível.
+
+Publicação: `npm run typecheck`, `node scripts/test-d1-booking.cjs`, `npm run cf:build`,
+validação isolada e `npx wrangler deploy --keep-vars`. O build não migra dados.
+O backup anterior à recuperação foi restaurado e teve `quick_check=ok`.
+SHA-256: `4dc4f32b2ce2cede3d49b34cb0131fef5f0ad7c1c4489cc11979a63e51f920ae`.
+Backups e credenciais permanecem fora do repositório.
+
+A recuperação de reservas não certifica todas as integrações e rotas de configuração.
+Os demais callbacks transacionais administrativos devem passar pela mesma auditoria
+antes de declarar concluída a migração integral. A atualização de interface para
+mostrar falhas de carregamento explicitamente também permanece na revisão posterior.

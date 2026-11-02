@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { isCloudflareDatabaseRuntime } from './d1-batch'
+import { createD1DomainReader } from './d1-reader'
+import { D1SnapshotConflict } from './d1-read-snapshot'
+import type { D1ReadSnapshot } from './d1-read-snapshot'
 import { Prisma, ReservationStatus } from '@/lib/db'
 import prisma from '@/lib/db'
 import { isReservationDateBlocked, isSpaceEnabled, parseDayConfig, parseReservationGlobalConfig, reservationDateMessage } from '@/lib/day-config'
@@ -82,7 +86,7 @@ export async function readBookingContext(db: Database, cabinId: string, date: st
 
 export async function createBooking(data: z.infer<typeof createReservationSchema>, userId: string | null) {
     const date = dateKeyInSaoPaulo(new Date(data.checkIn))
-    return prisma.$transaction(async tx => {
+    return runBookingOperation(async (tx, snapshot) => {
         const spaceKey = await resolveSpace(tx, data.cabinId)
         if (data.requestId) {
             const previous = await tx.reservation.findUnique({ where: { requestId: data.requestId }, include: { cabin: true } })
@@ -97,18 +101,20 @@ export async function createBooking(data: z.infer<typeof createReservationSchema
         if (data.source === 'ONLINE' && data.policyAccepted !== true) throw new BookingError('Leia e aceite as condições da reserva antes de continuar.')
         const unit = spaceKey === 'day-use-praia' ? null : allocateUnit(cabins, reservations)
         if (spaceKey !== 'day-use-praia' && !unit) throw new BookingError('Não há unidade disponível para esta data.', 409)
-        return tx.reservation.create({ data: {
+        const fields = {
             cabinId: unit?.cabinId ?? cabins[0].id, unitNumber: unit?.unitNumber, userId,
             customerName: data.customerName, customerEmail: data.customerEmail.toLowerCase(), customerPhone: data.customerPhone ?? '', customerDocument: data.customerDocument,
             checkIn, checkOut, hoursBooked: 8, totalPrice: quote.totalPrice, consumptionCredit: quote.consumptionCredit,
             participantCount: data.participantCount, bookingConditions: { ...quote, policyAcceptedAt: data.policyAccepted ? new Date().toISOString() : null } as unknown as Prisma.InputJsonValue,
             requestId: data.requestId, receiptToken: randomUUID(), source: data.source, notes: data.notes, status: ReservationStatus.PENDING,
-        }, include: { cabin: true } })
-    }, { timeout: 15000 })
+        }
+        if (snapshot) return persistNativeReservation(tx, snapshot, fields)
+        return tx.reservation.create({ data: fields, include: { cabin: true } })
+    })
 }
 
 export async function updateBooking(id: string, data: z.infer<typeof updateReservationSchema>) {
-    return prisma.$transaction(async tx => {
+    return runBookingOperation(async (tx, snapshot) => {
         let current = await tx.reservation.findUnique({ where: { id }, include: { cabin: true } })
         if (!current) throw new BookingError('Reserva não encontrada.', 404)
         const spaceKey = getCabinSpaceKey(current.cabin)
@@ -140,7 +146,35 @@ export async function updateBooking(id: string, data: z.infer<typeof updateReser
                 if (!allocation) throw new BookingError('Não há unidade disponível para esta reserva.', 409)
             }
         }
-        const snapshot = current.bookingConditions && typeof current.bookingConditions === 'object' && !Array.isArray(current.bookingConditions) ? current.bookingConditions as Record<string, Prisma.JsonValue> : null
-        return tx.reservation.update({ where: { id }, data: { ...data, ...(allocation ?? {}), ...(datesChanged ? { checkIn, checkOut, ...(snapshot ? { bookingConditions: { ...snapshot, date: dateKeyInSaoPaulo(checkIn) } as Prisma.InputJsonValue } : {}) } : {}) }, include: { cabin: true, payment: true } })
-    }, { timeout: 15000 })
+        const savedConditions = current.bookingConditions && typeof current.bookingConditions === 'object' && !Array.isArray(current.bookingConditions) ? current.bookingConditions as Record<string, Prisma.JsonValue> : null
+        const fields = { ...data, ...(allocation ?? {}), ...(datesChanged ? { checkIn, checkOut, ...(savedConditions ? { bookingConditions: { ...savedConditions, date: dateKeyInSaoPaulo(checkIn) } as Prisma.InputJsonValue } : {}) } : {}) }
+        if (snapshot) return persistNativeReservation(tx, snapshot, fields, id)
+        return tx.reservation.update({ where: { id }, data: fields, include: { cabin: true, payment: true } })
+    })
+}
+
+
+async function runBookingOperation<T>(operation: (reader: Prisma.TransactionClient, snapshot: D1ReadSnapshot | null) => Promise<T>): Promise<T> {
+    if (!isCloudflareDatabaseRuntime()) return prisma.$transaction(tx => operation(tx, null), { timeout: 15000 })
+    const { reader, snapshot } = createD1DomainReader()
+    try { return await operation(reader, snapshot) }
+    catch (error) {
+        if (error instanceof D1SnapshotConflict) throw new BookingError('A disponibilidade ou a reserva mudou. Atualize a página antes de confirmar novamente.', 409)
+        throw error
+    } finally { await reader.$disconnect() }
+}
+
+async function persistNativeReservation(reader: Prisma.TransactionClient, snapshot: D1ReadSnapshot, data: object, existingId?: string) {
+    const id = existingId ?? randomUUID(), at = new Date().toISOString().replace('Z', '+00:00')
+    const fields: Record<string, unknown> = { ...data, updatedAt: at, ...(!existingId ? { id, createdAt: at } : {}) }
+    const entries = Object.entries(fields).filter(([, value]) => value !== undefined)
+    const values = entries.map(([key, value]) => value instanceof Date ? value.toISOString().replace('Z', '+00:00') : key === 'bookingConditions' && value !== null ? JSON.stringify(value) : value as string | number | null)
+    if (entries.some(([key]) => !/^[a-zA-Z][a-zA-Z0-9]*$/.test(key))) throw new Error('Invalid reservation field')
+    const statement = existingId
+        ? { sql: `UPDATE "Reservation" SET ${entries.map(([key]) => `"${key}"=?`).join(',')} WHERE id=?`, params: [...values, id] }
+        : { sql: `INSERT INTO "Reservation" (${entries.map(([key]) => `"${key}"`).join(',')}) VALUES (${entries.map(() => '?').join(',')})`, params: values }
+    await snapshot.commit([statement])
+    // Read after commit through the ordinary request client. Retry of an uncertain
+    // create keeps the supplied requestId and cannot generate a second reservation.
+    return prisma.reservation.findUniqueOrThrow({ where: { id }, include: { cabin: true, payment: true } })
 }

@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@/lib/db'
 import { prisma } from '@/lib/db'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
+import { dateKeyInSaoPaulo } from '@/lib/reservation-booking'
+
+export const dynamic = 'force-dynamic'
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' }
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,7 +14,7 @@ export async function GET(request: NextRequest) {
         if (!canManageReservations(authUser)) {
             return NextResponse.json(
                 { success: false, error: 'Acesso negado' },
-                { status: 403 }
+                { status: 403, headers: NO_STORE_HEADERS }
             )
         }
 
@@ -20,20 +24,19 @@ export async function GET(request: NextRequest) {
 
         const where: Prisma.ReservationWhereInput = {}
 
-        // Se tiver data, filtra. Se não, traz tudo.
+        // A data escolhida representa um dia civil de Brasília, não um dia UTC.
         if (dateParam) {
-            // Ajuste manual de timezone: em UTC, nossas reservas (feitas como T10:00 local) 
-            // podem cair no dia anterior/posterior dependendo de como foram salvas.
-            // O mais seguro é buscar um range ampliado e filtrar no código ou garantir que o create salve UTC.
-
-            // Mas, dado que estamos corrigindo o CREATE para salvar com Timezone correto, 
-            // aqui podemos confiar no range extendido -3h / +3h se necessário.
-            // Para simplificar: buscamos pelo checkIn string que DEVE bater com o dia.
-
-            where.checkIn = {
-                gte: new Date(new Date(dateParam).setUTCHours(0, 0, 0, 0)),
-                lte: new Date(new Date(dateParam).setUTCHours(23, 59, 59, 999))
+            const start = new Date(`${dateParam}T00:00:00-03:00`)
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam) || Number.isNaN(start.getTime()) || dateKeyInSaoPaulo(start) !== dateParam) {
+                return NextResponse.json({ success: false, error: 'Selecione uma data válida.' }, { status: 400, headers: NO_STORE_HEADERS })
             }
+            where.checkIn = {
+                gte: start,
+                lt: new Date(start.getTime() + 24 * 60 * 60 * 1000),
+            }
+        }
+        if (limitParam !== null && (!/^\d+$/.test(limitParam) || !Number.isSafeInteger(Number(limitParam)) || Number(limitParam) < 1)) {
+            return NextResponse.json({ success: false, error: 'Limite inválido.' }, { status: 400, headers: NO_STORE_HEADERS })
         }
 
         const reservations = await prisma.reservation.findMany({
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest) {
         // Transform to match frontend interface
         const formatted = reservations.map((r) => {
             const checkInTime = new Date(r.checkIn).toLocaleTimeString('pt-BR', {
-                ...(r.bookingConditions ? { timeZone: 'America/Sao_Paulo' } : {}),
+                timeZone: 'America/Sao_Paulo',
                 hour: '2-digit',
                 minute: '2-digit',
             })
@@ -108,7 +111,7 @@ export async function GET(request: NextRequest) {
                 spaceName: r.cabin.name,
                 cabin: { name: r.cabin.name }, // Adicionado para compatibilidade com Dashboard/Reservas
                 spaceType: r.cabin.category.toLowerCase(),
-                date: r.checkIn.toISOString().split('T')[0],
+                date: dateKeyInSaoPaulo(r.checkIn),
                 time: checkInTime,
                 participantCount: r.participantCount,
                 unitNumber: r.unitNumber,
@@ -127,12 +130,12 @@ export async function GET(request: NextRequest) {
             success: true,
             data: formatted,
             count: formatted.length,
-        })
+        }, { headers: NO_STORE_HEADERS })
     } catch (error) {
         console.error('Error fetching reservations:', error)
         return NextResponse.json(
-            { error: 'Failed to fetch reservations' },
-            { status: 500 }
+            { success: false, error: 'Não foi possível carregar as reservas. Tente novamente.' },
+            { status: 500, headers: NO_STORE_HEADERS }
         )
     }
 }

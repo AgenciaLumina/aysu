@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build --webpack",
-    "cf:build": "opennextjs-cloudflare build && node scripts/prune-wasm-bundle.mjs",
+    "cf:build": "opennextjs-cloudflare build && node scripts/prune-wasm-bundle.mjs && node scripts/sanitize-cloudflare-env.mjs",
     "cf:deploy": "npm run cf:build && wrangler deploy",
     "build:vercel": "npm run deploy:check && npm run build",
     "deploy:check": "node scripts/check-deploy-env.mjs",
