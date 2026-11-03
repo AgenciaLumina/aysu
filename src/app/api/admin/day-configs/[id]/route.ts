@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@/lib/db'
 import prisma from '@/lib/db'
+import { isCloudflareDatabaseRuntime } from '@/lib/d1-batch'
+import { updateD1CalendarDate, deleteD1CalendarDate, calendarDate, CalendarMutationError } from '@/lib/d1-calendar'
 import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
-import { parseDayConfig, parseTicketLots, toDbDate } from '@/lib/day-config'
+import { parseDayConfig, parseTicketLots } from '@/lib/day-config'
 import { updateDayConfigSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 
@@ -53,17 +55,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const ticketLots = payload.ticketLots ? parseTicketLots(payload.ticketLots) : undefined
 
-        const updated = await prisma.$transaction(async tx => {
-            await lockCommercialSettings(tx)
-            return tx.reservationDayConfig.update({
-            where: { id },
-            data: {
+        const nextData = {
                 commercialPeriodId: null,
-                ...(payload.date ? { date: toDbDate(payload.date) } : {}),
+                ...(payload.date ? { date: calendarDate(payload.date) } : {}),
                 ...(payload.status ? { status: payload.status } : {}),
-                ...((payload.status ?? existing.status) === 'WAITING_RELEASE'
-                    ? { reservationsEnabled: false }
-                    : payload.reservationsEnabled !== undefined ? { reservationsEnabled: payload.reservationsEnabled } : {}),
+                ...(payload.reservationsEnabled !== undefined ? { reservationsEnabled:payload.reservationsEnabled } : {}),
                 ...(payload.title !== undefined ? { title: payload.title?.trim() || null } : {}),
                 ...(payload.release !== undefined ? { release: payload.release?.trim() || null } : {}),
                 ...(payload.flyerImageUrl !== undefined ? { flyerImageUrl: payload.flyerImageUrl?.trim() || null } : {}),
@@ -80,9 +76,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                         reservableItems: toJsonValueOrNull(payload.reservableItems)
                     }
                     : {}),
-            },
-        })
-        }, { timeout: 15000 })
+            }
+        const updated = isCloudflareDatabaseRuntime() ? await updateD1CalendarDate(authUser!.userId,id,nextData) : await prisma.$transaction(async tx => {
+            await lockCommercialSettings(tx)
+            return tx.reservationDayConfig.update({ where:{ id },data:{ ...nextData,...((payload.status ?? existing.status) === 'WAITING_RELEASE' ? { reservationsEnabled:false } : {}) } })
+        }, { timeout:15000 })
 
         return NextResponse.json<ApiResponse>({
             success: true,
@@ -90,6 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             message: 'Configuração atualizada com sucesso',
         })
     } catch (error: unknown) {
+        if (error instanceof CalendarMutationError) return NextResponse.json({ success:false,error:error.message },{ status:error.status })
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Já existe configuração para esta data' },
@@ -128,15 +127,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             )
         }
 
-        await prisma.reservationDayConfig.delete({
-            where: { id },
-        })
+        if (isCloudflareDatabaseRuntime()) await deleteD1CalendarDate(authUser!.userId,id)
+        else await prisma.reservationDayConfig.delete({ where:{ id } })
 
         return NextResponse.json<ApiResponse>({
             success: true,
             message: 'Configuração removida com sucesso',
         })
     } catch (error) {
+        if (error instanceof CalendarMutationError) return NextResponse.json({ success:false,error:error.message },{ status:error.status })
         console.error('[Admin Day Config DELETE Error]', error)
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro ao remover configuração de calendário' },

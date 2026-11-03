@@ -52,3 +52,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+### Gravação do calendário no D1
+
+Os handlers de período, data individual, exclusão e padrões comerciais usam `src/lib/d1-calendar.ts`. Leituras, permissão vigente e decisões sobre eventos são revalidadas no mesmo batch que grava as alterações. Falha em qualquer data desfaz o período todo; confirmação perdida é conferida sem repetir o batch. Datas impossíveis retornam 400 e conflito persistente retorna 409. Não liberar `WAITING_RELEASE` por um PATCH parcial. Esta adaptação não altera reservas existentes nem substitui os demais testes administrativos. Regressão isolada: `node scripts/test-d1-calendar.cjs`; regressão de reservas: `node scripts/test-d1-booking.cjs`.

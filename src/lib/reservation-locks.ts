@@ -1,7 +1,8 @@
 import type { Prisma } from '@/lib/db'
 
-// Settings and bookings use transactions. In SQLite/D1 transactions are serialized.
+// Cloudflare callers must guard reads and commit writes in a native D1.batch.
+// This compatibility helper does not provide a lock or transaction.
 export async function lockCommercialSettings(_tx: Prisma.TransactionClient) {
-    // No-op on SQLite/D1 as advisory locks are Postgres-only and transactions are serial.
+    // PostgreSQL advisory locks are unavailable on SQLite/D1.
     return
 }

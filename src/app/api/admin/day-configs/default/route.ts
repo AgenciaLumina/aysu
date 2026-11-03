@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@/lib/db'
 import prisma from '@/lib/db'
+import { isCloudflareDatabaseRuntime } from '@/lib/d1-batch'
+import { updateD1CalendarDefaults, CalendarMutationError } from '@/lib/d1-calendar'
 import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
 import {
@@ -69,6 +71,7 @@ async function ensureGlobalConfig() {
             throw error
         }
 
+        if (isCloudflareDatabaseRuntime()) throw error
         await bootstrapGlobalConfigTableIfNeeded()
 
         return prisma.reservationGlobalConfig.upsert({
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest) {
             data: parseReservationGlobalConfig(config),
         })
     } catch (error) {
+        if (error instanceof CalendarMutationError) return NextResponse.json({ success:false,error:error.message },{ status:error.status })
         console.error('[Admin Default Day Config GET Error]', error)
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro ao buscar configuração padrão' },
@@ -128,14 +132,10 @@ export async function PATCH(request: NextRequest) {
             )
         }
 
-        await ensureGlobalConfig()
+        if (!isCloudflareDatabaseRuntime()) await ensureGlobalConfig()
 
         const payload = validation.data
-        const updated = await prisma.$transaction(async tx => {
-            await lockCommercialSettings(tx)
-            return tx.reservationGlobalConfig.update({
-            where: { id: GLOBAL_CONFIG_ID },
-            data: {
+        const nextData = {
                 ...(payload.reservableItems !== undefined
                     ? { reservableItems: toJsonValueOrNull(payload.reservableItems) }
                     : {}),
@@ -143,9 +143,11 @@ export async function PATCH(request: NextRequest) {
                 ...(payload.priceOverrides !== undefined
                     ? { priceOverrides: toJsonValueOrNull(payload.priceOverrides) }
                     : {}),
-            },
-        })
-        }, { timeout: 15000 })
+            }
+        const updated = isCloudflareDatabaseRuntime() ? await updateD1CalendarDefaults(authUser!.userId,nextData) : await prisma.$transaction(async tx => {
+            await lockCommercialSettings(tx)
+            return tx.reservationGlobalConfig.update({ where:{ id:GLOBAL_CONFIG_ID },data:nextData })
+        }, { timeout:15000 })
 
         return NextResponse.json<ApiResponse>({
             success: true,
@@ -153,6 +155,7 @@ export async function PATCH(request: NextRequest) {
             message: 'Configuração padrão atualizada com sucesso',
         })
     } catch (error) {
+        if (error instanceof CalendarMutationError) return NextResponse.json({ success:false,error:error.message },{ status:error.status })
         console.error('[Admin Default Day Config PATCH Error]', error)
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro ao atualizar configuração padrão' },

@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@/lib/db'
 import prisma from '@/lib/db'
+import { isCloudflareDatabaseRuntime } from '@/lib/d1-batch'
+import { saveD1CalendarPeriod, calendarDate, CalendarMutationError } from '@/lib/d1-calendar'
 import { lockCommercialSettings } from '@/lib/reservation-locks'
 import { canManageReservations, getAuthUser } from '@/lib/auth'
-import { DEFAULT_RESERVABLE_ITEMS, parseDayConfig, parseTicketLots, toDbDate } from '@/lib/day-config'
+import { DEFAULT_RESERVABLE_ITEMS, parseDayConfig, parseTicketLots } from '@/lib/day-config'
 import { createDayConfigSchema } from '@/lib/validations'
 import type { ApiResponse } from '@/lib/types'
 
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
         }
 
         const payload = validation.data
-        const dbDate = toDbDate(payload.date)
+        const dbDate = calendarDate(payload.date)
         const ticketLots = parseTicketLots(payload.ticketLots)
 
         const existingConfig = await prisma.reservationDayConfig.findUnique({
@@ -84,14 +86,14 @@ export async function POST(request: NextRequest) {
         }
 
         const endDate = payload.endDate || payload.date
-        if (dbDate.toISOString().slice(0, 10) !== payload.date || toDbDate(endDate).toISOString().slice(0, 10) !== endDate) return NextResponse.json({ success: false, error: 'Data inválida.' }, { status: 400 })
-        const days = Math.round((toDbDate(endDate).getTime() - dbDate.getTime()) / 86400000)
+        const endDbDate = calendarDate(endDate)
+        const days = Math.round((endDbDate.getTime() - dbDate.getTime()) / 86400000)
         if (days < 0 || days > 366 || Number.isNaN(days)) {
             return NextResponse.json({ success: false, error: 'Selecione um período válido de até um ano.' }, { status: 400 })
         }
         const periodId = days > 0 ? existingConfig?.commercialPeriodId || randomUUID() : null
         const dates = Array.from({ length: days + 1 }, (_, index) => new Date(dbDate.getTime() + index * 86400000))
-        const savedDates = await prisma.$transaction(async tx => {
+        const savedDates = isCloudflareDatabaseRuntime() ? await saveD1CalendarPeriod(authUser!.userId,dates,baseData) : await prisma.$transaction(async tx => {
             await lockCommercialSettings(tx)
             const saved = []
             for (const date of dates) {
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
                 : 'Configuração de data criada com sucesso',
         }, { status: existingConfig ? 200 : 201 })
     } catch (error: unknown) {
+        if (error instanceof CalendarMutationError) return NextResponse.json({ success:false,error:error.message },{ status:error.status })
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             return NextResponse.json<ApiResponse>(
                 { success: false, error: 'Já existe configuração para esta data' },
