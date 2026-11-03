@@ -28,7 +28,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client"],
-  webpack: (config: any) => {
+  webpack: (config: any, { isServer }) => {
+    if (!isServer) {
+      config.module.rules.push({ test: /\.wasm$/, type: "asset/resource" });
+      return config;
+    }
     config.externals = [
       ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
       ({ request }: any, callback: any) => {

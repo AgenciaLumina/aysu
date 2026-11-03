@@ -1,130 +1,44 @@
-// AISSU Beach Lounge - API de Upload para R2 com conversão AVIF
+// Images are encoded to AVIF by the shared browser worker before submission.
 import { NextRequest, NextResponse } from 'next/server'
-import sharp from 'sharp'
 import { v4 as uuid } from 'uuid'
 import { uploadToR2 } from '@/lib/r2'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
-
-const ALLOWED_FILE_TYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'image/avif',
-    'image/heic',
-    'image/heif',
-    'image/heic-sequence',
-    'image/heif-sequence',
-]
-const ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif']
-
-function getFileExtension(filename: string): string {
-    const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
-    return match ? match[1] : ''
-}
-
-function isAllowedFile(file: File): boolean {
-    if (ALLOWED_FILE_TYPES.includes(file.type)) return true
-    const extension = getFileExtension(file.name)
-    return ALLOWED_FILE_EXTENSIONS.includes(extension)
-}
+import { inspectAvif, MAX_IMAGE_UPLOAD_BYTES } from '@/lib/image-upload'
 
 export async function POST(request: NextRequest) {
+    if (!canAccessAdminPanel(getAuthUser(request))) {
+        return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
+    }
     try {
-        const authUser = getAuthUser(request)
-        if (!canAccessAdminPanel(authUser)) {
-            return NextResponse.json(
-                { success: false, error: 'Acesso negado' },
-                { status: 403 }
-            )
+        const length = Number(request.headers.get('content-length'))
+        if (length > MAX_IMAGE_UPLOAD_BYTES + 64 * 1024) {
+            return NextResponse.json({ success: false, error: 'A imagem deve ter até 4 MB após a conversão.' }, { status: 413 })
         }
-
-        const formData = await request.formData()
-        const file = formData.get('file') as File | null
-
-        if (!file) {
-            return NextResponse.json({ success: false, error: 'Nenhum arquivo enviado' }, { status: 400 })
+        let formData: FormData
+        try { formData = await request.formData() } catch {
+            return NextResponse.json({ success: false, error: 'Envie a imagem como arquivo.' }, { status: 400 })
         }
-
-        // Valida tipo de arquivo
-        if (!isAllowedFile(file)) {
-            return NextResponse.json({ success: false, error: 'Tipo de arquivo não permitido' }, { status: 400 })
+        const file = formData.get('file')
+        if (!(file instanceof File) || !file.size) {
+            return NextResponse.json({ success: false, error: 'Nenhum arquivo válido enviado' }, { status: 400 })
         }
-
-        // Converte para buffer
-        const bytes = await file.arrayBuffer()
-        const inputBuffer = Buffer.from(bytes)
-
-        // Converte para AVIF otimizado
-        const avifBuffer = await sharp(inputBuffer)
-            .rotate()
-            .resize(2200, 2200, {
-                fit: 'inside',
-                withoutEnlargement: true
-            })
-            .avif({
-                quality: 72,
-                effort: 6
-            })
-            .toBuffer()
-
-        // Gera nome único
+        if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+            return NextResponse.json({ success: false, error: 'A imagem deve ter até 4 MB após a conversão.' }, { status: 413 })
+        }
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        if (!inspectAvif(bytes)) {
+            return NextResponse.json({ success: false, error: 'A imagem não foi convertida corretamente para AVIF. Atualize a página e envie novamente.' }, { status: 400 })
+        }
         const requestedFolder = formData.get('folder')
-        const normalizedFolder =
-            typeof requestedFolder === 'string'
-                ? requestedFolder.trim().replace(/^\/+|\/+$/g, '')
-                : ''
+        const normalizedFolder = typeof requestedFolder === 'string' ? requestedFolder.trim().replace(/^\/+|\/+$/g, '') : ''
         const folder = normalizedFolder && /^[a-zA-Z0-9/_-]+$/.test(normalizedFolder) ? normalizedFolder : 'menu'
-        const filename = `${folder}/${uuid()}.avif`
-
-        // Upload para R2
-        const result = await uploadToR2(avifBuffer, filename, 'image/avif')
-
-        console.log('[Upload Success]', {
-            filename,
-            url: result.url,
-            originalSize: file.size,
-            compressedSize: result.size,
-            compressionRatio: Math.round((1 - result.size / file.size) * 100)
-        })
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                url: result.url,
-                key: result.key,
-                size: result.size,
-                originalSize: file.size,
-                compressionRatio: Math.round((1 - result.size / file.size) * 100),
-            },
-        })
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : ''
-        console.error('[Upload R2 Error]', message || error)
-
-        const normalizedMessage = message.toLowerCase()
-        if (
-            normalizedMessage.includes('unsupported image format') ||
-            normalizedMessage.includes('input file contains unsupported image format') ||
-            normalizedMessage.includes('unsupported file type')
-        ) {
-            return NextResponse.json(
-                { success: false, error: 'Formato inválido. Use JPG, PNG, WebP, GIF, AVIF, HEIC ou HEIF.' },
-                { status: 400 }
-            )
-        }
-
-        if (
-            normalizedMessage.includes('configuração do r2') ||
-            normalizedMessage.includes('credential') ||
-            normalizedMessage.includes('access key')
-        ) {
-            return NextResponse.json(
-                { success: false, error: 'Configuração de storage inválida. Verifique as variáveis do R2.' },
-                { status: 500 }
-            )
-        }
-
-        return NextResponse.json({ success: false, error: 'Erro ao fazer upload' }, { status: 500 })
+        const result = await uploadToR2(Buffer.from(bytes), `${folder}/${uuid()}.avif`, 'image/avif')
+        return NextResponse.json({ success: true, data: {
+            url: result.url, key: result.key, size: result.size,
+            originalSize: file.size, compressionRatio: 0,
+        } })
+    } catch (error) {
+        console.error('[Upload R2 Error]', error instanceof Error ? error.name : 'UnknownError')
+        return NextResponse.json({ success: false, error: 'Não foi possível salvar a imagem. Tente novamente.' }, { status: 500 })
     }
 }

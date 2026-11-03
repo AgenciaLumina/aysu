@@ -1,7 +1,22 @@
 // AISSU Beach Lounge - Cloudflare R2 Storage Client
 // S3-compatible storage for images with AVIF conversion
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
+
+type MediaBucket = {
+    put(key: string, bytes: Uint8Array, options: { httpMetadata: { contentType: string; cacheControl: string } }): Promise<unknown>
+    delete(key: string): Promise<void>
+    list(options: { prefix: string; limit: number }): Promise<{ objects: Array<{ key: string; size: number; uploaded: Date }>; truncated: boolean }>
+}
+
+function nativeMediaBucket(): MediaBucket | null {
+    let context: ReturnType<typeof getCloudflareContext>
+    try { context = getCloudflareContext() } catch { return null }
+    const bucket = (context.env as unknown as { MEDIA_BUCKET?: MediaBucket }).MEDIA_BUCKET
+    if (!bucket) throw new Error('MEDIA_BUCKET binding unavailable')
+    return bucket
+}
 
 function sanitizeEnvValue(value?: string): string | undefined {
     if (typeof value !== 'string') return undefined
@@ -37,15 +52,6 @@ export const R2_ENDPOINT = readEnv(
     `https://${R2_CONFIG.accountId}.r2.cloudflarestorage.com`
 )
 
-function hasRequiredR2Config(): boolean {
-    return Boolean(
-        R2_CONFIG.accountId &&
-        R2_CONFIG.accessKeyId &&
-        R2_CONFIG.secretAccessKey &&
-        R2_CONFIG.bucket
-    )
-}
-
 function assertR2Config(): void {
     if (!R2_CONFIG.accountId || !R2_CONFIG.accessKeyId || !R2_CONFIG.secretAccessKey || !R2_CONFIG.bucket) {
         throw new Error('Configuração do R2 ausente ou inválida')
@@ -55,6 +61,8 @@ function assertR2Config(): void {
 // Cliente S3 para R2
 export const r2Client = new S3Client({
     region: 'auto',
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
     endpoint: R2_ENDPOINT,
     credentials: {
         accessKeyId: R2_CONFIG.accessKeyId || '',
@@ -77,58 +85,30 @@ export async function uploadToR2(
     key: string,
     contentType: string
 ): Promise<UploadResult> {
-    if (!hasRequiredR2Config()) {
+    const bucket = nativeMediaBucket()
+    const cacheControl = 'public, max-age=31536000, immutable'
+    if (bucket) {
+        await bucket.put(key, new Uint8Array(buffer), { httpMetadata: { contentType, cacheControl } })
+    } else {
         assertR2Config()
+        await r2Client.send(new PutObjectCommand({
+            Bucket: R2_CONFIG.bucket, Key: key, Body: buffer,
+            ContentType: contentType, CacheControl: cacheControl,
+        }))
     }
-
-    console.log('[R2 Upload Start]', {
-        bucket: R2_CONFIG.bucket,
-        key,
-        contentType,
-        bufferSize: buffer.length,
-        endpoint: R2_ENDPOINT
-    })
-
-    try {
-        await r2Client.send(
-            new PutObjectCommand({
-                Bucket: R2_CONFIG.bucket,
-                Key: key,
-                Body: buffer,
-                ContentType: contentType,
-                CacheControl: 'public, max-age=31536000, immutable',
-            })
-        )
-
-        const url = `${R2_CONFIG.publicUrl}/${key}`
-        console.log('[R2 Upload Success]', { url })
-
-        return {
-            url,
-            key,
-            size: buffer.length,
-            contentType,
-        }
-    } catch (error) {
-        console.error('[R2 Upload Failed]', error)
-        throw error
-    }
+    return { url: `${R2_CONFIG.publicUrl}/${key}`, key, size: buffer.length, contentType }
 }
 
 /**
  * Remove um arquivo do R2
  */
 export async function deleteFromR2(key: string): Promise<void> {
-    if (!hasRequiredR2Config()) {
+    const bucket = nativeMediaBucket()
+    if (bucket) await bucket.delete(key)
+    else {
         assertR2Config()
+        await r2Client.send(new DeleteObjectCommand({ Bucket: R2_CONFIG.bucket, Key: key }))
     }
-
-    await r2Client.send(
-        new DeleteObjectCommand({
-            Bucket: R2_CONFIG.bucket,
-            Key: key,
-        })
-    )
 }
 
 /**
@@ -137,4 +117,15 @@ export async function deleteFromR2(key: string): Promise<void> {
 export function getKeyFromUrl(url: string): string | null {
     if (!url.includes(R2_CONFIG.publicUrl)) return null
     return url.replace(`${R2_CONFIG.publicUrl}/`, '')
+}
+
+export async function listR2Files(prefix: string, limit: number) {
+    const bucket = nativeMediaBucket()
+    if (bucket) {
+        const result = await bucket.list({ prefix, limit })
+        return { files: result.objects.map(item => ({ key: item.key, size: item.size, lastModified: item.uploaded, url: `${R2_CONFIG.publicUrl}/${item.key}` })), hasMore: result.truncated }
+    }
+    assertR2Config()
+    const result = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_CONFIG.bucket, Prefix: prefix, MaxKeys: limit }))
+    return { files: (result.Contents || []).map(item => ({ key: item.Key!, size: item.Size!, lastModified: item.LastModified!, url: `${R2_CONFIG.publicUrl}/${item.Key}` })), hasMore: result.IsTruncated || false }
 }

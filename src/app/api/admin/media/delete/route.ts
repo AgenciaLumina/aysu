@@ -1,8 +1,7 @@
 // AISSU Beach Lounge - API para Deletar Arquivo do R2
 import { NextRequest, NextResponse } from 'next/server'
-import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { canAccessAdminPanel, getAuthUser } from '@/lib/auth'
-import { R2_CONFIG, r2Client } from '@/lib/r2'
+import { deleteFromR2 } from '@/lib/r2'
 
 export async function DELETE(request: NextRequest) {
     try {
@@ -16,26 +15,21 @@ export async function DELETE(request: NextRequest) {
 
         const { key } = await request.json()
 
-        if (!key) {
+        if (typeof key !== 'string' || !key || key.includes('..') || key.startsWith('/') || key.includes('://')) {
             return NextResponse.json(
                 { success: false, error: 'Key do arquivo não fornecida' },
                 { status: 400 }
             )
         }
 
-        const command = new DeleteObjectCommand({
-            Bucket: R2_CONFIG.bucket,
-            Key: key,
-        })
-
-        await r2Client.send(command)
+        await deleteFromR2(key)
 
         return NextResponse.json({
             success: true,
             message: 'Arquivo deletado com sucesso',
         })
     } catch (error) {
-        console.error('[R2 Delete Error]', error)
+        console.error('[R2 Delete Error]', error instanceof Error ? error.name : 'UnknownError')
         return NextResponse.json(
             { success: false, error: 'Erro ao deletar arquivo' },
             { status: 500 }

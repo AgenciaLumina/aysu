@@ -1,3 +1,5 @@
+import { inspectAvif, MAX_IMAGE_UPLOAD_BYTES } from './image-upload'
+
 const ALLOWED_IMAGE_MIME_TYPES = [
     'image/jpeg',
     'image/png',
@@ -12,16 +14,7 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 
 const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif']
 
-const MODERN_OUTPUT_FORMATS = [
-    { mimeType: 'image/avif', extension: 'avif' },
-    { mimeType: 'image/webp', extension: 'webp' },
-    { mimeType: 'image/jpeg', extension: 'jpg' },
-] as const
-
-const MAX_OUTPUT_DIMENSION = 2200
-const RESIZE_STEPS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42, 0.35]
-const QUALITY_STEPS = [0.82, 0.74, 0.66, 0.58, 0.5, 0.42, 0.34, 0.28]
-const TARGET_OPTIMIZED_BYTES = 4 * 1024 * 1024
+const TARGET_OPTIMIZED_BYTES = MAX_IMAGE_UPLOAD_BYTES
 const TARGET_OPTIMIZED_LABEL = '4 MB'
 
 export type UploadApiResponse = {
@@ -62,12 +55,12 @@ export function validateImageUpload(file: File): string | null {
 
 export function getLargeImageWarning(file: File): string | null {
     if (file.size <= TARGET_OPTIMIZED_BYTES) return null
-    return `Imagem grande detectada (${formatSizeInMb(file.size)}). Vamos otimizar automaticamente antes do envio para caber no limite da Vercel (${TARGET_OPTIMIZED_LABEL}).`
+    return `Imagem grande detectada (${formatSizeInMb(file.size)}). Vamos otimizar automaticamente para AVIF antes do envio, com limite de (${TARGET_OPTIMIZED_LABEL}).`
 }
 
 export function getUploadPayloadError(file: File): string | null {
     if (file.size <= TARGET_OPTIMIZED_BYTES) return null
-    return `Após otimização, o arquivo ficou com ${formatSizeInMb(file.size)} e ainda excede o limite de upload da Vercel (${TARGET_OPTIMIZED_LABEL}). Reduza a resolução/qualidade e tente novamente.`
+    return `Após otimização, o arquivo ficou com ${formatSizeInMb(file.size)} e ainda excede o limite de upload (${TARGET_OPTIMIZED_LABEL}). Reduza a resolução/qualidade e tente novamente.`
 }
 
 function buildOptimizedFilename(originalName: string, extension: string): string {
@@ -82,71 +75,40 @@ function buildOptimizedFilename(originalName: string, extension: string): string
     return `${baseName || 'imagem'}-${Date.now()}.${extension}`
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality: number): Promise<Blob | null> {
-    return new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), mimeType, quality)
-    })
+// Keep batches from starting one WASM instance per selected image at once.
+let conversionQueue: Promise<unknown> = Promise.resolve()
+
+export function optimizeImageBeforeUpload(file: File): Promise<File> {
+    const conversion = conversionQueue.then(() => encodeAvif(file))
+    conversionQueue = conversion.catch(() => undefined)
+    return conversion
 }
 
-export async function optimizeImageBeforeUpload(file: File): Promise<File> {
-    if (typeof window === 'undefined') return file
-    if (file.size <= TARGET_OPTIMIZED_BYTES) return file
-
+async function encodeAvif(file: File): Promise<File> {
+    if (typeof window === 'undefined') throw new Error('A conversão de imagens requer um navegador.')
+    const validation = validateImageUpload(file)
+    if (validation) throw new Error(validation)
+    // Always encode, including small JPEG/PNG files. Canvas.toBlob may silently
+    // return PNG when AVIF encoding is unsupported, so it is not an AVIF encoder.
+    const worker = new Worker(new URL('./image-upload.worker.ts', import.meta.url), { type: 'module' })
     try {
-        const bitmap = await createImageBitmap(file)
-        try {
-            const maxDimension = Math.max(bitmap.width, bitmap.height)
-            const baseScale = maxDimension > MAX_OUTPUT_DIMENSION ? MAX_OUTPUT_DIMENSION / maxDimension : 1
-            let bestCandidate: { blob: Blob; output: (typeof MODERN_OUTPUT_FORMATS)[number] } | null = null
-
-            for (const resizeStep of RESIZE_STEPS) {
-                const scale = baseScale * resizeStep
-                const targetWidth = Math.max(1, Math.round(bitmap.width * scale))
-                const targetHeight = Math.max(1, Math.round(bitmap.height * scale))
-
-                const canvas = document.createElement('canvas')
-                canvas.width = targetWidth
-                canvas.height = targetHeight
-
-                const context = canvas.getContext('2d', { alpha: false })
-                if (!context) continue
-
-                context.drawImage(bitmap, 0, 0, targetWidth, targetHeight)
-
-                for (const output of MODERN_OUTPUT_FORMATS) {
-                    for (const quality of QUALITY_STEPS) {
-                        const blob = await canvasToBlob(canvas, output.mimeType, quality)
-                        if (!blob) continue
-
-                        if (!bestCandidate || blob.size < bestCandidate.blob.size) {
-                            bestCandidate = { blob, output }
-                        }
-
-                        if (blob.size <= TARGET_OPTIMIZED_BYTES) {
-                            return new File(
-                                [blob],
-                                buildOptimizedFilename(file.name, output.extension),
-                                { type: output.mimeType, lastModified: Date.now() }
-                            )
-                        }
-                    }
-                }
+        const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('A conversão demorou demais. Tente uma imagem menor.')), 90000)
+            worker.onmessage = (event: MessageEvent<{ data?: ArrayBuffer; error?: string }>) => {
+                clearTimeout(timeout)
+                if (event.data.error || !event.data.data) reject(new Error(event.data.error || 'Falha na conversão para AVIF.'))
+                else resolve(event.data.data)
             }
-
-            if (bestCandidate) {
-                return new File(
-                    [bestCandidate.blob],
-                    buildOptimizedFilename(file.name, bestCandidate.output.extension),
-                    { type: bestCandidate.output.mimeType, lastModified: Date.now() }
-                )
+            worker.onerror = () => {
+                clearTimeout(timeout)
+                reject(new Error('Não foi possível carregar o conversor de imagens. Atualize a página e tente novamente.'))
             }
-
-            return file
-        } finally {
-            bitmap.close()
-        }
-    } catch {
-        return file
+            worker.postMessage(file)
+        })
+        if (!inspectAvif(new Uint8Array(bytes))) throw new Error('O arquivo convertido não é um AVIF válido.')
+        return new File([bytes], buildOptimizedFilename(file.name, 'avif'), { type: 'image/avif', lastModified: Date.now() })
+    } finally {
+        worker.terminate()
     }
 }
 
@@ -176,7 +138,7 @@ export async function readUploadApiResponse(response: Response): Promise<UploadA
         ) {
             return {
                 success: false,
-                error: `Upload bloqueado por limite de payload da Vercel/proxy. Reduza a imagem para até ${TARGET_OPTIMIZED_LABEL} (ou converta para JPG/WebP/AVIF) e tente novamente.`,
+                error: `Upload bloqueado por limite de tamanho. Reduza a imagem para até ${TARGET_OPTIMIZED_LABEL} (ou converta para JPG/WebP/AVIF) e tente novamente.`,
             }
         }
 

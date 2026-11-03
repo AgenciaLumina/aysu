@@ -14,6 +14,12 @@ Em 03/11/2026 foram restauradas 10 chaves estrangeiras e 13 verificações de en
 
 Regressões isoladas: `node scripts/test-d1-integrity.cjs` e `node scripts/test-d1-booking.cjs`. O teste de reservas usa o esquema completo com as restrições nativas. Os comandos históricos `build:vercel` e o runbook anterior não definem o destino atual.
 
+## Upload de imagens
+
+Todos os seletores administrativos usam `src/lib/upload-client.ts`: a imagem é convertida para AVIF em um Web Worker no navegador, inclusive arquivos pequenos, com codecs servidos pelo próprio site. O lado maior fica limitado a 2200 px e o arquivo convertido a 4 MB; transparência e orientação são preservadas. HEIC/HEIF usam decodificador local quando o navegador não os lê diretamente. Lotes são convertidos em sequência para limitar o uso de memória. Não há envio a um serviço externo de conversão.
+
+`/api/upload` exige autenticação e valida o contêiner AVIF antes da gravação. Upload, listagem e exclusão utilizam o binding `MEDIA_BUCKET` do R2 no Cloudflare, sem Sharp nativo nem credenciais S3 nessas operações em produção. Os arquivos existentes não são reconvertidos. Após atualizar uma versão antiga do painel, recarregue a página para receber o conversor. Teste isolado, sem recursos de produção: `node scripts/test-image-upload.cjs`.
+
 ## Desenvolvimento local
 
 Este projeto usa [Next.js](https://nextjs.org).
