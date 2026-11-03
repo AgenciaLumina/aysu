@@ -3,7 +3,7 @@ const runtime=createRequire(fs.realpathSync(require.resolve('wrangler/package.js
 (async()=>{const options={modules:true,script:'export default {fetch(){return new Response("isolated")}}',d1Databases:{DB:'aysu-booking-isolated'},compatibilityDate:'2026-10-30'};const mf=new Miniflare(convertV4MiniflareOptions?convertV4MiniflareOptions(options):options);
 try{const db=await mf.getD1Database('DB'),context={env:{DB:db,JWT_SECRET:'synthetic-isolated-secret-not-production'},ctx:{}};
  const api=await require('./helpers/load-d1-test-bundle.cjs')(`export * from './src/lib/reservation-booking'; export * from './src/lib/auth';`,context);
- for(const p of ['scripts/fixtures/d1-booking-schema.sql','infrastructure/cloudflare/migrations/20261102_atomic_read_guard.sql'])await db.batch(fs.readFileSync(p,'utf8').replace(/^--.*$/gm,'').split(';').map(s=>s.trim()).filter(Boolean).map(s=>db.prepare(s)));
+ await require('./lib/isolated-d1-integrity.cjs')(db);
  const cabin=randomUUID();await db.prepare('INSERT INTO Cabin(id,name,capacity,pricePerHour,updatedAt,slug,units) VALUES(?,?,?,?,?,?,?)').bind(cabin,'Synthetic sunbed',2,1000,'2026-11-02T00:00:00.000+00:00','sunbed-casal',1).run();
  const input={cabinId:cabin,customerName:'Synthetic only',customerEmail:'synthetic@example.invalid',customerPhone:'00000000000',checkIn:'2027-02-03T13:00:00Z',checkOut:'2027-02-03T21:00:00Z',participantCount:2,source:'ONLINE',policyAccepted:true,requestId:randomUUID()};
  let arrived=0,release;const barrier=new Promise(r=>release=r);context.env.DB={prepare:s=>db.prepare(s),batch:async statements=>{if(++arrived===8)release();await barrier;return db.batch(statements)}};

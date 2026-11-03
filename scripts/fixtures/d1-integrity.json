@@ -1,0 +1,1277 @@
+{
+  "project": "aysu",
+  "capturedAt": "2026-11-03T09:37:19.683447+00:00",
+  "schema": [
+    {
+      "type": "index",
+      "name": "AuditLog_action_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_action_idx\" ON \"AuditLog\" (action)"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_createdAt_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_createdAt_idx\" ON \"AuditLog\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_entityId_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_entityId_idx\" ON \"AuditLog\" (\"entityId\")"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_entity_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_entity_idx\" ON \"AuditLog\" (entity)"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_userId_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_userId_idx\" ON \"AuditLog\" (\"userId\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_category_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_category_idx\" ON \"Cabin\" (category)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedAt_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedAt_idx\" ON \"Cabin\" (\"deletedAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedOriginalName_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedOriginalName_idx\" ON \"Cabin\" (\"deletedOriginalName\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedVisibilityStatus_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedVisibilityStatus_idx\" ON \"Cabin\" (\"deletedVisibilityStatus\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_isActive_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_isActive_idx\" ON \"Cabin\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_name_key",
+      "table": "Cabin",
+      "sql": "CREATE UNIQUE INDEX \"Cabin_name_key\" ON \"Cabin\" (name)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_slug_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_slug_idx\" ON \"Cabin\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_visibilityStatus_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_visibilityStatus_idx\" ON \"Cabin\" (\"visibilityStatus\")"
+    },
+    {
+      "type": "index",
+      "name": "ClosedDate_date_idx",
+      "table": "ClosedDate",
+      "sql": "CREATE INDEX \"ClosedDate_date_idx\" ON \"ClosedDate\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ClosedDate_date_key",
+      "table": "ClosedDate",
+      "sql": "CREATE UNIQUE INDEX \"ClosedDate_date_key\" ON \"ClosedDate\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_displayOrder_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_displayOrder_idx\" ON \"EventGalleryPhoto\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_galleryId_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_galleryId_idx\" ON \"EventGalleryPhoto\" (\"galleryId\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_isActive_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_isActive_idx\" ON \"EventGalleryPhoto\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_displayOrder_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_displayOrder_idx\" ON \"EventGallery\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_eventDate_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_eventDate_idx\" ON \"EventGallery\" (\"eventDate\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_isActive_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_isActive_idx\" ON \"EventGallery\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_slug_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_slug_idx\" ON \"EventGallery\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_slug_key",
+      "table": "EventGallery",
+      "sql": "CREATE UNIQUE INDEX \"EventGallery_slug_key\" ON \"EventGallery\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_isActive_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_isActive_idx\" ON \"Event\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "Event_isFeatured_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_isFeatured_idx\" ON \"Event\" (\"isFeatured\")"
+    },
+    {
+      "type": "index",
+      "name": "Event_slug_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_slug_idx\" ON \"Event\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_slug_key",
+      "table": "Event",
+      "sql": "CREATE UNIQUE INDEX \"Event_slug_key\" ON \"Event\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_startDate_endDate_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_startDate_endDate_idx\" ON \"Event\" (\"startDate\", \"endDate\")"
+    },
+    {
+      "type": "index",
+      "name": "GalleryImage_displayOrder_idx",
+      "table": "GalleryImage",
+      "sql": "CREATE INDEX \"GalleryImage_displayOrder_idx\" ON \"GalleryImage\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "GalleryImage_isActive_idx",
+      "table": "GalleryImage",
+      "sql": "CREATE INDEX \"GalleryImage_isActive_idx\" ON \"GalleryImage\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_isActive_idx",
+      "table": "MenuCategory",
+      "sql": "CREATE INDEX \"MenuCategory_isActive_idx\" ON \"MenuCategory\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_slug_idx",
+      "table": "MenuCategory",
+      "sql": "CREATE INDEX \"MenuCategory_slug_idx\" ON \"MenuCategory\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_slug_key",
+      "table": "MenuCategory",
+      "sql": "CREATE UNIQUE INDEX \"MenuCategory_slug_key\" ON \"MenuCategory\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "MenuGalleryImage_displayOrder_idx",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE INDEX \"MenuGalleryImage_displayOrder_idx\" ON \"MenuGalleryImage\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuGalleryImage_isActive_idx",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE INDEX \"MenuGalleryImage_isActive_idx\" ON \"MenuGalleryImage\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuItem_categoryId_idx",
+      "table": "MenuItem",
+      "sql": "CREATE INDEX \"MenuItem_categoryId_idx\" ON \"MenuItem\" (\"categoryId\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuItem_isAvailable_idx",
+      "table": "MenuItem",
+      "sql": "CREATE INDEX \"MenuItem_isAvailable_idx\" ON \"MenuItem\" (\"isAvailable\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrderItem_menuItemId_idx",
+      "table": "PDVOrderItem",
+      "sql": "CREATE INDEX \"PDVOrderItem_menuItemId_idx\" ON \"PDVOrderItem\" (\"menuItemId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrderItem_orderId_idx",
+      "table": "PDVOrderItem",
+      "sql": "CREATE INDEX \"PDVOrderItem_orderId_idx\" ON \"PDVOrderItem\" (\"orderId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrder_reservationId_idx",
+      "table": "PDVOrder",
+      "sql": "CREATE INDEX \"PDVOrder_reservationId_idx\" ON \"PDVOrder\" (\"reservationId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrder_status_idx",
+      "table": "PDVOrder",
+      "sql": "CREATE INDEX \"PDVOrder_status_idx\" ON \"PDVOrder\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "Payment_createdAt_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_createdAt_idx\" ON \"Payment\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_redeTransactionId_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_redeTransactionId_idx\" ON \"Payment\" (\"redeTransactionId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_redeTransactionId_key",
+      "table": "Payment",
+      "sql": "CREATE UNIQUE INDEX \"Payment_redeTransactionId_key\" ON \"Payment\" (\"redeTransactionId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_reservationId_key",
+      "table": "Payment",
+      "sql": "CREATE UNIQUE INDEX \"Payment_reservationId_key\" ON \"Payment\" (\"reservationId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_status_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_status_idx\" ON \"Payment\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_date_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_date_idx\" ON \"ReservationDayConfig\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_date_key",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE UNIQUE INDEX \"ReservationDayConfig_date_key\" ON \"ReservationDayConfig\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_highlightOnHome_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_highlightOnHome_idx\" ON \"ReservationDayConfig\" (\"highlightOnHome\")"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_status_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_status_idx\" ON \"ReservationDayConfig\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_cabinId_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_cabinId_idx\" ON \"Reservation\" (\"cabinId\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_checkIn_checkOut_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_checkIn_checkOut_idx\" ON \"Reservation\" (\"checkIn\", \"checkOut\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_createdAt_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_createdAt_idx\" ON \"Reservation\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_receiptToken_key",
+      "table": "Reservation",
+      "sql": "CREATE UNIQUE INDEX \"Reservation_receiptToken_key\" ON \"Reservation\" (\"receiptToken\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_requestId_key",
+      "table": "Reservation",
+      "sql": "CREATE UNIQUE INDEX \"Reservation_requestId_key\" ON \"Reservation\" (\"requestId\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_source_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_source_idx\" ON \"Reservation\" (source)"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_status_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_status_idx\" ON \"Reservation\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "User_email_idx",
+      "table": "User",
+      "sql": "CREATE INDEX \"User_email_idx\" ON \"User\" (email)"
+    },
+    {
+      "type": "index",
+      "name": "User_email_key",
+      "table": "User",
+      "sql": "CREATE UNIQUE INDEX \"User_email_key\" ON \"User\" (email)"
+    },
+    {
+      "type": "index",
+      "name": "User_role_idx",
+      "table": "User",
+      "sql": "CREATE INDEX \"User_role_idx\" ON \"User\" (role)"
+    },
+    {
+      "type": "table",
+      "name": "AuditLog",
+      "table": "AuditLog",
+      "sql": "CREATE TABLE \"AuditLog\" (\n    id TEXT NOT NULL,\n    action TEXT NOT NULL,\n    entity TEXT NOT NULL,\n    \"entityId\" TEXT NOT NULL,\n    \"changedFields\" TEXT,\n    \"userId\" TEXT,\n    \"ipAddress\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Cabin",
+      "table": "Cabin",
+      "sql": "CREATE TABLE \"Cabin\" (\n    id TEXT NOT NULL,\n    name TEXT NOT NULL,\n    capacity INTEGER NOT NULL,\n    \"pricePerHour\" REAL NOT NULL,\n    description TEXT,\n    \"imageUrl\" TEXT,\n    category TEXT DEFAULT 'CABANA' NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    slug TEXT,\n    units INTEGER DEFAULT 1 NOT NULL,\n    \"visibilityStatus\" TEXT DEFAULT 'AVAILABLE' NOT NULL,\n    \"deletedAt\" DATETIME,\n    \"deletedOriginalName\" TEXT,\n    \"deletedVisibilityStatus\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "ClosedDate",
+      "table": "ClosedDate",
+      "sql": "CREATE TABLE \"ClosedDate\" (\n    id TEXT NOT NULL,\n    date date NOT NULL,\n    reason TEXT DEFAULT 'Evento Fechado' NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Event",
+      "table": "Event",
+      "sql": "CREATE TABLE \"Event\" (\n    id TEXT NOT NULL,\n    title TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    description TEXT,\n    \"fullDescription\" TEXT,\n    \"eventType\" TEXT DEFAULT 'OTHER' NOT NULL,\n    \"startDate\" DATETIME NOT NULL,\n    \"endDate\" DATETIME,\n    \"bannerImageUrl\" TEXT,\n    \"posterImageUrl\" TEXT,\n    \"galleryImages\" TEXT,\n    \"djName\" TEXT,\n    bands TEXT,\n    \"specialDrinks\" TEXT,\n    \"specialFood\" TEXT,\n    \"themeColor\" TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"isFeatured\" INTEGER DEFAULT 0 NOT NULL,\n    \"maxCapacity\" INTEGER,\n    \"ticketPrice\" REAL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    \"spacePricesOverrides\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "EventGallery",
+      "table": "EventGallery",
+      "sql": "CREATE TABLE \"EventGallery\" (\n    id TEXT NOT NULL,\n    title TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    \"eventDate\" date,\n    \"shortDescription\" TEXT,\n    description TEXT,\n    \"coverImageUrl\" TEXT,\n    \"ctaText\" TEXT,\n    \"ctaHref\" TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "EventGalleryPhoto",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE TABLE \"EventGalleryPhoto\" (\n    id TEXT NOT NULL,\n    \"galleryId\" TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "GalleryImage",
+      "table": "GalleryImage",
+      "sql": "CREATE TABLE \"GalleryImage\" (\n    id TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    permalink TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuCategory",
+      "table": "MenuCategory",
+      "sql": "CREATE TABLE \"MenuCategory\" (\n    id TEXT NOT NULL,\n    name TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    description TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuGalleryImage",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE TABLE \"MenuGalleryImage\" (\n    id TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuItem",
+      "table": "MenuItem",
+      "sql": "CREATE TABLE \"MenuItem\" (\n    id TEXT NOT NULL,\n    \"categoryId\" TEXT NOT NULL,\n    name TEXT NOT NULL,\n    description TEXT,\n    ingredients TEXT,\n    price REAL NOT NULL,\n    \"imageUrl\" TEXT,\n    \"isAvailable\" INTEGER DEFAULT 1 NOT NULL,\n    \"preparationTime\" INTEGER,\n    \"allergyInfo\" TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    tags TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "PDVOrder",
+      "table": "PDVOrder",
+      "sql": "CREATE TABLE \"PDVOrder\" (\n    id TEXT NOT NULL,\n    \"reservationId\" TEXT NOT NULL,\n    \"userId\" TEXT NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    discount REAL DEFAULT 0 NOT NULL,\n    notes TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"completedAt\" DATETIME,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "PDVOrderItem",
+      "table": "PDVOrderItem",
+      "sql": "CREATE TABLE \"PDVOrderItem\" (\n    id TEXT NOT NULL,\n    \"orderId\" TEXT NOT NULL,\n    \"menuItemId\" TEXT NOT NULL,\n    quantity INTEGER NOT NULL,\n    \"unitPrice\" REAL NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    \"specialInstructions\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Payment",
+      "table": "Payment",
+      "sql": "CREATE TABLE \"Payment\" (\n    id TEXT NOT NULL,\n    \"reservationId\" TEXT NOT NULL,\n    amount REAL NOT NULL,\n    currency TEXT DEFAULT 'BRL' NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    \"redeTransactionId\" TEXT,\n    \"redeNsu\" TEXT,\n    \"redeAuthCode\" TEXT,\n    \"cardBrand\" TEXT,\n    \"cardLastFour\" TEXT,\n    installments INTEGER DEFAULT 1 NOT NULL,\n    \"webhookReceived\" INTEGER DEFAULT 0 NOT NULL,\n    \"webhookData\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Reservation",
+      "table": "Reservation",
+      "sql": "CREATE TABLE \"Reservation\" (\n    id TEXT NOT NULL,\n    \"cabinId\" TEXT NOT NULL,\n    \"userId\" TEXT,\n    \"customerName\" TEXT NOT NULL,\n    \"customerEmail\" TEXT NOT NULL,\n    \"customerPhone\" TEXT NOT NULL,\n    \"customerDocument\" TEXT,\n    \"checkIn\" DATETIME NOT NULL,\n    \"checkOut\" DATETIME NOT NULL,\n    \"hoursBooked\" INTEGER NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    source TEXT DEFAULT 'ONLINE' NOT NULL,\n    notes TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    \"participantCount\" INTEGER DEFAULT 1 NOT NULL,\n    \"unitNumber\" INTEGER,\n    \"consumptionCredit\" REAL,\n    \"bookingConditions\" TEXT,\n    \"requestId\" TEXT,\n    \"receiptToken\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "ReservationDayConfig",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE TABLE \"ReservationDayConfig\" (\n    id TEXT NOT NULL,\n    date date NOT NULL,\n    status TEXT DEFAULT 'NORMAL' NOT NULL,\n    \"reservationsEnabled\" INTEGER DEFAULT 1 NOT NULL,\n    title TEXT,\n    release TEXT,\n    \"flyerImageUrl\" TEXT,\n    \"highlightOnHome\" INTEGER DEFAULT 0 NOT NULL,\n    \"priceOverrides\" TEXT,\n    \"ticketLots\" TEXT,\n    \"reservableItems\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"commercialConditions\" TEXT,\n    \"commercialPeriodId\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "ReservationGlobalConfig",
+      "table": "ReservationGlobalConfig",
+      "sql": "CREATE TABLE \"ReservationGlobalConfig\" (\n    id TEXT DEFAULT 'default' NOT NULL,\n    \"reservableItems\" TEXT,\n    \"priceOverrides\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"commercialConditions\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "SiteContentConfig",
+      "table": "SiteContentConfig",
+      "sql": "CREATE TABLE \"SiteContentConfig\" (\n    id TEXT DEFAULT 'default' NOT NULL,\n    content TEXT DEFAULT '{}' NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "User",
+      "table": "User",
+      "sql": "CREATE TABLE \"User\" (\n    id TEXT NOT NULL,\n    email TEXT NOT NULL,\n    name TEXT NOT NULL,\n    role TEXT DEFAULT 'STAFF' NOT NULL,\n    \"passwordHash\" TEXT NOT NULL,\n    phone TEXT,\n    avatar TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "_aysu_atomic_read_guard",
+      "table": "_aysu_atomic_read_guard",
+      "sql": "CREATE TABLE _aysu_atomic_read_guard (\n  id TEXT PRIMARY KEY NOT NULL,\n  valid INTEGER NOT NULL CONSTRAINT _aysu_atomic_read_guard CHECK (valid = 1)\n)"
+    },
+    {
+      "type": "table",
+      "name": "_prisma_migrations",
+      "table": "_prisma_migrations",
+      "sql": "CREATE TABLE \"_prisma_migrations\" (\n    id TEXT NOT NULL,\n    checksum TEXT NOT NULL,\n    finished_at DATETIME,\n    migration_name TEXT NOT NULL,\n    logs TEXT,\n    rolled_back_at DATETIME,\n    started_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    applied_steps_count INTEGER DEFAULT 0 NOT NULL\n)"
+    }
+  ],
+  "targetSchema": [
+    {
+      "type": "index",
+      "name": "AuditLog_action_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_action_idx\" ON \"AuditLog\" (action)"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_createdAt_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_createdAt_idx\" ON \"AuditLog\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_entityId_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_entityId_idx\" ON \"AuditLog\" (\"entityId\")"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_entity_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_entity_idx\" ON \"AuditLog\" (entity)"
+    },
+    {
+      "type": "index",
+      "name": "AuditLog_userId_idx",
+      "table": "AuditLog",
+      "sql": "CREATE INDEX \"AuditLog_userId_idx\" ON \"AuditLog\" (\"userId\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_category_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_category_idx\" ON \"Cabin\" (category)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedAt_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedAt_idx\" ON \"Cabin\" (\"deletedAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedOriginalName_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedOriginalName_idx\" ON \"Cabin\" (\"deletedOriginalName\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_deletedVisibilityStatus_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_deletedVisibilityStatus_idx\" ON \"Cabin\" (\"deletedVisibilityStatus\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_isActive_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_isActive_idx\" ON \"Cabin\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_name_key",
+      "table": "Cabin",
+      "sql": "CREATE UNIQUE INDEX \"Cabin_name_key\" ON \"Cabin\" (name)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_slug_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_slug_idx\" ON \"Cabin\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Cabin_visibilityStatus_idx",
+      "table": "Cabin",
+      "sql": "CREATE INDEX \"Cabin_visibilityStatus_idx\" ON \"Cabin\" (\"visibilityStatus\")"
+    },
+    {
+      "type": "index",
+      "name": "ClosedDate_date_idx",
+      "table": "ClosedDate",
+      "sql": "CREATE INDEX \"ClosedDate_date_idx\" ON \"ClosedDate\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ClosedDate_date_key",
+      "table": "ClosedDate",
+      "sql": "CREATE UNIQUE INDEX \"ClosedDate_date_key\" ON \"ClosedDate\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_displayOrder_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_displayOrder_idx\" ON \"EventGalleryPhoto\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_galleryId_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_galleryId_idx\" ON \"EventGalleryPhoto\" (\"galleryId\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGalleryPhoto_isActive_idx",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE INDEX \"EventGalleryPhoto_isActive_idx\" ON \"EventGalleryPhoto\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_displayOrder_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_displayOrder_idx\" ON \"EventGallery\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_eventDate_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_eventDate_idx\" ON \"EventGallery\" (\"eventDate\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_isActive_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_isActive_idx\" ON \"EventGallery\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_slug_idx",
+      "table": "EventGallery",
+      "sql": "CREATE INDEX \"EventGallery_slug_idx\" ON \"EventGallery\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "EventGallery_slug_key",
+      "table": "EventGallery",
+      "sql": "CREATE UNIQUE INDEX \"EventGallery_slug_key\" ON \"EventGallery\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_isActive_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_isActive_idx\" ON \"Event\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "Event_isFeatured_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_isFeatured_idx\" ON \"Event\" (\"isFeatured\")"
+    },
+    {
+      "type": "index",
+      "name": "Event_slug_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_slug_idx\" ON \"Event\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_slug_key",
+      "table": "Event",
+      "sql": "CREATE UNIQUE INDEX \"Event_slug_key\" ON \"Event\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "Event_startDate_endDate_idx",
+      "table": "Event",
+      "sql": "CREATE INDEX \"Event_startDate_endDate_idx\" ON \"Event\" (\"startDate\", \"endDate\")"
+    },
+    {
+      "type": "index",
+      "name": "GalleryImage_displayOrder_idx",
+      "table": "GalleryImage",
+      "sql": "CREATE INDEX \"GalleryImage_displayOrder_idx\" ON \"GalleryImage\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "GalleryImage_isActive_idx",
+      "table": "GalleryImage",
+      "sql": "CREATE INDEX \"GalleryImage_isActive_idx\" ON \"GalleryImage\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_isActive_idx",
+      "table": "MenuCategory",
+      "sql": "CREATE INDEX \"MenuCategory_isActive_idx\" ON \"MenuCategory\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_slug_idx",
+      "table": "MenuCategory",
+      "sql": "CREATE INDEX \"MenuCategory_slug_idx\" ON \"MenuCategory\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "MenuCategory_slug_key",
+      "table": "MenuCategory",
+      "sql": "CREATE UNIQUE INDEX \"MenuCategory_slug_key\" ON \"MenuCategory\" (slug)"
+    },
+    {
+      "type": "index",
+      "name": "MenuGalleryImage_displayOrder_idx",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE INDEX \"MenuGalleryImage_displayOrder_idx\" ON \"MenuGalleryImage\" (\"displayOrder\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuGalleryImage_isActive_idx",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE INDEX \"MenuGalleryImage_isActive_idx\" ON \"MenuGalleryImage\" (\"isActive\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuItem_categoryId_idx",
+      "table": "MenuItem",
+      "sql": "CREATE INDEX \"MenuItem_categoryId_idx\" ON \"MenuItem\" (\"categoryId\")"
+    },
+    {
+      "type": "index",
+      "name": "MenuItem_isAvailable_idx",
+      "table": "MenuItem",
+      "sql": "CREATE INDEX \"MenuItem_isAvailable_idx\" ON \"MenuItem\" (\"isAvailable\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrderItem_menuItemId_idx",
+      "table": "PDVOrderItem",
+      "sql": "CREATE INDEX \"PDVOrderItem_menuItemId_idx\" ON \"PDVOrderItem\" (\"menuItemId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrderItem_orderId_idx",
+      "table": "PDVOrderItem",
+      "sql": "CREATE INDEX \"PDVOrderItem_orderId_idx\" ON \"PDVOrderItem\" (\"orderId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrder_reservationId_idx",
+      "table": "PDVOrder",
+      "sql": "CREATE INDEX \"PDVOrder_reservationId_idx\" ON \"PDVOrder\" (\"reservationId\")"
+    },
+    {
+      "type": "index",
+      "name": "PDVOrder_status_idx",
+      "table": "PDVOrder",
+      "sql": "CREATE INDEX \"PDVOrder_status_idx\" ON \"PDVOrder\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "Payment_createdAt_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_createdAt_idx\" ON \"Payment\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_redeTransactionId_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_redeTransactionId_idx\" ON \"Payment\" (\"redeTransactionId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_redeTransactionId_key",
+      "table": "Payment",
+      "sql": "CREATE UNIQUE INDEX \"Payment_redeTransactionId_key\" ON \"Payment\" (\"redeTransactionId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_reservationId_key",
+      "table": "Payment",
+      "sql": "CREATE UNIQUE INDEX \"Payment_reservationId_key\" ON \"Payment\" (\"reservationId\")"
+    },
+    {
+      "type": "index",
+      "name": "Payment_status_idx",
+      "table": "Payment",
+      "sql": "CREATE INDEX \"Payment_status_idx\" ON \"Payment\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_date_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_date_idx\" ON \"ReservationDayConfig\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_date_key",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE UNIQUE INDEX \"ReservationDayConfig_date_key\" ON \"ReservationDayConfig\" (date)"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_highlightOnHome_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_highlightOnHome_idx\" ON \"ReservationDayConfig\" (\"highlightOnHome\")"
+    },
+    {
+      "type": "index",
+      "name": "ReservationDayConfig_status_idx",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE INDEX \"ReservationDayConfig_status_idx\" ON \"ReservationDayConfig\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_cabinId_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_cabinId_idx\" ON \"Reservation\" (\"cabinId\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_checkIn_checkOut_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_checkIn_checkOut_idx\" ON \"Reservation\" (\"checkIn\", \"checkOut\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_createdAt_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_createdAt_idx\" ON \"Reservation\" (\"createdAt\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_receiptToken_key",
+      "table": "Reservation",
+      "sql": "CREATE UNIQUE INDEX \"Reservation_receiptToken_key\" ON \"Reservation\" (\"receiptToken\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_requestId_key",
+      "table": "Reservation",
+      "sql": "CREATE UNIQUE INDEX \"Reservation_requestId_key\" ON \"Reservation\" (\"requestId\")"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_source_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_source_idx\" ON \"Reservation\" (source)"
+    },
+    {
+      "type": "index",
+      "name": "Reservation_status_idx",
+      "table": "Reservation",
+      "sql": "CREATE INDEX \"Reservation_status_idx\" ON \"Reservation\" (status)"
+    },
+    {
+      "type": "index",
+      "name": "User_email_idx",
+      "table": "User",
+      "sql": "CREATE INDEX \"User_email_idx\" ON \"User\" (email)"
+    },
+    {
+      "type": "index",
+      "name": "User_email_key",
+      "table": "User",
+      "sql": "CREATE UNIQUE INDEX \"User_email_key\" ON \"User\" (email)"
+    },
+    {
+      "type": "index",
+      "name": "User_role_idx",
+      "table": "User",
+      "sql": "CREATE INDEX \"User_role_idx\" ON \"User\" (role)"
+    },
+    {
+      "type": "table",
+      "name": "AuditLog",
+      "table": "AuditLog",
+      "sql": "CREATE TABLE \"AuditLog\" (\n    id TEXT NOT NULL,\n    action TEXT NOT NULL,\n    entity TEXT NOT NULL,\n    \"entityId\" TEXT NOT NULL,\n    \"changedFields\" TEXT,\n    \"userId\" TEXT,\n    \"ipAddress\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_7a707208483b4869\" CHECK (\"action\" IN ('CREATE','UPDATE','DELETE','VIEW'))\n,\n    CONSTRAINT \"pg_enum_ec8f069d58bbebec\" CHECK (\"entity\" IN ('RESERVATION','PAYMENT','MENU_ITEM','EVENT','USER','CABIN','PDV_ORDER'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "Cabin",
+      "table": "Cabin",
+      "sql": "CREATE TABLE \"Cabin\" (\n    id TEXT NOT NULL,\n    name TEXT NOT NULL,\n    capacity INTEGER NOT NULL,\n    \"pricePerHour\" REAL NOT NULL,\n    description TEXT,\n    \"imageUrl\" TEXT,\n    category TEXT DEFAULT 'CABANA' NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    slug TEXT,\n    units INTEGER DEFAULT 1 NOT NULL,\n    \"visibilityStatus\" TEXT DEFAULT 'AVAILABLE' NOT NULL,\n    \"deletedAt\" DATETIME,\n    \"deletedOriginalName\" TEXT,\n    \"deletedVisibilityStatus\" TEXT,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_efd426c79ddbcb37\" CHECK (\"category\" IN ('CABANA','MESA','LOUNGE','VIP'))\n,\n    CONSTRAINT \"pg_enum_84bfa3aa951ffc87\" CHECK (\"visibilityStatus\" IN ('AVAILABLE','UNAVAILABLE','HIDDEN'))\n,\n    CONSTRAINT \"pg_enum_44c4c36df23c32d5\" CHECK (\"deletedVisibilityStatus\" IN ('AVAILABLE','UNAVAILABLE','HIDDEN'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "ClosedDate",
+      "table": "ClosedDate",
+      "sql": "CREATE TABLE \"ClosedDate\" (\n    id TEXT NOT NULL,\n    date date NOT NULL,\n    reason TEXT DEFAULT 'Evento Fechado' NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Event",
+      "table": "Event",
+      "sql": "CREATE TABLE \"Event\" (\n    id TEXT NOT NULL,\n    title TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    description TEXT,\n    \"fullDescription\" TEXT,\n    \"eventType\" TEXT DEFAULT 'OTHER' NOT NULL,\n    \"startDate\" DATETIME NOT NULL,\n    \"endDate\" DATETIME,\n    \"bannerImageUrl\" TEXT,\n    \"posterImageUrl\" TEXT,\n    \"galleryImages\" TEXT,\n    \"djName\" TEXT,\n    bands TEXT,\n    \"specialDrinks\" TEXT,\n    \"specialFood\" TEXT,\n    \"themeColor\" TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"isFeatured\" INTEGER DEFAULT 0 NOT NULL,\n    \"maxCapacity\" INTEGER,\n    \"ticketPrice\" REAL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    \"spacePricesOverrides\" TEXT,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_c51e242c1c8139a9\" CHECK (\"eventType\" IN ('DJ_NIGHT','LIVE_MUSIC','THEMED_PARTY','WEDDING','CORPORATE','OTHER'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "EventGallery",
+      "table": "EventGallery",
+      "sql": "CREATE TABLE \"EventGallery\" (\n    id TEXT NOT NULL,\n    title TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    \"eventDate\" date,\n    \"shortDescription\" TEXT,\n    description TEXT,\n    \"coverImageUrl\" TEXT,\n    \"ctaText\" TEXT,\n    \"ctaHref\" TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "EventGalleryPhoto",
+      "table": "EventGalleryPhoto",
+      "sql": "CREATE TABLE \"EventGalleryPhoto\" (\n    id TEXT NOT NULL,\n    \"galleryId\" TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "GalleryImage",
+      "table": "GalleryImage",
+      "sql": "CREATE TABLE \"GalleryImage\" (\n    id TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    permalink TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuCategory",
+      "table": "MenuCategory",
+      "sql": "CREATE TABLE \"MenuCategory\" (\n    id TEXT NOT NULL,\n    name TEXT NOT NULL,\n    slug TEXT NOT NULL,\n    description TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuGalleryImage",
+      "table": "MenuGalleryImage",
+      "sql": "CREATE TABLE \"MenuGalleryImage\" (\n    id TEXT NOT NULL,\n    \"imageUrl\" TEXT NOT NULL,\n    caption TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "MenuItem",
+      "table": "MenuItem",
+      "sql": "CREATE TABLE \"MenuItem\" (\n    id TEXT NOT NULL,\n    \"categoryId\" TEXT NOT NULL,\n    name TEXT NOT NULL,\n    description TEXT,\n    ingredients TEXT,\n    price REAL NOT NULL,\n    \"imageUrl\" TEXT,\n    \"isAvailable\" INTEGER DEFAULT 1 NOT NULL,\n    \"preparationTime\" INTEGER,\n    \"allergyInfo\" TEXT,\n    \"displayOrder\" INTEGER DEFAULT 0 NOT NULL,\n    tags TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "PDVOrder",
+      "table": "PDVOrder",
+      "sql": "CREATE TABLE \"PDVOrder\" (\n    id TEXT NOT NULL,\n    \"reservationId\" TEXT NOT NULL,\n    \"userId\" TEXT NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    discount REAL DEFAULT 0 NOT NULL,\n    notes TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"completedAt\" DATETIME,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_ff57d06edc02577b\" CHECK (\"status\" IN ('PENDING','PREPARING','READY','DELIVERED','COMPLETED','CANCELLED'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "PDVOrderItem",
+      "table": "PDVOrderItem",
+      "sql": "CREATE TABLE \"PDVOrderItem\" (\n    id TEXT NOT NULL,\n    \"orderId\" TEXT NOT NULL,\n    \"menuItemId\" TEXT NOT NULL,\n    quantity INTEGER NOT NULL,\n    \"unitPrice\" REAL NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    \"specialInstructions\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "Payment",
+      "table": "Payment",
+      "sql": "CREATE TABLE \"Payment\" (\n    id TEXT NOT NULL,\n    \"reservationId\" TEXT NOT NULL,\n    amount REAL NOT NULL,\n    currency TEXT DEFAULT 'BRL' NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    \"redeTransactionId\" TEXT,\n    \"redeNsu\" TEXT,\n    \"redeAuthCode\" TEXT,\n    \"cardBrand\" TEXT,\n    \"cardLastFour\" TEXT,\n    installments INTEGER DEFAULT 1 NOT NULL,\n    \"webhookReceived\" INTEGER DEFAULT 0 NOT NULL,\n    \"webhookData\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_4742f0f83d2a9308\" CHECK (\"status\" IN ('PENDING','AUTHORIZED','CAPTURED','DECLINED','CANCELLED','REFUNDED'))\n,\n    CONSTRAINT \"pg_enum_d7cb59150bb99036\" CHECK (\"cardBrand\" IN ('VISA','MASTERCARD','ELO','AMEX','HIPERCARD','DINERS','OTHER'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "Reservation",
+      "table": "Reservation",
+      "sql": "CREATE TABLE \"Reservation\" (\n    id TEXT NOT NULL,\n    \"cabinId\" TEXT NOT NULL,\n    \"userId\" TEXT,\n    \"customerName\" TEXT NOT NULL,\n    \"customerEmail\" TEXT NOT NULL,\n    \"customerPhone\" TEXT NOT NULL,\n    \"customerDocument\" TEXT,\n    \"checkIn\" DATETIME NOT NULL,\n    \"checkOut\" DATETIME NOT NULL,\n    \"hoursBooked\" INTEGER NOT NULL,\n    \"totalPrice\" REAL NOT NULL,\n    status TEXT DEFAULT 'PENDING' NOT NULL,\n    source TEXT DEFAULT 'ONLINE' NOT NULL,\n    notes TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    \"participantCount\" INTEGER DEFAULT 1 NOT NULL,\n    \"unitNumber\" INTEGER,\n    \"consumptionCredit\" REAL,\n    \"bookingConditions\" TEXT,\n    \"requestId\" TEXT,\n    \"receiptToken\" TEXT,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_a3437bb4da7996df\" CHECK (\"status\" IN ('PENDING','CONFIRMED','CHECKED_IN','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW'))\n,\n    CONSTRAINT \"pg_enum_3b8074c80eb5c528\" CHECK (\"source\" IN ('ONLINE','OFFLINE'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "ReservationDayConfig",
+      "table": "ReservationDayConfig",
+      "sql": "CREATE TABLE \"ReservationDayConfig\" (\n    id TEXT NOT NULL,\n    date date NOT NULL,\n    status TEXT DEFAULT 'NORMAL' NOT NULL,\n    \"reservationsEnabled\" INTEGER DEFAULT 1 NOT NULL,\n    title TEXT,\n    release TEXT,\n    \"flyerImageUrl\" TEXT,\n    \"highlightOnHome\" INTEGER DEFAULT 0 NOT NULL,\n    \"priceOverrides\" TEXT,\n    \"ticketLots\" TEXT,\n    \"reservableItems\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"commercialConditions\" TEXT,\n    \"commercialPeriodId\" TEXT,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_bb00d47073df5433\" CHECK (\"status\" IN ('NORMAL','EVENT','PRIVATE_EVENT','BLOCKED','WAITING_RELEASE'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "ReservationGlobalConfig",
+      "table": "ReservationGlobalConfig",
+      "sql": "CREATE TABLE \"ReservationGlobalConfig\" (\n    id TEXT DEFAULT 'default' NOT NULL,\n    \"reservableItems\" TEXT,\n    \"priceOverrides\" TEXT,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"commercialConditions\" TEXT,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "SiteContentConfig",
+      "table": "SiteContentConfig",
+      "sql": "CREATE TABLE \"SiteContentConfig\" (\n    id TEXT DEFAULT 'default' NOT NULL,\n    content TEXT DEFAULT '{}' NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    PRIMARY KEY (\"id\")\n)"
+    },
+    {
+      "type": "table",
+      "name": "User",
+      "table": "User",
+      "sql": "CREATE TABLE \"User\" (\n    id TEXT NOT NULL,\n    email TEXT NOT NULL,\n    name TEXT NOT NULL,\n    role TEXT DEFAULT 'STAFF' NOT NULL,\n    \"passwordHash\" TEXT NOT NULL,\n    phone TEXT,\n    avatar TEXT,\n    \"isActive\" INTEGER DEFAULT 1 NOT NULL,\n    \"createdAt\" DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    \"updatedAt\" DATETIME NOT NULL,\n    PRIMARY KEY (\"id\")\n,\n    CONSTRAINT \"pg_enum_fbfb298921197400\" CHECK (\"role\" IN ('ADMIN','MANAGER','CASHIER','CHEF','BARISTA','STAFF'))\n)"
+    },
+    {
+      "type": "table",
+      "name": "_aysu_atomic_read_guard",
+      "table": "_aysu_atomic_read_guard",
+      "sql": "CREATE TABLE _aysu_atomic_read_guard (\n  id TEXT PRIMARY KEY NOT NULL,\n  valid INTEGER NOT NULL CONSTRAINT _aysu_atomic_read_guard CHECK (valid = 1)\n)"
+    },
+    {
+      "type": "table",
+      "name": "_prisma_migrations",
+      "table": "_prisma_migrations",
+      "sql": "CREATE TABLE \"_prisma_migrations\" (\n    id TEXT NOT NULL,\n    checksum TEXT NOT NULL,\n    finished_at DATETIME,\n    migration_name TEXT NOT NULL,\n    logs TEXT,\n    rolled_back_at DATETIME,\n    started_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,\n    applied_steps_count INTEGER DEFAULT 0 NOT NULL\n)"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "table": "AuditLog",
+      "name": "AuditLog_userId_fkey",
+      "columns": [
+        "userId"
+      ],
+      "parent": "User",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "SET NULL"
+    },
+    {
+      "table": "EventGalleryPhoto",
+      "name": "EventGalleryPhoto_galleryId_fkey",
+      "columns": [
+        "galleryId"
+      ],
+      "parent": "EventGallery",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "MenuItem",
+      "name": "MenuItem_categoryId_fkey",
+      "columns": [
+        "categoryId"
+      ],
+      "parent": "MenuCategory",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "PDVOrder",
+      "name": "PDVOrder_reservationId_fkey",
+      "columns": [
+        "reservationId"
+      ],
+      "parent": "Reservation",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "PDVOrder",
+      "name": "PDVOrder_userId_fkey",
+      "columns": [
+        "userId"
+      ],
+      "parent": "User",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "RESTRICT"
+    },
+    {
+      "table": "PDVOrderItem",
+      "name": "PDVOrderItem_menuItemId_fkey",
+      "columns": [
+        "menuItemId"
+      ],
+      "parent": "MenuItem",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "RESTRICT"
+    },
+    {
+      "table": "PDVOrderItem",
+      "name": "PDVOrderItem_orderId_fkey",
+      "columns": [
+        "orderId"
+      ],
+      "parent": "PDVOrder",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "Payment",
+      "name": "Payment_reservationId_fkey",
+      "columns": [
+        "reservationId"
+      ],
+      "parent": "Reservation",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "Reservation",
+      "name": "Reservation_cabinId_fkey",
+      "columns": [
+        "cabinId"
+      ],
+      "parent": "Cabin",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE"
+    },
+    {
+      "table": "Reservation",
+      "name": "Reservation_userId_fkey",
+      "columns": [
+        "userId"
+      ],
+      "parent": "User",
+      "parentColumns": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "SET NULL"
+    }
+  ],
+  "rebuildTables": [
+    "AuditLog",
+    "Cabin",
+    "Event",
+    "EventGallery",
+    "EventGalleryPhoto",
+    "MenuCategory",
+    "MenuItem",
+    "PDVOrder",
+    "PDVOrderItem",
+    "Payment",
+    "Reservation",
+    "ReservationDayConfig",
+    "User"
+  ],
+  "enumDomains": [
+    {
+      "table": "AuditLog",
+      "column": "action",
+      "values": [
+        "CREATE",
+        "UPDATE",
+        "DELETE",
+        "VIEW"
+      ],
+      "constraint": "pg_enum_7a707208483b4869"
+    },
+    {
+      "table": "AuditLog",
+      "column": "entity",
+      "values": [
+        "RESERVATION",
+        "PAYMENT",
+        "MENU_ITEM",
+        "EVENT",
+        "USER",
+        "CABIN",
+        "PDV_ORDER"
+      ],
+      "constraint": "pg_enum_ec8f069d58bbebec"
+    },
+    {
+      "table": "Cabin",
+      "column": "category",
+      "values": [
+        "CABANA",
+        "MESA",
+        "LOUNGE",
+        "VIP"
+      ],
+      "constraint": "pg_enum_efd426c79ddbcb37"
+    },
+    {
+      "table": "Cabin",
+      "column": "visibilityStatus",
+      "values": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "HIDDEN"
+      ],
+      "constraint": "pg_enum_84bfa3aa951ffc87"
+    },
+    {
+      "table": "Cabin",
+      "column": "deletedVisibilityStatus",
+      "values": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "HIDDEN"
+      ],
+      "constraint": "pg_enum_44c4c36df23c32d5"
+    },
+    {
+      "table": "Event",
+      "column": "eventType",
+      "values": [
+        "DJ_NIGHT",
+        "LIVE_MUSIC",
+        "THEMED_PARTY",
+        "WEDDING",
+        "CORPORATE",
+        "OTHER"
+      ],
+      "constraint": "pg_enum_c51e242c1c8139a9"
+    },
+    {
+      "table": "PDVOrder",
+      "column": "status",
+      "values": [
+        "PENDING",
+        "PREPARING",
+        "READY",
+        "DELIVERED",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "constraint": "pg_enum_ff57d06edc02577b"
+    },
+    {
+      "table": "Payment",
+      "column": "status",
+      "values": [
+        "PENDING",
+        "AUTHORIZED",
+        "CAPTURED",
+        "DECLINED",
+        "CANCELLED",
+        "REFUNDED"
+      ],
+      "constraint": "pg_enum_4742f0f83d2a9308"
+    },
+    {
+      "table": "Payment",
+      "column": "cardBrand",
+      "values": [
+        "VISA",
+        "MASTERCARD",
+        "ELO",
+        "AMEX",
+        "HIPERCARD",
+        "DINERS",
+        "OTHER"
+      ],
+      "constraint": "pg_enum_d7cb59150bb99036"
+    },
+    {
+      "table": "Reservation",
+      "column": "status",
+      "values": [
+        "PENDING",
+        "CONFIRMED",
+        "CHECKED_IN",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+        "NO_SHOW"
+      ],
+      "constraint": "pg_enum_a3437bb4da7996df"
+    },
+    {
+      "table": "Reservation",
+      "column": "source",
+      "values": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "constraint": "pg_enum_3b8074c80eb5c528"
+    },
+    {
+      "table": "ReservationDayConfig",
+      "column": "status",
+      "values": [
+        "NORMAL",
+        "EVENT",
+        "PRIVATE_EVENT",
+        "BLOCKED",
+        "WAITING_RELEASE"
+      ],
+      "constraint": "pg_enum_bb00d47073df5433"
+    },
+    {
+      "table": "User",
+      "column": "role",
+      "values": [
+        "ADMIN",
+        "MANAGER",
+        "CASHIER",
+        "CHEF",
+        "BARISTA",
+        "STAFF"
+      ],
+      "constraint": "pg_enum_fbfb298921197400"
+    }
+  ],
+  "requiredColumns": [],
+  "serialFloors": [],
+  "databaseId": "a2a3b8a6-3811-4a7d-ba68-38d52c9f1e89"
+}

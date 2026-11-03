@@ -1,18 +1,18 @@
 # Aysú Beach Lounge
 
 Site, reservas e administração em Next.js 16, React 19 e Prisma 6. Usar Node 22
-e `npm ci`, preservando o lockfile. A configuração de implantação fica em
-[RUNBOOK-DEPLOY-2.1.1.md](RUNBOOK-DEPLOY-2.1.1.md#producao-vercel-e-loki-concluida-em-26102026).
+e `npm ci`, preservando o lockfile. A configuração atual fica em
+[wrangler.jsonc](wrangler.jsonc). O [runbook anterior](RUNBOOK-DEPLOY-2.1.1.md) preserva o histórico da migração.
 
-Produção migrada em 26/10/2026: aplicação na Vercel, região `iad1`, PostgreSQL 17
-no Loki e mídia no R2. O domínio público é https://aysubeachlounge.com.br.
-A aplicação e o banco antigos da Aysú estão parados no Thor, preservados somente
-para recuperação. Não executar migrações no build nem vincular previews ao banco
-operacional. Consultar o runbook antes de publicar ou restaurar dados.
+## Produção Cloudflare e D1
 
-`npm run build` compila localmente. `npm run build:vercel` verifica primeiro as
-variáveis do destino, sem exibir valores nem conectar ao banco. Esse preflight não
-substitui testes funcionais, conectividade, backup ou autorização de publicação.
+Desde 02/11/2026, a aplicação usa o Worker `aysu` e o D1 configurado em `wrangler.jsonc`, com mídia no R2. Domínio: https://aysubeachlounge.com.br. Loki/PostgreSQL e a execução anterior na Vercel são referências históricas. Preserve as reservas mais recentes do D1 ao consultar ou reconciliar a origem; não restaure um dump antigo sobre o banco ativo.
+
+Reservas usam o batch nativo em `src/lib/reservation-booking.ts`. Capacidade, confirmação, check-in e cancelamento são protegidos contra concorrência e repetição. O segredo JWT vem do binding da requisição. Instantes são persistidos em UTC e datas comerciais usam `America/Sao_Paulo`. Build para Cloudflare: `npm run cf:build`; não executar migrações no build nem apontar testes para o banco operacional.
+
+Em 03/11/2026 foram restauradas 10 chaves estrangeiras e 13 verificações de enumerações de origem. Os registros atuais são copiados e comparados dentro de um único batch; índices, valores e a guarda das reservas são preservados. O operador privado `scripts/apply-d1-integrity.cjs` começa em leitura e exige banco exato, hash revisado e backup restaurado com menos de 30 minutos para aplicar. A reversão de esquema foi ensaiada mantendo novos registros; reverter infraestrutura exige conciliar as escritas novas e controlar os escritores.
+
+Regressões isoladas: `node scripts/test-d1-integrity.cjs` e `node scripts/test-d1-booking.cjs`. O teste de reservas usa o esquema completo com as restrições nativas. Os comandos históricos `build:vercel` e o runbook anterior não definem o destino atual.
 
 ## Desenvolvimento local
 
@@ -47,7 +47,7 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy on Vercel (histórico)
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
