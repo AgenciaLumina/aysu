@@ -150,6 +150,7 @@ model Cabin {
   pricePerHour Decimal
   description  String?
   imageUrl     String?
+  galleryImages Json @default("[]")
   category     CabinCategory @default(CABANA)
   visibilityStatus CabinVisibilityStatus @default(AVAILABLE)
   deletedOriginalName String?

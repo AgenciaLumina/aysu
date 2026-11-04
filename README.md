@@ -1,6 +1,6 @@
 # Aysú Beach Lounge
 
-Site, reservas e administração em Next.js 16, React 19 e Prisma 6. Usar Node 22
+Site, reservas e administração em Next.js 16, React 19 e Prisma 7. Usar Node 22
 e `npm ci`, preservando o lockfile. A configuração atual fica em
 [wrangler.jsonc](wrangler.jsonc). O [runbook anterior](RUNBOOK-DEPLOY-2.1.1.md) preserva o histórico da migração.
 
@@ -19,6 +19,14 @@ Regressões isoladas: `node scripts/test-d1-integrity.cjs` e `node scripts/test-
 Todos os seletores administrativos usam `src/lib/upload-client.ts`: a imagem é convertida para AVIF em um Web Worker no navegador, inclusive arquivos pequenos, com codecs servidos pelo próprio site. O lado maior fica limitado a 2200 px e o arquivo convertido a 4 MB; transparência e orientação são preservadas. HEIC/HEIF usam decodificador local quando o navegador não os lê diretamente. Lotes são convertidos em sequência para limitar o uso de memória. Não há envio a um serviço externo de conversão.
 
 `/api/upload` exige autenticação e valida o contêiner AVIF antes da gravação. Upload, listagem e exclusão utilizam o binding `MEDIA_BUCKET` do R2 no Cloudflare, sem Sharp nativo nem credenciais S3 nessas operações em produção. Os arquivos existentes não são reconvertidos. A biblioteca e o seletor percorrem todas as páginas do R2, sem truncar em 200 arquivos, e exibem os uploads mais recentes primeiro. A listagem usa `nextCursor` e `Cache-Control: private, no-store`; mudanças de pasta cancelam leituras anteriores. Após um envio concluído, o painel atualiza a biblioteca e limpa a busca para deixar o novo arquivo visível. Após atualizar uma versão antiga do painel, recarregue a página para receber o conversor. Teste isolado, sem recursos de produção: `node scripts/test-image-upload.cjs`.
+
+## Fotos dos espaços e reserva em duas etapas
+
+Em **Espaços > Editar**, o cliente pode enviar várias fotos, escolher arquivos existentes, ordenar, definir a capa e incluir legendas (até 20 fotos). Salvar publica a galeria na página de reservas. Remover uma foto da galeria apenas desfaz o vínculo; não apaga o arquivo do R2. A imagem anterior permanece como capa inicial. As fotos devem representar o espaço cadastrado; a funcionalidade não altera a alocação de unidades nem permite escolher um número específico de bangalô.
+
+O campo `Cabin.galleryImages` é acrescentado pela migração aditiva `scripts/sql/20261104-cabin-gallery.sql`. Antes de aplicar, conferir a coluna, guardar/restaurar um backup e ensaiar a preservação dos valores existentes. Aplicar uma vez, fora do build. O código anterior continua compatível com essa coluna adicional; em rollback de aplicação, mantenha os dados e não restaure um banco antigo. POST/PATCH de espaços usam `src/lib/d1-cabins.ts`, exigem ADMIN/MANAGER ativo e revalidam leituras/permissões no batch nativo. PATCH de fotos não redefine estoque, categoria, preço ou visibilidade. Teste: `node scripts/test-d1-cabins.cjs`.
+
+O checkout agora separa **dados e aceite** de **pagamento**. “Seguir com a reserva” aguarda a gravação de uma reserva PENDING e o bloqueio de disponibilidade antes de abrir `/reservas/sucesso` com o token do comprovante. Só uma reserva pendente e vigente mostra o Pix. Recarregar a página de pagamento consulta a mesma reserva; repetir uma solicitação mantém seu identificador e não duplica o registro. O WhatsApp abre apenas quando a pessoa clicar em enviar comprovante. A chave, o destinatário, as condições comerciais, a aprovação manual e `PENDING_HOLD_MINUTES` permanecem como configurados. Não interpretar a exibição do Pix ou o clique no WhatsApp como pagamento confirmado. Testes isolados: `node scripts/test-two-step-reservation.cjs` e `node scripts/test-d1-booking.cjs`.
 
 ## Desenvolvimento local
 

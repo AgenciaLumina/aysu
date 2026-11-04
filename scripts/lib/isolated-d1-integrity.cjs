@@ -7,5 +7,6 @@ module.exports=async function initializeIsolatedIntegrity(db){
  for(let i=0;i<objects.length;i+=40)await db.batch(objects.slice(i,i+40).map(o=>db.prepare(o.sql)));
  const plan=buildMigration(fixture);
  await db.batch(plan.statements.map(sql=>db.prepare(sql)));
+ await db.prepare(require('node:fs').readFileSync(require('node:path').join(__dirname,'../sql/20261104-cabin-gallery.sql'),'utf8')).run();
  assert.deepEqual((await db.prepare('PRAGMA foreign_key_check').all()).results,[]);
 };

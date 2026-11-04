@@ -9,6 +9,9 @@ import { CabinVisibilityStatus, Prisma, type Cabin } from '@/lib/db'
 import { resolveCabinSlugFromName } from '@/lib/space-slugs'
 import { getCabinGroupKey, getNormalizedCabinUnits, listCabinGroupMembers, sumCabinUnits } from '@/lib/cabin-groups'
 import { buildDeletedCabinName } from '@/lib/cabin-trash'
+import { getAuthUser, isAdmin } from '@/lib/auth'
+import { isCloudflareDatabaseRuntime } from '@/lib/d1-batch'
+import { updateD1Cabin, CabinMutationError } from '@/lib/d1-cabins'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -128,11 +131,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params
-        // TODO: Reativar auth em produção
-        // const authUser = getAuthUser(request)
-        // if (!authUser || !isAdmin(authUser)) {
-        //     return NextResponse.json<ApiResponse>({ success: false, error: 'Acesso negado' }, { status: 403 })
-        // }
+        const actor = getAuthUser(request)
+        if (!actor || !isAdmin(actor)) return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
 
         const body = await request.json()
         const validation = updateCabinSchema.safeParse(body)
@@ -142,6 +142,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 { success: false, error: validation.error.issues[0].message },
                 { status: 400 }
             )
+        }
+
+        if (isCloudflareDatabaseRuntime()) {
+            const cabin = await updateD1Cabin(actor.userId, id, validation.data)
+            return NextResponse.json({ success: true, data: cabin, message: 'Espaço atualizado com sucesso' })
         }
 
         // Verifica se existe
@@ -294,6 +299,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             message: 'Bangalô atualizado com sucesso',
         })
     } catch (error) {
+        if (error instanceof CabinMutationError) return NextResponse.json({ success: false, error: error.message }, { status: error.status })
         console.error('[Cabin PATCH Error]', error)
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro ao atualizar bangalô' },

@@ -1,7 +1,7 @@
 // AISSU Beach Lounge - Admin Cabins com Upload de Imagem
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Plus, Pencil, Trash2, Users, DollarSign, ImageIcon } from 'lucide-react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
-import { MediaPicker } from '@/components/ui/MediaPicker'
+import { CabinGalleryEditor } from '@/components/admin/CabinGalleryEditor'
+import { getCabinGallery, type CabinImage } from '@/lib/cabin-gallery'
 import { formatCurrency } from '@/lib/utils'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlug } from '@/lib/space-slugs'
 import { getCabinTrashDisplayName } from '@/lib/cabin-trash'
@@ -29,6 +30,7 @@ interface Cabin {
     category: string
     isActive: boolean
     imageUrl?: string
+    galleryImages?: CabinImage[]
     deletedAt?: string | null
     deletedOriginalName?: string | null
 }
@@ -94,7 +96,8 @@ export default function AdminCabinsPage() {
     const [saving, setSaving] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [restoringId, setRestoringId] = useState<string | null>(null)
-    const [showMediaPicker, setShowMediaPicker] = useState(false)
+    const [galleryBusy, setGalleryBusy] = useState(false)
+    const initialPayload = useRef<Record<string, unknown>>({})
     const [formData, setFormData] = useState({
         name: '',
         capacity: '6',
@@ -104,6 +107,7 @@ export default function AdminCabinsPage() {
         description: '',
         category: 'CABANA',
         imageUrl: '',
+        galleryImages: [] as CabinImage[],
     })
 
     useEffect(() => { fetchCabins() }, [])
@@ -142,40 +146,50 @@ export default function AdminCabinsPage() {
         }
     }
 
+    const toPayload = (form: typeof formData, slug?: string | null) => ({
+        name: form.name,
+        capacity: parseInt(form.capacity),
+        units: parseInt(form.units),
+        visibilityStatus: form.visibilityStatus,
+        pricePerHour: parseFloat(form.pricePerHour),
+        description: form.description,
+        category: normalizeCabinCategory(form.category),
+        imageUrl: form.imageUrl || null,
+        galleryImages: form.galleryImages,
+        slug: slug || undefined,
+    })
+
     const openModal = (cabin?: Cabin) => {
-        if (cabin) {
-            setEditingCabin(cabin)
-            setFormData({
-                name: cabin.name,
-                capacity: cabin.capacity.toString(),
-                units: cabin.units.toString(),
-                visibilityStatus: cabin.visibilityStatus || 'AVAILABLE',
-                pricePerHour: cabin.pricePerHour.toString(),
-                description: cabin.description || '',
-                category: normalizeCabinCategory(cabin.category),
-                imageUrl: cabin.imageUrl || '',
-            })
-        } else {
-            setEditingCabin(null)
-            setFormData({ name: '', capacity: '6', units: '1', visibilityStatus: 'AVAILABLE', pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '' })
-        }
+        const next = cabin ? {
+            name: cabin.name,
+            capacity: cabin.capacity.toString(),
+            units: cabin.units.toString(),
+            visibilityStatus: cabin.visibilityStatus || 'AVAILABLE' as const,
+            pricePerHour: cabin.pricePerHour.toString(),
+            description: cabin.description || '',
+            category: normalizeCabinCategory(cabin.category),
+            imageUrl: cabin.imageUrl || '',
+            galleryImages: getCabinGallery(cabin.galleryImages, cabin.imageUrl),
+        } : { name: '', capacity: '6', units: '1', visibilityStatus: 'AVAILABLE' as const, pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '', galleryImages: [] }
+        setEditingCabin(cabin || null)
+        setFormData(next)
+        initialPayload.current = toPayload(next, cabin?.slug)
         setIsModalOpen(true)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (saving || galleryBusy) return
         setSaving(true)
 
-        const payload = {
-            name: formData.name,
-            capacity: parseInt(formData.capacity),
-            units: parseInt(formData.units),
-            visibilityStatus: formData.visibilityStatus,
-            pricePerHour: parseFloat(formData.pricePerHour),
-            description: formData.description,
-            category: normalizeCabinCategory(formData.category),
-            imageUrl: formData.imageUrl || undefined,
-            slug: editingCabin?.slug || undefined,
+        const fullPayload = toPayload(formData, editingCabin?.slug)
+        const payload = editingCabin
+            ? Object.fromEntries(Object.entries(fullPayload).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(initialPayload.current[key])))
+            : fullPayload
+        if (editingCabin && !Object.keys(payload).length) {
+            setSaving(false)
+            setIsModalOpen(false)
+            return
         }
 
         try {
@@ -190,7 +204,7 @@ export default function AdminCabinsPage() {
 
             const data = await res.json()
 
-            if (data.success) {
+            if (res.ok && data.success) {
                 toast.success(editingCabin ? 'Espaço atualizado!' : 'Espaço criado!')
                 setIsModalOpen(false)
                 fetchCabins()
@@ -448,45 +462,15 @@ export default function AdminCabinsPage() {
             )}
 
             {/* Modal de Edição */}
-            <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <Modal open={isModalOpen} onOpenChange={value => { if (!galleryBusy && !saving) setIsModalOpen(value) }}>
                 <ModalContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <ModalHeader>
                         <ModalTitle>{editingCabin ? 'Editar Espaço' : 'Novo Espaço'}</ModalTitle>
                     </ModalHeader>
 
                     <form onSubmit={handleSubmit} className="p-4 space-y-4 pb-2">
-                        {/* Imagem */}
-                        <div>
-                            <label className="block text-sm font-medium text-[#2a2a2a] mb-2">Imagem</label>
-                            <div
-                                onClick={() => setShowMediaPicker(true)}
-                                className="relative mx-auto w-full max-w-[220px] aspect-[5/6] bg-[#f5f0eb] rounded-lg border-2 border-dashed border-[#e0d5c7] hover:border-[#d4a574] cursor-pointer transition-colors overflow-hidden"
-                            >
-                                {formData.imageUrl ? (
-                                    <Image
-                                        src={formData.imageUrl}
-                                        alt="Preview"
-                                        fill
-                                        className="object-contain object-center"
-                                        unoptimized={formData.imageUrl.startsWith('http')}
-                                    />
-                                ) : (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-[#8a5c3f]">
-                                        <ImageIcon className="h-8 w-8 mb-2" />
-                                        <span className="text-sm">Clique para selecionar</span>
-                                    </div>
-                                )}
-                            </div>
-                            {formData.imageUrl && (
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData(p => ({ ...p, imageUrl: '' }))}
-                                    className="text-sm text-red-500 mt-1 hover:underline"
-                                >
-                                    Remover imagem
-                                </button>
-                            )}
-                        </div>
+                        <CabinGalleryEditor images={formData.galleryImages} disabled={saving} onBusyChange={setGalleryBusy}
+                            onChange={images => setFormData(previous => ({ ...previous, galleryImages: images, imageUrl: images[0]?.imageUrl || '' }))} />
 
                         <Input
                             label="Nome"
@@ -577,10 +561,10 @@ export default function AdminCabinsPage() {
                                 ) : <div />}
                             </div>
                             <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                                <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                                <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={galleryBusy || saving}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit" isLoading={saving}>
+                                <Button type="submit" isLoading={saving} disabled={galleryBusy}>
                                     {editingCabin ? 'Salvar' : 'Criar'}
                                 </Button>
                             </div>
@@ -589,16 +573,6 @@ export default function AdminCabinsPage() {
                 </ModalContent>
             </Modal>
 
-            {/* Media Picker */}
-            <MediaPicker
-                open={showMediaPicker}
-                onClose={() => setShowMediaPicker(false)}
-                onSelect={(url) => {
-                    setFormData(p => ({ ...p, imageUrl: url }))
-                    setShowMediaPicker(false)
-                }}
-                defaultFolder="cabins/"
-            />
         </AdminLayout>
     )
 }

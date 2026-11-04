@@ -29,7 +29,7 @@ const cabinCategorySchema = z.preprocess(
         }
         return value
     },
-    z.enum(['CABANA', 'MESA', 'LOUNGE', 'VIP']).default('CABANA')
+    z.enum(['CABANA', 'MESA', 'LOUNGE', 'VIP'])
 )
 
 const cabinVisibilityStatusSchema = z.enum(['AVAILABLE', 'UNAVAILABLE', 'HIDDEN']).default('AVAILABLE')
@@ -55,6 +55,14 @@ export const registerSchema = z.object({
 // CABINS
 // ============================================================
 
+export const cabinGallerySchema = z.array(z.object({
+    imageUrl: mediaUrlOrPathSchema,
+    caption: z.string().trim().max(160, 'Use até 160 caracteres na legenda').default(''),
+})).max(20, 'Use até 20 fotos por espaço').refine(
+    images => new Set(images.map(image => image.imageUrl)).size === images.length,
+    'A galeria contém fotos repetidas',
+)
+
 export const createCabinSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório'),
     slug: z.string().trim().min(1, 'Slug é obrigatório').optional(),
@@ -63,11 +71,17 @@ export const createCabinSchema = z.object({
     pricePerHour: z.number().positive('Preço deve ser positivo'),
     description: z.string().optional(),
     imageUrl: optionalMediaUrlOrPathSchema,
-    category: cabinCategorySchema,
+    galleryImages: cabinGallerySchema.optional(),
+    category: cabinCategorySchema.default('CABANA'),
     visibilityStatus: cabinVisibilityStatusSchema.optional(),
 })
 
 export const updateCabinSchema = createCabinSchema.partial().extend({
+    // Zod 4 applies nested defaults even inside partial objects. A photo-only
+    // PATCH must not reset inventory, category or visibility to create defaults.
+    units: z.number().int().positive('Quantidade deve ser positiva').optional(),
+    category: cabinCategorySchema.optional(),
+    visibilityStatus: z.enum(['AVAILABLE', 'UNAVAILABLE', 'HIDDEN']).optional(),
     isActive: z.boolean().optional(),
 })
 

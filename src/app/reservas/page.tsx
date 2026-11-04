@@ -19,6 +19,8 @@ import { getParticipantLimit } from '@/lib/booking-selection'
 import { getCommercialCondition } from '@/lib/reservation-commercial'
 import { CommercialConditions, QuoteSummary } from '@/components/reservas/CommercialConditions'
 import DayInfoModal from '@/components/reservas/DayInfoModal'
+import { SpaceGallery } from '@/components/reservas/SpaceGallery'
+import { getCabinGallery, type CabinImage } from '@/lib/cabin-gallery'
 import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
 
 // ==========================================
@@ -30,6 +32,7 @@ interface SpaceType {
     name: string
     slug: string | null
     image: string
+    images?: CabinImage[]
     capacity: string
     capacityNum: number
     dailyPrice: number
@@ -52,6 +55,7 @@ interface CabinApiItem {
     pricePerHour?: number
     description?: string
     imageUrl?: string | null
+    galleryImages?: CabinImage[]
     category?: string
     visibilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN'
 }
@@ -285,6 +289,7 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
             name: legacy?.name || getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
             slug: cabin.slug?.trim() || legacy?.slug || null,
             image: cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg',
+            images: getCabinGallery(cabin.galleryImages, cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg'),
             capacity: legacy?.capacity || formatCapacityLabel(capacityNum),
             capacityNum,
             dailyPrice: basePrice,
@@ -305,6 +310,7 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
         }
 
         existing.units += units
+        existing.images = getCabinGallery([...(existing.images || []), ...(mapped.images || [])], existing.image)
         if (!existing.image && mapped.image) existing.image = mapped.image
         if (!existing.description && mapped.description) existing.description = mapped.description
         if (getVisibilityPriority(mapped.visibilityStatus) > getVisibilityPriority(existing.visibilityStatus)) {
@@ -598,7 +604,7 @@ function ReservasPageContent() {
             })
             .catch(err => console.error('Erro ao buscar configuração padrão:', err))
 
-        fetch('/api/cabins?isActive=true')
+        fetch('/api/cabins?isActive=true', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (!data.success || !Array.isArray(data.data)) return
@@ -1325,6 +1331,7 @@ function ReservasPageContent() {
                                     </div>
                                 </div>
                             </article>
+                            <SpaceGallery name={space.name} images={space.images || getCabinGallery([], space.image)} />
                             {effectiveSelectedSpace?.id === space.id && effectiveSelectedDate && (
                                 <div ref={selectedBookingRef} tabIndex={-1} className="mt-4 rounded-2xl border border-[#d4a574] bg-[#faf7f2] p-5 scroll-mt-28 scroll-mb-40 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]" aria-label={`Participantes da reserva de ${space.name}`} aria-live="polite">
                                     <h3 className="text-lg font-semibold text-[#5C3D2E] mb-4">Sua reserva: {space.name}</h3>

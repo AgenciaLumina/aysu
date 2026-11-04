@@ -9,6 +9,9 @@ import type { Cabin } from '@/lib/db'
 import { CabinCategory, CabinVisibilityStatus, Prisma } from '@/lib/db'
 import { getSpacePrefix, isSpaceSlug, resolveCabinSlugFromName } from '@/lib/space-slugs'
 import { buildDeletedCabinName } from '@/lib/cabin-trash'
+import { getAuthUser, isAdmin } from '@/lib/auth'
+import { isCloudflareDatabaseRuntime } from '@/lib/d1-batch'
+import { createD1Cabin, CabinMutationError } from '@/lib/d1-cabins'
 
 const ENSURE_CABIN_COLUMNS_SQL = `
 ALTER TABLE "Cabin"
@@ -256,7 +259,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json<ApiResponse<Cabin[]>>({
             success: true,
             data: cabins,
-        })
+        }, { headers: { 'Cache-Control': 'no-store' } })
     } catch (error) {
         console.error('[Cabins GET Error]', error)
         return NextResponse.json<ApiResponse>(
@@ -269,15 +272,8 @@ export async function GET(request: NextRequest) {
 // POST - Cria novo cabin (admin)
 export async function POST(request: NextRequest) {
     try {
-        // TODO: Reativar auth em produção
-        // const authUser = getAuthUser(request)
-        // if (!authUser || !isAdmin(authUser)) {
-        //     return NextResponse.json<ApiResponse>(
-        //         { success: false, error: 'Acesso negado' },
-        //         { status: 403 }
-        //     )
-        // }
-
+        const actor = getAuthUser(request)
+        if (!actor || !isAdmin(actor)) return NextResponse.json({ success: false, error: 'Acesso negado' }, { status: 403 })
 
         const body = await request.json()
         const validation = createCabinSchema.safeParse(body)
@@ -287,6 +283,11 @@ export async function POST(request: NextRequest) {
                 { success: false, error: validation.error.issues[0].message },
                 { status: 400 }
             )
+        }
+
+        if (isCloudflareDatabaseRuntime()) {
+            const cabin = await createD1Cabin(actor.userId, validation.data)
+            return NextResponse.json({ success: true, data: cabin, message: 'Espaço criado com sucesso' }, { status: 201 })
         }
 
         // Verifica se nome já existe
@@ -367,6 +368,7 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         )
     } catch (error) {
+        if (error instanceof CabinMutationError) return NextResponse.json({ success: false, error: error.message }, { status: error.status })
         console.error('[Cabins POST Error]', error)
         return NextResponse.json<ApiResponse>(
             { success: false, error: 'Erro ao criar bangalô' },

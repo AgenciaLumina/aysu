@@ -1,5 +1,5 @@
 // AISSU Beach Lounge - Página de Checkout (Pix)
-// Fluxo simplificado: Dados Pessoais -> Pix -> WhatsApp
+// Etapa 1: dados e aceite -> reserva persistida -> página de pagamento
 
 'use client'
 
@@ -7,7 +7,7 @@ import { useState, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Calendar, Clock, Lock, User, ArrowLeft, Copy, CheckCircle2, QrCode } from 'lucide-react'
+import { Calendar, Clock, Lock, User, ArrowLeft } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -15,18 +15,10 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { CancellationPolicyCheckbox, CancellationPolicyModal } from '@/components/reservas/CancellationPolicy'
-import { formatCurrency, formatDateUTC } from '@/lib/utils'
+import { formatDateUTC } from '@/lib/utils'
 import { useBookingQuote } from '@/hooks/useBookingQuote'
 import { QuoteSummary } from '@/components/reservas/CommercialConditions'
 import toast from 'react-hot-toast'
-
-// Chave Pix do Cliente
-const PIX_DATA = {
-    key: '57.505.585/0001-19',
-    type: 'CNPJ',
-    bank: 'Itaú',
-    name: 'Aysú Beach Lounge'
-}
 
 const maskPhone = (value: string) => {
     return value
@@ -63,6 +55,7 @@ function CheckoutContent() {
     const participants = Number(searchParams.get('participants') || '1')
     const { quote, loading: quoteLoading, error: quoteError, reload: reloadQuote } = useBookingQuote(cabinId, date, participants)
     const requestId = useRef<string | null>(null)
+    const submissionInFlight = useRef(false)
 
     const [submitting, setSubmitting] = useState(false)
     const [policyAccepted, setPolicyAccepted] = useState(false)
@@ -91,20 +84,16 @@ function CheckoutContent() {
         setFormData((prev: CheckoutFormData) => ({ ...prev, [name]: value }))
     }
 
-    const copyPixKey = () => {
-        navigator.clipboard.writeText(PIX_DATA.key)
-        toast.success('Chave Pix copiada!')
-    }
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (submitting || !quote) return
+        if (submissionInFlight.current || !quote) return
         if (!policyAccepted) {
             toast.error('Você precisa aceitar a política de cancelamento para continuar.')
             return
         }
 
+        submissionInFlight.current = true
         setSubmitting(true)
 
         try {
@@ -114,7 +103,13 @@ function CheckoutContent() {
             const checkIn = new Date(`${targetDateStr}T10:00:00-03:00`)
             const checkOut = new Date(`${targetDateStr}T18:00:00-03:00`)
 
-            requestId.current ??= crypto.randomUUID()
+            // Keep the same attempt on retries, including a refresh after a lost reply.
+            // Only a one-way digest and random request ID are stored, never customer data.
+            const identity = JSON.stringify([cabinId, date, participants, formData.customerName, formData.customerEmail.toLowerCase(), formData.customerPhone])
+            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity))
+            const attemptKey = `aysu:reservation:${Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')}`
+            try { requestId.current = sessionStorage.getItem(attemptKey) || crypto.randomUUID(); sessionStorage.setItem(attemptKey, requestId.current) }
+            catch { requestId.current ??= crypto.randomUUID() }
             // 1. Criar Reserva no Backend
             const reservationRes = await fetch('/api/reservations', {
                 method: 'POST',
@@ -138,36 +133,23 @@ function CheckoutContent() {
 
             const reservationData = await reservationRes.json()
 
-            if (!reservationData.success) {
-                reloadQuote()
-                setPolicyAccepted(false)
+            if (!reservationRes.ok || !reservationData.success || !reservationData.data?.receiptToken) {
+                if (reservationRes.status >= 400 && reservationRes.status < 500) {
+                    reloadQuote()
+                    setPolicyAccepted(false)
+                }
                 throw new Error(reservationData.error || 'Erro ao criar reserva')
             }
 
-            // 2. Preparar Mensagem WhatsApp
-            const message = `🌟 *Nova Reserva - Aysú Beach Lounge* 🌟
-
-👤 *Cliente:* ${formData.customerName}
-📅 *Data:* ${formatDateUTC(checkIn)}
-🎫 *Reserva:* Pendente de validação do comprovante
-🏖️ *Espaço:* ${quote.spaceName}
-👥 *Participantes:* ${participants}
-💰 *Total:* ${formatCurrency(Number(reservationData.data.totalPrice))}
-🍽️ *Crédito de consumação:* ${formatCurrency(Number(reservationData.data.consumptionCredit))}
-
-Estou enviando o comprovante do Pix em anexo.`
-
-            const whatsappUrl = `https://wa.me/5512982896301?text=${encodeURIComponent(message)}`
-
-            // 3. Redirecionar
-            window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
-            router.push(`/reservas/sucesso?token=${encodeURIComponent(reservationData.data.receiptToken)}`)
-            toast.success('Reserva iniciada! Envie o comprovante no WhatsApp.')
+            // Payment is only displayed by the next page after the server commits the hold.
+            router.replace(`/reservas/sucesso?token=${encodeURIComponent(reservationData.data.receiptToken)}`)
+            toast.success('Reserva registrada. Agora você pode fazer o Pix e enviar o comprovante.')
 
         } catch (error) {
 
             toast.error(error instanceof Error ? error.message : 'Erro ao processar reserva')
         } finally {
+            submissionInFlight.current = false
             setSubmitting(false)
         }
     }
@@ -194,6 +176,8 @@ Estou enviando o comprovante do Pix em anexo.`
                     Voltar às reservas
                 </Link>
 
+                <h1 className="mb-2 font-serif text-3xl font-bold text-[#2a2a2a]">Dados da reserva</h1>
+                <p className="mb-8 text-[#8a5c3f]">Etapa 1 de 2. Ao seguir, seu lugar será bloqueado e você verá os dados para pagamento.</p>
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Formulário */}
                     <div className="lg:col-span-2 min-w-0 order-last lg:order-first">
@@ -206,7 +190,8 @@ Estou enviando o comprovante do Pix em anexo.`
                                         Seus dados
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="grid md:grid-cols-2 gap-4">
+                                <CardContent>
+                                    <fieldset disabled={submitting} className="grid md:grid-cols-2 gap-4">
                                     <Input
                                         label="Nome completo"
                                         name="customerName"
@@ -248,50 +233,7 @@ Estou enviando o comprovante do Pix em anexo.`
                                             rows={3}
                                         />
                                     </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Área do Pix */}
-                            <Card className="border-[#d4a574]/30 overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-[#d4a574]/10 rounded-bl-[4rem]" />
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded bg-[#d4a574]/20 flex items-center justify-center">
-                                            <QrCode className="w-5 h-5 text-[#d4a574]" />
-                                        </div>
-                                        Pagamento via Pix
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="bg-[#fcfaf8] p-6 rounded-xl border border-[#e0d5c7] text-center">
-                                        <p className="text-sm font-medium text-[#8a5c3f] mb-2 uppercase tracking-wide">Chave Pix ({PIX_DATA.type})</p>
-                                        <p className="text-2xl md:text-3xl font-bold text-[#2a2a2a] mb-4 font-mono">{PIX_DATA.key}</p>
-
-                                        <button
-                                            type="button"
-                                            onClick={copyPixKey}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#d4a574]/10 hover:bg-[#d4a574]/20 text-[#d4a574] rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                            Copiar chave
-                                        </button>
-                                    </div>
-
-                                    <div className="flex flex-col md:flex-row justify-center gap-4 text-center md:gap-12 md:text-left text-sm text-[#5a4c40]">
-                                        <div>
-                                            <span className="block text-[#8a5c3f] text-xs uppercase mb-1">Banco</span>
-                                            <span className="font-semibold">{PIX_DATA.bank}</span>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[#8a5c3f] text-xs uppercase mb-1">Beneficiário</span>
-                                            <span className="font-semibold">{PIX_DATA.name}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 p-4 bg-blue-50 text-blue-800 rounded-lg text-sm">
-                                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                                        <p>Ao confirmar, <strong>você será redirecionado para o WhatsApp</strong> para enviar o comprovante de pagamento.</p>
-                                    </div>
+                                    </fieldset>
                                 </CardContent>
                             </Card>
 
@@ -304,7 +246,7 @@ Estou enviando o comprovante do Pix em anexo.`
 
                             <Button type="submit" className="w-full whitespace-normal" size="lg" isLoading={submitting} disabled={!quote || !policyAccepted}>
                                 <Lock className="h-4 w-4" />
-                                Confirmar Reserva e Enviar Comprovante
+                                Seguir com a reserva
                             </Button>
 
                         </form>
