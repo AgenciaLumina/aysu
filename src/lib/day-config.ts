@@ -1,5 +1,6 @@
 import { parseCommercialConditions, type CommercialConditions } from './reservation-commercial'
 import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@/lib/db'
+import { getSpaceCategoryKey } from './space-slugs'
 
 export interface PriceOverride {
     price: number
@@ -217,5 +218,5 @@ export function getPriceOverrideForSpace(
     spaceId: string
 ): PriceOverride | null {
     if (!config) return null
-    return config.priceOverrides[spaceId] ?? null
+    return config.priceOverrides[spaceId] ?? config.priceOverrides[getSpaceCategoryKey(spaceId)] ?? null
 }

@@ -25,6 +25,26 @@ export function isSpaceSlug(value: string): value is SpaceSlug {
     return SPACE_SLUGS.includes(value as SpaceSlug)
 }
 
+/** Category rules remain shared; a numbered slug identifies one physical bungalow. */
+export function getSpaceCategoryKey(key: string): string {
+    return SPACE_SLUGS.find(slug => slug.startsWith('bangalo-') && new RegExp(`^${slug}-[1-9]\\d*$`).test(key)) || key
+}
+
+export function isIndividualCabinSlug(key: string): boolean {
+    return getSpaceCategoryKey(key) !== key
+}
+
+export function inferCabinIdentity(name: string): string | null {
+    const category = resolveCabinSlugFromName(name)
+    const number = normalize(name).match(/(?:\s|-)([1-9]\d*)$/)?.[1]
+    return category?.startsWith('bangalo-') && number ? `${category}-${number}` : category
+}
+
+export function cabinMatchesSpace(input: { id: string; name: string; slug?: string | null }, key: string): boolean {
+    const identity = getCabinSpaceKey(input)
+    return identity === key || (isSpaceSlug(key) && getSpaceCategoryKey(identity) === key)
+}
+
 export function getSpacePrefix(slug: SpaceSlug): string {
     return SPACE_SLUG_PREFIX[slug]
 }
@@ -68,6 +88,7 @@ export function getCabinSpaceKey(input: { id: string; name: string; slug?: strin
 
 export function getCabinSpaceLabel(input: { name: string; slug?: string | null }): string {
     const slug = typeof input.slug === 'string' ? input.slug.trim() : ''
+    if (isIndividualCabinSlug(slug)) return input.name
     if (slug && isSpaceSlug(slug)) {
         return getSpacePrefix(slug)
     }

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
-import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug, getSpaceCategoryKey, cabinMatchesSpace } from '@/lib/space-slugs'
 import { isReservationDateBlocked, isSpaceEnabled, parseReservableItems } from '@/lib/day-config'
 
 interface ReservationLite {
@@ -47,6 +47,7 @@ function buildSpaceKeyFilter(spaceKey: string) {
         return {
             OR: [
                 { slug: spaceKey },
+                { slug: { startsWith: `${spaceKey}-` } },
                 { slug: null, name: { startsWith: prefix } },
             ],
         }
@@ -177,12 +178,7 @@ export async function GET(request: NextRequest) {
 
             const relevantReservations = reservations.filter((reservation) => {
                 if (!targetSpaceKey) return false
-                const reservationSpaceKey = getCabinSpaceKey({
-                    id: reservation.cabinId,
-                    name: reservation.cabin.name,
-                    slug: reservation.cabin.slug,
-                })
-                return reservationSpaceKey === targetSpaceKey
+                return cabinMatchesSpace({ id: reservation.cabinId, ...reservation.cabin }, targetSpaceKey)
             })
 
             const dayResults = []
@@ -218,7 +214,9 @@ export async function GET(request: NextRequest) {
 
             activeCabins.forEach((cabin) => {
                 const spaceKey = getCabinSpaceKey(cabin)
-                totalUnitsByType[spaceKey] = (totalUnitsByType[spaceKey] || 0) + Math.max(1, cabin.units || 1)
+                for (const key of new Set([spaceKey, getSpaceCategoryKey(spaceKey)])) {
+                    totalUnitsByType[key] = (totalUnitsByType[key] || 0) + Math.max(1, cabin.units || 1)
+                }
             })
 
             const reservations = await getRelevantReservations(start, end)
@@ -233,8 +231,9 @@ export async function GET(request: NextRequest) {
                     slug: reservation.cabin.slug,
                 })
 
-                if (!(spaceKey in totalUnitsByType)) return
-                reservedByType[spaceKey] = (reservedByType[spaceKey] || 0) + inventoryConsumption(spaceKey, reservation)
+                for (const key of new Set([spaceKey, getSpaceCategoryKey(spaceKey)])) {
+                    if (key in totalUnitsByType) reservedByType[key] = (reservedByType[key] || 0) + inventoryConsumption(key, reservation)
+                }
             })
 
             const availability: Record<string, number> = {}
@@ -254,12 +253,7 @@ export async function GET(request: NextRequest) {
             const reservations = await getRelevantReservations(start, end)
             const relevantReservations = reservations.filter((reservation) => {
                 if (!targetSpaceKey) return false
-                const reservationSpaceKey = getCabinSpaceKey({
-                    id: reservation.cabinId,
-                    name: reservation.cabin.name,
-                    slug: reservation.cabin.slug,
-                })
-                return reservationSpaceKey === targetSpaceKey
+                return cabinMatchesSpace({ id: reservation.cabinId, ...reservation.cabin }, targetSpaceKey)
             })
 
             const slots = []

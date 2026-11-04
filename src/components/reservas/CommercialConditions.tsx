@@ -7,6 +7,7 @@ export function CommercialConditions({ condition, maxParticipants, minimum = 1 }
         {maxParticipants && <p>Capacidade máxima: {maxParticipants} {maxParticipants === 1 ? 'pessoa' : 'pessoas'}.</p>}
         {minimum > 1 && <p>Cobrança mínima equivalente a {minimum} pessoas, mesmo com um grupo menor.</p>}
         {condition.text && <p className="whitespace-pre-line leading-relaxed">{condition.text}</p>}
+        {condition.accommodationText && <p className="whitespace-pre-line leading-relaxed">{condition.accommodationText}</p>}
     </div>
 }
 

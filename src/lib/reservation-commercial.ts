@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import { getSpaceCategoryKey } from './space-slugs'
 
 export const CANCELLATION_TERMS = 'Cancelamento: 100% reembolsável com 72h ou mais de antecedência; 50% entre 48h e menos de 72h; abaixo de 48h ou no-show, sem reembolso, ressalvadas as hipóteses legais previstas na política.'
+export const DEFAULT_DAY_USE_ACCOMMODATION = 'Entrada individual com acomodação organizada pela equipe. Não inclui mesa exclusiva.'
 export const POLICY_VERSION = 'aysu-2026-2027'
 export const spaceConditionSchema = z.object({
     text: z.string().trim().max(5000).optional(),
+    accommodationText: z.string().trim().max(1000).optional(),
     poolAccess: z.boolean().nullable().optional(),
     maxParticipants: z.number().int().positive().max(10000).nullable().optional(),
     minBillableParticipants: z.number().int().positive().max(10000).optional(),
@@ -42,7 +45,8 @@ export const LEGACY_PRICING: Record<string, { price: number; consumable: number;
 
 export function getCommercialCondition(spaceKey: string, global: CommercialConditions = {}, day: CommercialConditions = {}): SpaceCondition {
     const fields = (rule?: SpaceCondition) => Object.fromEntries(Object.entries(rule ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ''))
-    return { ...fields(global[spaceKey]), ...fields(day[spaceKey]) } as SpaceCondition
+    const category = getSpaceCategoryKey(spaceKey)
+    return { ...(spaceKey === 'day-use-praia' ? { accommodationText: DEFAULT_DAY_USE_ACCOMMODATION } : {}), ...fields(global[category]), ...fields(global[spaceKey]), ...fields(day[category]), ...fields(day[spaceKey]) } as SpaceCondition
 }
 
 export interface BookingQuote {

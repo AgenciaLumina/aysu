@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { isHoliday, getHolidayName } from '@/lib/holidays'
 import { toLocalISODate } from '@/lib/utils'
-import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpaceCategoryKey } from '@/lib/space-slugs'
 import { useBookingQuote } from '@/hooks/useBookingQuote'
 import { QuoteSummary } from '@/components/reservas/CommercialConditions'
 import { formatCurrency } from '@/lib/utils'
@@ -57,7 +57,7 @@ function mapCabinsToSpaces(cabins: CabinApiItem[]): Space[] {
             name: cabin.name,
             slug: cabin.slug,
         })
-        const legacy = LEGACY_SPACE_BY_ID[spaceKey]
+        const legacy = LEGACY_SPACE_BY_ID[getSpaceCategoryKey(spaceKey)]
         const capacity = Math.max(1, Number(cabin.capacity || 1))
         const parsedDbPrice = Number(cabin.pricePerHour)
         const dailyPrice = Number.isFinite(parsedDbPrice) && parsedDbPrice > 0
@@ -67,7 +67,7 @@ function mapCabinsToSpaces(cabins: CabinApiItem[]): Space[] {
         if (!grouped.has(spaceKey)) {
             grouped.set(spaceKey, {
                 id: spaceKey,
-                name: legacy?.name || getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
+                name: spaceKey === getSpaceCategoryKey(spaceKey) && legacy ? legacy.name : getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
                 dailyPrice,
                 holidayPrice: legacy?.holidayPrice ?? dailyPrice,
                 capacity: legacy?.capacity || (capacity === 1 ? '1 pessoa' : `${capacity} pessoas`),

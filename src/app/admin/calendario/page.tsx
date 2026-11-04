@@ -681,7 +681,7 @@ function AdminCalendarioPageContent() {
                                 </div>
                             </div>
 
-                            <ReservationConditionsEditor value={globalForm.commercialConditions} onChange={commercialConditions => setGlobalForm(prev => ({ ...prev, commercialConditions }))} />
+                            <ReservationConditionsEditor isDefault value={globalForm.commercialConditions} onChange={commercialConditions => setGlobalForm(prev => ({ ...prev, commercialConditions }))} />
                             <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                                 <h3 className="font-semibold text-[#2a2a2a]">Ajuste comercial opcional do dia a dia</h3>
                                 <p className="text-xs text-[#8a5c3f]/80">

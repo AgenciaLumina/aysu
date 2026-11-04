@@ -1,11 +1,11 @@
 'use client'
 
-import type { CommercialConditions, SpaceCondition } from '@/lib/reservation-commercial'
+import { DEFAULT_DAY_USE_ACCOMMODATION, type CommercialConditions, type SpaceCondition } from '@/lib/reservation-commercial'
 import { SPACE_SLUG_PREFIX } from '@/lib/space-slugs'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
-export function ReservationConditionsEditor({ value, onChange }: { value: CommercialConditions; onChange: (value: CommercialConditions) => void }) {
+export function ReservationConditionsEditor({ value, onChange, isDefault = false }: { value: CommercialConditions; onChange: (value: CommercialConditions) => void; isDefault?: boolean }) {
     const patch = (id: string, change: Partial<SpaceCondition>) => onChange({ ...value, [id]: { ...value[id], ...change } })
     const number = (raw: string) => raw === '' ? undefined : Number(raw)
     return <section className="space-y-3" aria-label="Condições comerciais por categoria">
@@ -19,6 +19,12 @@ export function ReservationConditionsEditor({ value, onChange }: { value: Commer
                 <summary className="cursor-pointer font-medium text-[#2a2a2a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8a5c3f]">{label}</summary>
                 <div className="mt-4 space-y-4">
                     <Textarea label="Regras e observações exibidas ao cliente" value={rule.text ?? ''} onChange={event => patch(id, { text: event.target.value })} rows={3} maxLength={5000} placeholder="Benefícios, restrições e condições desta categoria." />
+                    {id === 'day-use-praia' && <div className="space-y-2">
+                        <Textarea label="Texto de acomodação do Day Use" value={rule.accommodationText ?? (isDefault ? DEFAULT_DAY_USE_ACCOMMODATION : '')}
+                            onChange={event => patch(id, { accommodationText: event.target.value })} rows={3} maxLength={1000}
+                            placeholder={isDefault ? DEFAULT_DAY_USE_ACCOMMODATION : 'Deixe vazio para usar o texto padrão.'} />
+                        <p className="text-sm text-[#8a5c3f]">{isDefault ? 'Aparece abaixo da descrição do Day Use nas reservas. Salve em “Salvar padrão”. Datas com texto próprio mantêm sua exceção.' : 'Substitui o texto padrão somente nesta data ou período. Deixe vazio para herdar o padrão.'}</p>
+                    </div>}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <label className="text-sm font-medium text-[#2a2a2a]">Acesso à piscina
                             <select className="mt-1 block w-full rounded-lg border border-[#e0d5c7] bg-white p-3 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]" value={rule.poolAccess === true ? 'yes' : rule.poolAccess === false ? 'no' : ''} onChange={event => patch(id, { poolAccess: event.target.value === '' ? undefined : event.target.value === 'yes' })}>

@@ -14,7 +14,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { CabinGalleryEditor } from '@/components/admin/CabinGalleryEditor'
 import { getCabinGallery, type CabinImage } from '@/lib/cabin-gallery'
 import { formatCurrency } from '@/lib/utils'
-import { getSpacePrefix, isSpaceSlug, resolveCabinSlug } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, isIndividualCabinSlug } from '@/lib/space-slugs'
 import { getCabinTrashDisplayName } from '@/lib/cabin-trash'
 import toast from 'react-hot-toast'
 
@@ -53,13 +53,13 @@ function groupCabins(rawCabins: Cabin[], options?: { preserveDeletedBatches?: bo
     const grouped = new Map<string, Cabin>()
 
     rawCabins.forEach((cabin) => {
-        const resolvedSlug = resolveCabinSlug({ name: cabin.name, slug: cabin.slug }) || null
+        const resolvedSlug = getCabinSpaceKey(cabin)
         const batchSuffix = options?.preserveDeletedBatches && cabin.deletedAt ? `:${cabin.deletedAt}` : ''
         const key = `${resolvedSlug ?? cabin.id}${batchSuffix}`
         const normalizedUnits = Math.max(1, cabin.units || 1)
         const displayName = options?.preserveDeletedBatches
             ? getCabinTrashDisplayName(cabin)
-            : (resolvedSlug && isSpaceSlug(resolvedSlug) ? getSpacePrefix(resolvedSlug) : cabin.name)
+            : getCabinSpaceLabel(cabin)
 
         if (!grouped.has(key)) {
             grouped.set(key, {
@@ -504,6 +504,7 @@ export default function AdminCabinsPage() {
                                 label="Quantidade"
                                 type="number"
                                 value={formData.units}
+                                disabled={isIndividualCabinSlug(editingCabin?.slug || '')}
                                 onChange={(e) => setFormData(p => ({ ...p, units: e.target.value }))}
                                 min="1"
                                 required

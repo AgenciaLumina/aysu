@@ -21,7 +21,7 @@ import { CommercialConditions, QuoteSummary } from '@/components/reservas/Commer
 import DayInfoModal from '@/components/reservas/DayInfoModal'
 import { SpaceGallery } from '@/components/reservas/SpaceGallery'
 import { getCabinGallery, type CabinImage } from '@/lib/cabin-gallery'
-import { getCabinSpaceKey, getCabinSpaceLabel } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpaceCategoryKey, isIndividualCabinSlug } from '@/lib/space-slugs'
 
 // ==========================================
 // DADOS DOS ESPAÇOS (Informações reais)
@@ -275,7 +275,7 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
             name: cabin.name,
             slug: cabin.slug,
         })
-        const legacy = LEGACY_SPACE_INDEX[spaceKey]
+        const legacy = LEGACY_SPACE_INDEX[getSpaceCategoryKey(spaceKey)]
         const capacityNum = Math.max(1, Number(cabin.capacity || legacy?.capacityNum || 1))
         const units = Math.max(1, Number(cabin.units || legacy?.units || 1))
         const inferredCategory = legacy?.category || inferSpaceCategory(cabin, spaceKey)
@@ -286,11 +286,11 @@ function buildDynamicSpaces(cabins: CabinApiItem[]): SpaceType[] {
 
         const mapped: SpaceType = {
             id: spaceKey,
-            name: legacy?.name || getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
+            name: spaceKey === getSpaceCategoryKey(spaceKey) && legacy ? legacy.name : getCabinSpaceLabel({ name: cabin.name, slug: cabin.slug }),
             slug: cabin.slug?.trim() || legacy?.slug || null,
             image: cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg',
             images: getCabinGallery(cabin.galleryImages, cabin.imageUrl || legacy?.image || '/espacos/bangalo-lateral.jpg'),
-            capacity: legacy?.capacity || formatCapacityLabel(capacityNum),
+            capacity: spaceKey === getSpaceCategoryKey(spaceKey) && legacy ? legacy.capacity : formatCapacityLabel(capacityNum),
             capacityNum,
             dailyPrice: basePrice,
             consumable: legacy?.consumable ?? 0,
@@ -648,7 +648,7 @@ function ReservasPageContent() {
 
     const getSpacePricing = (space: SpaceType, date: Date | null) => {
         const isDateHoliday = date ? isHoliday(date) : false
-        const globalOverride = globalConfig?.priceOverrides?.[space.id]
+        const globalOverride = globalConfig?.priceOverrides?.[space.id] ?? globalConfig?.priceOverrides?.[getSpaceCategoryKey(space.id)]
         const basePrice = globalOverride?.price ?? (isDateHoliday ? space.holidayPrice : space.dailyPrice)
         const baseConsumable = globalOverride?.consumable ?? (isDateHoliday ? space.holidayConsumable : space.consumable)
 
@@ -1261,6 +1261,9 @@ function ReservasPageContent() {
                                                         </span>
                                                     )
                                                 }
+                                                if (isIndividualCabinSlug(space.id)) {
+                                                    return <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 text-gray-900">Disponível</span>
+                                                }
                                                 if (count <= 2) {
                                                     return (
                                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm bg-amber-500 text-white ring-2 ring-amber-300 ring-offset-1">
@@ -1313,7 +1316,6 @@ function ReservasPageContent() {
                                     </div>
                                     <p className="text-sm mb-6" style={{ color: 'var(--aissu-wood)' }}>{space.description}</p>
                                     <CommercialConditions condition={condition} maxParticipants={condition.maxParticipants ?? (space.id === 'day-use-praia' ? undefined : space.capacityNum)} minimum={condition.minBillableParticipants} />
-                                    {isDayUse && <p className="my-3 text-sm text-[#8a5c3f]">Entrada individual com acomodação organizada pela equipe. Não inclui mesa exclusiva.</p>}
 
                                     {/* Pricing */}
                                     <div className="flex items-end justify-between pt-4 border-t border-[var(--aissu-border)]">
