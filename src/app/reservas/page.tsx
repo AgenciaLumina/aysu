@@ -687,7 +687,7 @@ function ReservasPageContent() {
         ? spaces.find(space => space.id === selectedSpace.id && space.visibilityStatus === 'AVAILABLE')
         : null
     const selectedItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
-    const effectiveSelectedSpace = selectedAvailableSpace && isSpaceEnabled(selectedAvailableSpace.id, selectedItems) ? selectedAvailableSpace : null
+    const effectiveSelectedSpace = selectedAvailableSpace && isSpaceEnabled(selectedAvailableSpace.id, selectedItems, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions) ? selectedAvailableSpace : null
 
     const { quote, error: quoteError, availability: quoteAvailability, loading: quoteLoading, reload: reloadQuote, refresh: refreshQuote } = useBookingQuote(effectiveSelectedSpace?.id ?? null, effectiveSelectedDate ? toLocalISODate(effectiveSelectedDate) : null, participants)
     const selectedCondition = effectiveSelectedSpace ? getCommercialCondition(effectiveSelectedSpace.id, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions) : {}
@@ -1161,8 +1161,8 @@ function ReservasPageContent() {
                         const reservableItems = selectedDateConfig?.reservableItems ?? globalConfig?.reservableItems ?? DEFAULT_RESERVABLE_ITEMS
                         const isDayUse = space.id === 'day-use-praia'
                         const blockedByVisibility = space.visibilityStatus === 'UNAVAILABLE'
-                        const blockedByRule = !isSpaceEnabled(space.id, reservableItems)
-                        if (effectiveSelectedDate && blockedByRule) return null
+                        const blockedByRule = !isSpaceEnabled(space.id, reservableItems, globalConfig?.commercialConditions, selectedDateConfig?.commercialConditions)
+                        if (blockedByRule && (effectiveSelectedDate || condition.reservationsEnabled === false)) return null
                         const isLoadingAvailability = !!effectiveSelectedDate && availableCount === undefined
                         const isSoldOut = blockedByVisibility
                             || (effectiveSelectedDate && availableCount !== undefined && availableCount === 0)

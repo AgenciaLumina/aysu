@@ -18,7 +18,9 @@ const { NextRequest } = require('next/server');
    assert.equal(result.status,201,JSON.stringify(result.body)); assert.equal(result.body.data.slug,`bangalo-lateral-${i}`); cabins.push(result.body.data);
   }
   assert.equal((await call({name:'Bangalô Lateral 1',capacity:5,pricePerHour:600})).status,409);
-  assert.equal((await call({name:'Bangalô Lateral',capacity:5,units:6,pricePerHour:600})).status,409);
+  const pooled=await call({name:'Bangalô Lateral',capacity:5,units:6,pricePerHour:600});assert.equal(pooled.status,201);
+  assert.equal((await db.prepare('SELECT count(*) n FROM Cabin WHERE isActive=1').first()).n,7);
+  await db.prepare('DELETE FROM Cabin WHERE id=?').bind(pooled.body.data.id).run();
   assert.equal((await call({name:'Bangalô Piscina 1',capacity:5,units:2,pricePerHour:600})).status,400);
   assert.equal((await call({units:2},cabins[0].id)).status,400);
   assert.equal((await call({description:'Forbidden'},cabins[0].id,null)).status,403);

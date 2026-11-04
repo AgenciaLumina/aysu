@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { ApiResponse } from '@/lib/types'
 import { getActiveReservationFilter } from '@/lib/reservation-hold'
-import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug, getSpaceCategoryKey, cabinMatchesSpace } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug, getSpaceCategoryKey, getInventoryMembers } from '@/lib/space-slugs'
 import { isReservationDateBlocked, isSpaceEnabled, parseReservableItems } from '@/lib/day-config'
 
 interface ReservationLite {
@@ -56,17 +56,12 @@ function buildSpaceKeyFilter(spaceKey: string) {
     return { slug: spaceKey }
 }
 
-async function getActiveUnitsBySpaceKey(spaceKey: string): Promise<number> {
+async function getInventoryBySpaceKey(spaceKey: string) {
     const cabins = await prisma.cabin.findMany({
-        where: {
-            isActive: true,
-            visibilityStatus: 'AVAILABLE',
-            ...buildSpaceKeyFilter(spaceKey),
-        },
-        select: { units: true },
+        where: { OR: [{ id: spaceKey }, buildSpaceKeyFilter(spaceKey)] },
+        select: { id: true, name: true, slug: true, units: true, isActive: true, visibilityStatus: true, deletedAt: true },
     })
-
-    return cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
+    return getInventoryMembers(cabins, spaceKey)
 }
 
 async function getRelevantReservations(
@@ -111,7 +106,7 @@ export async function GET(request: NextRequest) {
             const rule = rulesByDate.get(dateKey)
             if (isReservationDateBlocked(rule)) return false
             if (closedDateKeys.has(dateKey) && !(rule?.status === 'EVENT' && rule.reservationsEnabled)) return false
-            return isSpaceEnabled(spaceKey, parseReservableItems(rule ? rule.reservableItems : globalRules?.reservableItems))
+            return isSpaceEnabled(spaceKey, parseReservableItems(rule ? rule.reservableItems : globalRules?.reservableItems), parseCommercialConditions(globalRules?.commercialConditions), parseCommercialConditions(rule?.commercialConditions))
         }
         const dayUseCapacity = (date: Date, fallback: number) => getCommercialCondition('day-use-praia', parseCommercialConditions(globalRules?.commercialConditions), parseCommercialConditions(dateRules.find(item => item.date.toISOString().slice(0, 10) === formatLocalDate(date))?.commercialConditions)).dayUseCapacity ?? fallback
         const { searchParams } = new URL(request.url)
@@ -130,14 +125,14 @@ export async function GET(request: NextRequest) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cabinId || '')
 
         let targetSpaceKey: string | null = null
-        let totalUnits = 0
+        let targetMembers: Awaited<ReturnType<typeof getInventoryBySpaceKey>> = []
         let nameToReturn = ''
 
         if (cabinId) {
             if (isUuid) {
                 const cabin = await prisma.cabin.findUnique({
                     where: { id: cabinId },
-                    select: { id: true, name: true, slug: true, units: true, visibilityStatus: true },
+                    select: { id: true, name: true, slug: true, units: true, visibilityStatus: true, isActive: true },
                 })
 
                 if (!cabin) {
@@ -145,10 +140,7 @@ export async function GET(request: NextRequest) {
                 }
 
                 targetSpaceKey = getCabinSpaceKey(cabin)
-                totalUnits = await getActiveUnitsBySpaceKey(targetSpaceKey)
-                if (totalUnits <= 0) {
-                    totalUnits = cabin.visibilityStatus === 'AVAILABLE' ? Math.max(1, cabin.units || 1) : 0
-                }
+                targetMembers = await getInventoryBySpaceKey(targetSpaceKey)
                 nameToReturn = getCabinSpaceLabel(cabin)
             } else {
                 targetSpaceKey = cabinId.trim()
@@ -156,9 +148,16 @@ export async function GET(request: NextRequest) {
                     return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 })
                 }
 
-                totalUnits = await getActiveUnitsBySpaceKey(targetSpaceKey)
+                targetMembers = await getInventoryBySpaceKey(targetSpaceKey)
                 nameToReturn = isSpaceSlug(targetSpaceKey) ? getSpacePrefix(targetSpaceKey) : targetSpaceKey
             }
+        }
+
+        const memberIds = new Set(targetMembers.map(cabin => cabin.id))
+        const countedKeys = (date: Date) => new Set(targetMembers.filter(cabin => cabin.isActive && cabin.visibilityStatus === 'AVAILABLE' && isEnabled(date, getCabinSpaceKey(cabin))).map(getCabinSpaceKey))
+        const totalForDate = (date: Date) => {
+            const units = targetMembers.filter(cabin => cabin.isActive && cabin.visibilityStatus === 'AVAILABLE' && isEnabled(date, getCabinSpaceKey(cabin))).reduce((sum, cabin) => sum + Math.max(1, cabin.units || 1), 0)
+            return targetSpaceKey === 'day-use-praia' && units > 0 ? dayUseCapacity(date, units) : units
         }
 
         // Disponibilidade mensal de um tipo específico (para calendário no admin)
@@ -178,7 +177,7 @@ export async function GET(request: NextRequest) {
 
             const relevantReservations = reservations.filter((reservation) => {
                 if (!targetSpaceKey) return false
-                return cabinMatchesSpace({ id: reservation.cabinId, ...reservation.cabin }, targetSpaceKey)
+                return memberIds.has(reservation.cabinId)
             })
 
             const dayResults = []
@@ -187,9 +186,9 @@ export async function GET(request: NextRequest) {
                 const { start, end } = getDayRange(currentDay)
 
                 const reservedCount = relevantReservations.filter((reservation) =>
-                    overlaps(start, end, reservation.checkIn, reservation.checkOut)
+                    overlaps(start, end, reservation.checkIn, reservation.checkOut) && countedKeys(currentDay).has(getCabinSpaceKey({ id: reservation.cabinId, ...reservation.cabin }))
                 ).reduce((sum, reservation) => sum + inventoryConsumption(targetSpaceKey || '', reservation), 0)
-                const dayTotalUnits = targetSpaceKey === 'day-use-praia' ? dayUseCapacity(currentDay, totalUnits) : totalUnits
+                const dayTotalUnits = totalForDate(currentDay)
 
                 dayResults.push({
                     date: formatLocalDate(currentDay),
@@ -206,17 +205,21 @@ export async function GET(request: NextRequest) {
             const { start, end } = getDayRange(date)
 
             const activeCabins = await prisma.cabin.findMany({
-                where: { isActive: true, visibilityStatus: 'AVAILABLE' },
-                select: { id: true, name: true, slug: true, units: true },
+                where: { deletedAt: null },
+                select: { id: true, name: true, slug: true, units: true, visibilityStatus: true, isActive: true },
             })
 
             const totalUnitsByType: Record<string, number> = {}
 
+            const ownKeys = new Set(activeCabins.map(getCabinSpaceKey))
+            const availabilityKeys = (key: string) => {
+                const category = getSpaceCategoryKey(key)
+                return category !== key && !ownKeys.has(category) ? [key, category] : [key]
+            }
             activeCabins.forEach((cabin) => {
                 const spaceKey = getCabinSpaceKey(cabin)
-                for (const key of new Set([spaceKey, getSpaceCategoryKey(spaceKey)])) {
-                    totalUnitsByType[key] = (totalUnitsByType[key] || 0) + Math.max(1, cabin.units || 1)
-                }
+                const units = cabin.isActive && cabin.visibilityStatus === 'AVAILABLE' && isEnabled(date, spaceKey) ? Math.max(1, cabin.units || 1) : 0
+                for (const key of availabilityKeys(spaceKey)) totalUnitsByType[key] = (totalUnitsByType[key] || 0) + units
             })
 
             const reservations = await getRelevantReservations(start, end)
@@ -231,14 +234,15 @@ export async function GET(request: NextRequest) {
                     slug: reservation.cabin.slug,
                 })
 
-                for (const key of new Set([spaceKey, getSpaceCategoryKey(spaceKey)])) {
+                if (!totalUnitsByType[spaceKey]) return
+                for (const key of availabilityKeys(spaceKey)) {
                     if (key in totalUnitsByType) reservedByType[key] = (reservedByType[key] || 0) + inventoryConsumption(key, reservation)
                 }
             })
 
             const availability: Record<string, number> = {}
             Object.entries(totalUnitsByType).forEach(([spaceKey, totalUnitsForType]) => {
-                const available = (spaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnitsForType) : totalUnitsForType) - (reservedByType[spaceKey] || 0)
+                const available = (spaceKey === 'day-use-praia' && totalUnitsForType > 0 ? dayUseCapacity(date, totalUnitsForType) : totalUnitsForType) - (reservedByType[spaceKey] || 0)
                 availability[spaceKey] = isEnabled(date, spaceKey) && available > 0 ? available : 0
             })
 
@@ -253,7 +257,7 @@ export async function GET(request: NextRequest) {
             const reservations = await getRelevantReservations(start, end)
             const relevantReservations = reservations.filter((reservation) => {
                 if (!targetSpaceKey) return false
-                return cabinMatchesSpace({ id: reservation.cabinId, ...reservation.cabin }, targetSpaceKey)
+                return memberIds.has(reservation.cabinId)
             })
 
             const slots = []
@@ -263,10 +267,10 @@ export async function GET(request: NextRequest) {
                 const slotEnd = new Date(`${key}T${hour + 1}:00:00-03:00`)
 
                 const countAtSlot = relevantReservations.filter((reservation) =>
-                    overlaps(slotStart, slotEnd, reservation.checkIn, reservation.checkOut)
+                    overlaps(slotStart, slotEnd, reservation.checkIn, reservation.checkOut) && countedKeys(date).has(getCabinSpaceKey({ id: reservation.cabinId, ...reservation.cabin }))
                 ).reduce((sum, reservation) => sum + inventoryConsumption(targetSpaceKey || '', reservation), 0)
 
-                const isOccupied = !isEnabled(date, targetSpaceKey || '') || countAtSlot >= (targetSpaceKey === 'day-use-praia' ? dayUseCapacity(date, totalUnits) : totalUnits) || slotStart < new Date()
+                const isOccupied = !isEnabled(date, targetSpaceKey || '') || countAtSlot >= totalForDate(date) || slotStart < new Date()
 
                 slots.push({
                     start: slotStart.toISOString(),

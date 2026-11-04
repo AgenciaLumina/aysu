@@ -170,7 +170,7 @@ export default function AdminCabinsPage() {
             category: normalizeCabinCategory(cabin.category),
             imageUrl: cabin.imageUrl || '',
             galleryImages: getCabinGallery(cabin.galleryImages, cabin.imageUrl),
-        } : { name: '', capacity: '6', units: '1', visibilityStatus: 'AVAILABLE' as const, pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '', galleryImages: [] }
+        } : { name: '', capacity: '6', units: '1', visibilityStatus: 'HIDDEN' as const, pricePerHour: '100', description: '', category: 'CABANA', imageUrl: '', galleryImages: [] }
         setEditingCabin(cabin || null)
         setFormData(next)
         initialPayload.current = toPayload(next, cabin?.slug)
@@ -294,7 +294,7 @@ export default function AdminCabinsPage() {
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h2 className="text-lg font-semibold text-[#2a2a2a]">Espaços ativos</h2>
-                                <p className="text-sm text-[#8a5c3f]">Cadastro base de estoque, capacidade e preço padrão.</p>
+                                <p className="text-sm text-[#8a5c3f]">Cada cadastro tem fotos, descrição, estoque e preço próprios. Novos espaços não substituem os existentes.</p>
                             </div>
                             <Badge variant="secondary">{cabins.length} tipos</Badge>
                         </div>
@@ -522,6 +522,7 @@ export default function AdminCabinsPage() {
                                 <option value="UNAVAILABLE">Indisponível</option>
                                 <option value="HIDDEN">Oculto</option>
                             </select>
+                            <p className="mt-2 text-sm text-[#8a5c3f]">Use Oculto enquanto prepara as fotos. Para oferecer somente em algumas datas, deixe Disponível aqui e configure a liberação no Calendário Comercial.</p>
                         </div>
 
                         <Input

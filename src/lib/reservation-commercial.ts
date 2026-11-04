@@ -5,6 +5,7 @@ export const CANCELLATION_TERMS = 'Cancelamento: 100% reembolsável com 72h ou m
 export const DEFAULT_DAY_USE_ACCOMMODATION = 'Entrada individual com acomodação organizada pela equipe. Não inclui mesa exclusiva.'
 export const POLICY_VERSION = 'aysu-2026-2027'
 export const spaceConditionSchema = z.object({
+    reservationsEnabled: z.boolean().optional(),
     text: z.string().trim().max(5000).optional(),
     accommodationText: z.string().trim().max(1000).optional(),
     poolAccess: z.boolean().nullable().optional(),

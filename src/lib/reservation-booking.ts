@@ -8,7 +8,7 @@ import prisma from '@/lib/db'
 import { isReservationDateBlocked, isSpaceEnabled, parseDayConfig, parseReservationGlobalConfig, reservationDateMessage } from '@/lib/day-config'
 import { isHoliday } from '@/lib/holidays'
 import { getActiveReservationFilter, getPendingCutoff } from '@/lib/reservation-hold'
-import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug, getSpaceCategoryKey, cabinMatchesSpace } from '@/lib/space-slugs'
+import { getCabinSpaceKey, getCabinSpaceLabel, getSpacePrefix, isSpaceSlug, getSpaceCategoryKey, cabinMatchesSpace, getInventoryMembers } from '@/lib/space-slugs'
 import { allocateUnit, CANCELLATION_TERMS, calculateBookingAmounts, getCommercialCondition, inventoryConsumption, LEGACY_PRICING, POLICY_VERSION, type BookingQuote } from '@/lib/reservation-commercial'
 import type { createReservationSchema } from '@/lib/validations'
 import type { updateReservationSchema } from '@/lib/validations'
@@ -41,47 +41,53 @@ export async function readBookingContext(db: Database, cabinId: string, date: st
     const { checkIn, checkOut } = bookingDayRange(date)
     if (date < dateKeyInSaoPaulo(new Date())) throw new BookingError('Não é possível reservar datas passadas.')
     const spaceKey = await resolveSpace(db, cabinId)
-    const [cabins, dayRaw, globalRaw, closed, allReservations] = await Promise.all([
-        db.cabin.findMany({ where: { isActive: true, visibilityStatus: 'AVAILABLE', OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, orderBy: { id: 'asc' } }),
+    const [matchingCabins, dayRaw, globalRaw, closed] = await Promise.all([
+        db.cabin.findMany({ where: { OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, orderBy: { id: 'asc' } }),
         db.reservationDayConfig.findUnique({ where: { date: new Date(`${date}T12:00:00Z`) } }),
         db.reservationGlobalConfig.findUnique({ where: { id: 'default' } }),
         db.closedDate.findUnique({ where: { date: new Date(`${date}T12:00:00Z`) } }),
-        db.reservation.findMany({ where: { ...(excludeId ? { id: { not: excludeId } } : {}), cabin: { OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, AND: [getActiveReservationFilter(), { checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }] }, include: { cabin: { select: { id: true, name: true, slug: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
     ])
-    if (!cabins.length) throw new BookingError('Este espaço está indisponível.', 404)
     const day = dayRaw ? parseDayConfig(dayRaw) : null
     const global = parseReservationGlobalConfig(globalRaw)
     if (isReservationDateBlocked(day)) throw new BookingError(reservationDateMessage(day), 409)
     if (closed && !(day?.status === 'EVENT' && day.reservationsEnabled)) throw new BookingError('Esta data está fechada para reservas.', 409)
     const items = day?.reservableItems ?? global.reservableItems
-    const enabled = isSpaceEnabled(spaceKey, items)
+    const enabled = isSpaceEnabled(spaceKey, items, global.commercialConditions, day?.commercialConditions)
     if (!enabled) throw new BookingError('Esta categoria não está disponível para reserva nesta data.', 409)
     if (day?.ticketLots.length) {
         const today = dateKeyInSaoPaulo(new Date())
         if (!day.ticketLots.some(lot => !lot.soldOut && lot.endsAt <= today)) throw new BookingError('Não há lote disponível para reservar esta data.', 409)
     }
-    const condition = getCommercialCondition(spaceKey, global.commercialConditions, day?.commercialConditions)
-    const maxParticipants = condition.maxParticipants ?? (spaceKey === 'day-use-praia' ? 6 : cabins[0].capacity)
+    const members = getInventoryMembers(matchingCabins, spaceKey)
+    const cabins = members.filter(cabin => cabin.isActive && cabin.visibilityStatus === 'AVAILABLE'
+        && isSpaceEnabled(getCabinSpaceKey(cabin), items, global.commercialConditions, day?.commercialConditions))
+    if (!cabins.length) throw new BookingError('Este espaço está indisponível.', 404)
+    const inventoryIds = members.filter(cabin => isSpaceEnabled(getCabinSpaceKey(cabin), items, global.commercialConditions, day?.commercialConditions)).map(cabin => cabin.id)
+    const reservations = await db.reservation.findMany({ where: { ...(excludeId ? { id: { not: excludeId } } : {}), cabinId: { in: inventoryIds }, AND: [getActiveReservationFilter(), { checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }] }, include: { cabin: { select: { id: true, name: true, slug: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+    const assigned = spaceKey === 'day-use-praia' ? null : allocateUnit(cabins, reservations)
+    const pricedCabin = cabins.find(cabin => cabin.id === assigned?.cabinId) || cabins[0]
+    const pricingKey = getCabinSpaceKey(pricedCabin)
+    const condition = getCommercialCondition(pricingKey, global.commercialConditions, day?.commercialConditions)
+    const maxParticipants = condition.maxParticipants ?? (spaceKey === 'day-use-praia' ? 6 : pricedCabin.capacity)
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxParticipants) throw new BookingError(`Selecione entre 1 e ${maxParticipants} participantes.`)
-    const reservations = allReservations.filter(reservation => cabinMatchesSpace(reservation.cabin, spaceKey))
     const units = cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units), 0)
     const capacity = spaceKey === 'day-use-praia' ? condition.dayUseCapacity ?? units : units
     const used = reservations.reduce((sum, reservation) => sum + inventoryConsumption(spaceKey, reservation), 0)
     const available = Math.max(0, capacity - used)
     if (inventoryConsumption(spaceKey, { participantCount: quantity }) > available) throw new BookingError(spaceKey === 'day-use-praia' ? `Restam ${available} vagas de Day Use para esta data. Escolha outra quantidade ou data.` : 'Não há unidade disponível para esta data.', 409, { available, maxParticipants })
-    const category = getSpaceCategoryKey(spaceKey)
+    const category = getSpaceCategoryKey(pricingKey)
     const legacy = LEGACY_PRICING[category]
     const holiday = Boolean(isHoliday(date))
-    const basePrice = holiday && legacy ? legacy.holidayPrice : Number(cabins[0].pricePerHour) || legacy?.price || 0
+    const basePrice = holiday && legacy ? legacy.holidayPrice : Number(pricedCabin.pricePerHour) || legacy?.price || 0
     const baseConsumable = legacy ? holiday ? legacy.holidayConsumable : legacy.consumable : 0
-    const globalPrice = global.priceOverrides[spaceKey] ?? global.priceOverrides[category]
-    const dayPrice = day?.priceOverrides[spaceKey] ?? day?.priceOverrides[category]
+    const globalPrice = global.priceOverrides[pricingKey] ?? global.priceOverrides[category]
+    const dayPrice = day?.priceOverrides[pricingKey] ?? day?.priceOverrides[category]
     const unitPrice = dayPrice?.price ?? globalPrice?.price ?? basePrice
     const unitConsumable = dayPrice?.consumable ?? globalPrice?.consumable ?? baseConsumable
     const pricingMode = spaceKey === 'day-use-praia' ? 'PER_PERSON' : condition.pricingMode ?? 'PER_RESERVATION'
     if ((condition.arrivalEnd || '12:00') <= (condition.arrivalStart || '10:00') || (condition.minBillableParticipants ?? 1) > maxParticipants) throw new BookingError('As condições desta categoria precisam ser revisadas pela equipe. Entre em contato com o Aysú.', 503)
     const amounts = calculateBookingAmounts(unitPrice, unitConsumable, quantity, pricingMode, condition.minBillableParticipants)
-    const quote: BookingQuote = { spaceKey, spaceName: isSpaceSlug(spaceKey) ? getSpacePrefix(spaceKey) : getCabinSpaceLabel(cabins[0]), date, participantCount: quantity, pricingMode, unitPrice, unitConsumable, maxParticipants, available, condition: { ...condition, arrivalStart: condition.arrivalStart || '10:00', arrivalEnd: condition.arrivalEnd || '12:00' }, eventTitle: day?.title ?? null, eventRelease: day?.release ?? null, cancellationPolicy: CANCELLATION_TERMS, policyVersion: POLICY_VERSION, ...amounts }
+    const quote: BookingQuote = { spaceKey, spaceName: getCabinSpaceLabel(pricedCabin), date, participantCount: quantity, pricingMode, unitPrice, unitConsumable, maxParticipants, available, condition: { ...condition, arrivalStart: condition.arrivalStart || '10:00', arrivalEnd: condition.arrivalEnd || '12:00' }, eventTitle: day?.title ?? null, eventRelease: day?.release ?? null, cancellationPolicy: CANCELLATION_TERMS, policyVersion: POLICY_VERSION, ...amounts }
     return { quote, cabins, reservations, checkIn, checkOut }
 }
 
@@ -133,8 +139,9 @@ export async function updateBooking(id: string, data: z.infer<typeof updateReser
         const checkOut = data.checkOut ? new Date(data.checkOut) : current.checkOut
         if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkIn >= checkOut) throw new BookingError('Selecione um intervalo de reserva válido.')
         if (needsInventory) {
-            const cabins = await tx.cabin.findMany({ where: { isActive: true, visibilityStatus: 'AVAILABLE', OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, orderBy: { id: 'asc' } })
-            const others = (await tx.reservation.findMany({ where: { id: { not: id }, cabin: { OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, AND: [getActiveReservationFilter(), { checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }] }, include: { cabin: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })).filter(item => cabinMatchesSpace(item.cabin, spaceKey))
+            const members = getInventoryMembers(await tx.cabin.findMany({ where: { OR: [{ id: spaceKey }, cabinFilter(spaceKey)] }, orderBy: { id: 'asc' } }), spaceKey)
+            const cabins = members.filter(cabin => cabin.isActive && cabin.visibilityStatus === 'AVAILABLE')
+            const others = (await tx.reservation.findMany({ where: { id: { not: id }, cabinId: { in: members.map(cabin => cabin.id) }, AND: [getActiveReservationFilter(), { checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }] }, include: { cabin: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })).filter(item => cabinMatchesSpace(item.cabin, spaceKey))
             const [day, global] = await Promise.all([tx.reservationDayConfig.findUnique({ where: { date: new Date(`${dateKeyInSaoPaulo(checkIn)}T12:00:00Z`) } }), tx.reservationGlobalConfig.findUnique({ where: { id: 'default' } })])
             const condition = getCommercialCondition(spaceKey, parseReservationGlobalConfig(global).commercialConditions, day ? parseDayConfig(day).commercialConditions : {})
             const units = cabins.reduce((sum, cabin) => sum + Math.max(1, cabin.units), 0)

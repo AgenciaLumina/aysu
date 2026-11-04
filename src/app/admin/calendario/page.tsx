@@ -1,6 +1,7 @@
 'use client'
 
 import { ReservationConditionsEditor } from '@/components/admin/ReservationConditionsEditor'
+import { getCalendarSpaces, type CalendarSpace } from '@/lib/calendar-spaces'
 import type { CommercialConditions } from '@/lib/reservation-commercial'
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
@@ -29,16 +30,7 @@ const STATUS_OPTIONS = [
     { value: 'BLOCKED', label: 'Bloqueado/Manutenção', badge: 'error' as const },
 ]
 
-const SPACE_OVERRIDE_FIELDS = [
-    { id: 'bangalo-lateral', label: 'Bangalô Lateral' },
-    { id: 'bangalo-piscina', label: 'Bangalô Piscina' },
-    { id: 'bangalo-frente-mar', label: 'Bangalô Frente Mar' },
-    { id: 'bangalo-central', label: 'Bangalô Central' },
-    { id: 'sunbed-casal', label: 'Sunbed Casal' },
-    { id: 'mesa-restaurante', label: 'Mesa Restaurante' },
-    { id: 'mesa-praia', label: 'Mesa Praia' },
-    { id: 'day-use-praia', label: 'Day Use Praia' },
-]
+const SPACE_OVERRIDE_FIELDS = getCalendarSpaces([])
 
 const DEFAULT_TICKET_LOTS = [
     { enabled: false, name: '1º Lote', endsAt: '', price: '', consumable: '', soldOut: false },
@@ -125,7 +117,6 @@ function applyPriceOverridesToForm(
     overrides: Record<string, { price: number; consumable?: number }>,
 ) {
     for (const [spaceId, override] of Object.entries(overrides || {})) {
-        if (!base[spaceId]) continue
         base[spaceId] = {
             enabled: true,
             price: formatCurrencyInput(override.price.toString()),
@@ -181,6 +172,8 @@ function formatCurrencyInput(value: string): string {
 function AdminCalendarioPageContent() {
     const searchParams = useSearchParams()
     const [configs, setConfigs] = useState<DayConfigPayload[]>([])
+    const [catalogSpaces, setCatalogSpaces] = useState<CalendarSpace[]>(SPACE_OVERRIDE_FIELDS)
+    const [catalogError, setCatalogError] = useState(false)
     const [globalConfig, setGlobalConfig] = useState<ReservationGlobalConfigPayload | null>(null)
     const [loading, setLoading] = useState(true)
     const [loadingGlobal, setLoadingGlobal] = useState(true)
@@ -220,6 +213,16 @@ function AdminCalendarioPageContent() {
         }
     }
 
+    const fetchCatalog = async () => {
+        try {
+            const response = await fetch('/api/cabins?isActive=true', { cache: 'no-store' })
+            const result = await response.json()
+            if (!response.ok || !result.success || !Array.isArray(result.data)) throw new Error('catalog')
+            setCatalogSpaces(getCalendarSpaces(result.data))
+            setCatalogError(false)
+        } catch { setCatalogError(true) }
+    }
+
     const fetchGlobalConfig = async () => {
         try {
             const res = await fetch('/api/admin/day-configs/default', {
@@ -249,6 +252,7 @@ function AdminCalendarioPageContent() {
     useEffect(() => {
         fetchConfigs()
         fetchGlobalConfig()
+        fetchCatalog()
     }, [])
 
     useEffect(() => {
@@ -635,8 +639,9 @@ function AdminCalendarioPageContent() {
                         </div>
                     ) : (
                         <>
+                            {catalogError && <p role="alert" className="text-sm text-red-700">Não foi possível carregar todos os espaços. <button type="button" onClick={fetchCatalog} className="min-h-11 underline">Tentar novamente</button></p>}
                             <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
-                                <h3 className="font-semibold text-[#2a2a2a]">Produtos liberados no dia a dia</h3>
+                                <h3 className="font-semibold text-[#2a2a2a]">Liberação geral por categoria no dia a dia</h3>
                                 <div className="grid md:grid-cols-3 gap-3 text-sm">
                                     <label className="flex items-center gap-2">
                                         <input
@@ -681,7 +686,7 @@ function AdminCalendarioPageContent() {
                                 </div>
                             </div>
 
-                            <ReservationConditionsEditor isDefault value={globalForm.commercialConditions} onChange={commercialConditions => setGlobalForm(prev => ({ ...prev, commercialConditions }))} />
+                            <ReservationConditionsEditor spaces={catalogSpaces} isDefault value={globalForm.commercialConditions} onChange={commercialConditions => setGlobalForm(prev => ({ ...prev, commercialConditions }))} />
                             <div className="rounded-xl border border-[#e0d5c7] p-4 space-y-4">
                                 <h3 className="font-semibold text-[#2a2a2a]">Ajuste comercial opcional do dia a dia</h3>
                                 <p className="text-xs text-[#8a5c3f]/80">
@@ -693,8 +698,8 @@ function AdminCalendarioPageContent() {
                                         <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva (Day Use: por pessoa)</span>
                                         <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                     </div>
-                                    {SPACE_OVERRIDE_FIELDS.map(space => {
-                                        const override = globalForm.priceOverrides[space.id]
+                                    {catalogSpaces.map(space => {
+                                        const override = globalForm.priceOverrides[space.id] ?? { enabled: false, price: '', consumable: '' }
                                         return (
                                             <div key={space.id} className="grid md:grid-cols-4 gap-3 items-center">
                                                 <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">
@@ -706,7 +711,7 @@ function AdminCalendarioPageContent() {
                                                             priceOverrides: {
                                                                 ...prev.priceOverrides,
                                                                 [space.id]: {
-                                                                    ...prev.priceOverrides[space.id],
+                                                                    ...override,
                                                                     enabled: e.target.checked,
                                                                 },
                                                             },
@@ -724,7 +729,7 @@ function AdminCalendarioPageContent() {
                                                         priceOverrides: {
                                                             ...prev.priceOverrides,
                                                             [space.id]: {
-                                                                ...prev.priceOverrides[space.id],
+                                                                ...override,
                                                                 price: sanitizeCurrencyTyping(e.target.value),
                                                             },
                                                         },
@@ -736,7 +741,7 @@ function AdminCalendarioPageContent() {
                                                             priceOverrides: {
                                                                 ...prev.priceOverrides,
                                                                 [space.id]: {
-                                                                    ...prev.priceOverrides[space.id],
+                                                                    ...override,
                                                                     price: formatted,
                                                                 },
                                                             },
@@ -754,7 +759,7 @@ function AdminCalendarioPageContent() {
                                                         priceOverrides: {
                                                             ...prev.priceOverrides,
                                                             [space.id]: {
-                                                                ...prev.priceOverrides[space.id],
+                                                                ...override,
                                                                 consumable: sanitizeCurrencyTyping(e.target.value),
                                                             },
                                                         },
@@ -766,7 +771,7 @@ function AdminCalendarioPageContent() {
                                                             priceOverrides: {
                                                                 ...prev.priceOverrides,
                                                                 [space.id]: {
-                                                                    ...prev.priceOverrides[space.id],
+                                                                    ...override,
                                                                     consumable: formatted,
                                                                 },
                                                             },
@@ -954,7 +959,7 @@ function AdminCalendarioPageContent() {
 
                         {<Input label="Aplicar até (opcional, inclui a data final)" type="date" min={form.date} value={form.endDate} onChange={event => setForm(prev => ({ ...prev, endDate: event.target.value }))} />}
                         <p className="text-sm text-[#8a5c3f]">Ao aplicar um período, eventos e bloqueios já cadastrados são preservados. Para alterar suas condições, edite a data individualmente.</p>
-                        <ReservationConditionsEditor value={form.commercialConditions} onChange={commercialConditions => setForm(prev => ({ ...prev, commercialConditions }))} />
+                        <ReservationConditionsEditor spaces={catalogSpaces} value={form.commercialConditions} onChange={commercialConditions => setForm(prev => ({ ...prev, commercialConditions }))} />
                         <Textarea
                             label="Release para o calendário"
                             value={form.release}
@@ -1043,8 +1048,8 @@ function AdminCalendarioPageContent() {
                                     <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Preço da reserva (Day Use: por pessoa)</span>
                                     <span className="text-xs font-semibold uppercase tracking-wide text-[#8a5c3f]">Consumação mínima</span>
                                 </div>
-                                {SPACE_OVERRIDE_FIELDS.map(space => {
-                                    const override = form.priceOverrides[space.id]
+                                {catalogSpaces.map(space => {
+                                    const override = form.priceOverrides[space.id] ?? { enabled: false, price: '', consumable: '' }
                                     return (
                                         <div key={space.id} className="grid md:grid-cols-4 gap-3 items-center">
                                             <label className="flex items-center gap-2 text-sm text-[#2a2a2a]">
@@ -1056,7 +1061,7 @@ function AdminCalendarioPageContent() {
                                                         priceOverrides: {
                                                             ...prev.priceOverrides,
                                                             [space.id]: {
-                                                                ...prev.priceOverrides[space.id],
+                                                                ...override,
                                                                 enabled: e.target.checked,
                                                             },
                                                         },
@@ -1074,7 +1079,7 @@ function AdminCalendarioPageContent() {
                                                     priceOverrides: {
                                                         ...prev.priceOverrides,
                                                         [space.id]: {
-                                                            ...prev.priceOverrides[space.id],
+                                                            ...override,
                                                             price: sanitizeCurrencyTyping(e.target.value),
                                                         },
                                                     },
@@ -1086,7 +1091,7 @@ function AdminCalendarioPageContent() {
                                                         priceOverrides: {
                                                             ...prev.priceOverrides,
                                                             [space.id]: {
-                                                                ...prev.priceOverrides[space.id],
+                                                                ...override,
                                                                 price: formatted,
                                                             },
                                                         },
@@ -1104,7 +1109,7 @@ function AdminCalendarioPageContent() {
                                                     priceOverrides: {
                                                         ...prev.priceOverrides,
                                                         [space.id]: {
-                                                            ...prev.priceOverrides[space.id],
+                                                            ...override,
                                                             consumable: sanitizeCurrencyTyping(e.target.value),
                                                         },
                                                     },
@@ -1116,7 +1121,7 @@ function AdminCalendarioPageContent() {
                                                         priceOverrides: {
                                                             ...prev.priceOverrides,
                                                             [space.id]: {
-                                                                ...prev.priceOverrides[space.id],
+                                                                ...override,
                                                                 consumable: formatted,
                                                             },
                                                         },

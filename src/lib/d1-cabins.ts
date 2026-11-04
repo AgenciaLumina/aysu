@@ -5,7 +5,7 @@ import { createD1DomainReader } from './d1-reader'
 import { getD1Database, type D1Statement } from './d1-batch'
 import { D1SnapshotConflict } from './d1-read-snapshot'
 import { getCabinGroupKey, listCabinGroupMembers, sumCabinUnits, getNormalizedCabinUnits } from './cabin-groups'
-import { inferCabinIdentity, isIndividualCabinSlug, getSpaceCategoryKey, getCabinSpaceKey } from './space-slugs'
+import { inferCabinIdentity, isIndividualCabinSlug } from './space-slugs'
 import { buildDeletedCabinName } from './cabin-trash'
 import { getCabinGallery, MAX_CABIN_IMAGES } from './cabin-gallery'
 import type { createCabinSchema, updateCabinSchema } from './validations'
@@ -80,18 +80,12 @@ async function saveCabin(actorId: string, requestedId: string | null, input: Inp
                 const nextGroup = getCabinGroupKey({ id, name: nextName, slug: inferredSlug })
                 if (!current || nextGroup !== getCabinGroupKey(current)) {
                     if (all.some(cabin => !cabin.deletedAt && !memberIds.has(cabin.id) && getCabinGroupKey(cabin) === nextGroup)) {
-                        throw new CabinMutationError('Este tipo de espaço já existe. Edite o cadastro existente.', 409)
-                    }
-                    // Do not expose a pooled stock alongside its physical units.
-                    if (all.some(cabin => !cabin.deletedAt && cabin.isActive && !memberIds.has(cabin.id)
-                        && getSpaceCategoryKey(getCabinSpaceKey(cabin)) === getSpaceCategoryKey(nextGroup)
-                        && isIndividualCabinSlug(getCabinSpaceKey(cabin)) !== isIndividualCabinSlug(nextGroup))) {
-                        throw new CabinMutationError('Esta categoria já possui estoque cadastrado. Edite as unidades existentes para não duplicar vagas.', 409)
+                        throw new CabinMutationError('Já existe um espaço com este nome ou identificador. Edite o cadastro existente.', 409)
                     }
                 }
                 const active = members.filter(cabin => cabin.isActive)
                 const units = input.units ?? (current ? active.length ? sumCabinUnits(active) : getNormalizedCabinUnits(current.units) : 1)
-                if (isIndividualCabinSlug(nextGroup) && units !== 1) throw new CabinMutationError('Um bangalô numerado representa uma unidade. Mantenha a quantidade em 1.', 400)
+                if (isIndividualCabinSlug(nextGroup) && units !== 1) throw new CabinMutationError('Um espaço numerado representa uma unidade. Mantenha a quantidade em 1.', 400)
                 write(id, { ...fields, name: nextName, slug: inferredSlug, units, ...(!current ? { isActive: true } : {}) }, !current)
                 for (const member of members) {
                     if (member.id !== id) write(member.id, { isActive: false, visibilityStatus: 'HIDDEN' })

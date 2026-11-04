@@ -1,4 +1,4 @@
-import { parseCommercialConditions, type CommercialConditions } from './reservation-commercial'
+import { getCommercialCondition, parseCommercialConditions, type CommercialConditions } from './reservation-commercial'
 import { DayConfigStatus, type ReservationDayConfig, type ReservationGlobalConfig } from '@/lib/db'
 import { getSpaceCategoryKey } from './space-slugs'
 
@@ -57,12 +57,15 @@ export function isReservationDateBlocked(config?: { status: string; reservations
     return Boolean(config && (!config.reservationsEnabled || ['BLOCKED', 'PRIVATE_EVENT', 'WAITING_RELEASE'].includes(config.status)))
 }
 
-export function isSpaceEnabled(spaceKey: string, items: ReservableItems): boolean {
-    if (spaceKey.startsWith('bangalo-')) return items.bangalos
-    if (spaceKey === 'sunbed-casal') return items.sunbeds
-    if (spaceKey === 'mesa-restaurante') return items.restaurantTables
-    if (spaceKey === 'mesa-praia') return items.beachTables
-    if (spaceKey === 'day-use-praia') return items.dayUse
+export function isSpaceEnabled(spaceKey: string, items: ReservableItems, global: CommercialConditions = {}, day: CommercialConditions = {}): boolean {
+    const explicit = getCommercialCondition(spaceKey, global, day).reservationsEnabled
+    if (explicit !== undefined) return explicit
+    const category = getSpaceCategoryKey(spaceKey)
+    if (category.startsWith('bangalo-')) return items.bangalos
+    if (category === 'sunbed-casal') return items.sunbeds
+    if (category === 'mesa-restaurante') return items.restaurantTables
+    if (category === 'mesa-praia') return items.beachTables
+    if (category === 'day-use-praia') return items.dayUse
     return true
 }
 

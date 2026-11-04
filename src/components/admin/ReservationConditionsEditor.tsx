@@ -1,23 +1,32 @@
 'use client'
 
 import { DEFAULT_DAY_USE_ACCOMMODATION, type CommercialConditions, type SpaceCondition } from '@/lib/reservation-commercial'
-import { SPACE_SLUG_PREFIX } from '@/lib/space-slugs'
+import { getCalendarSpaces, type CalendarSpace } from '@/lib/calendar-spaces'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
-export function ReservationConditionsEditor({ value, onChange, isDefault = false }: { value: CommercialConditions; onChange: (value: CommercialConditions) => void; isDefault?: boolean }) {
+export function ReservationConditionsEditor({ value, onChange, isDefault = false, spaces = getCalendarSpaces([]) }: { value: CommercialConditions; onChange: (value: CommercialConditions) => void; isDefault?: boolean; spaces?: CalendarSpace[] }) {
     const patch = (id: string, change: Partial<SpaceCondition>) => onChange({ ...value, [id]: { ...value[id], ...change } })
     const number = (raw: string) => raw === '' ? undefined : Number(raw)
     return <section className="space-y-3" aria-label="Condições comerciais por categoria">
         <div>
-            <h3 className="font-semibold text-[#2a2a2a]">Condições da reserva por categoria</h3>
-            <p className="mt-1 text-sm text-[#8a5c3f]">Preencha somente o que deseja definir. Na configuração por data, os campos vazios usam as condições padrão. Os valores são definidos na seção de preços.</p>
+            <h3 className="font-semibold text-[#2a2a2a]">Condições da reserva por categoria e espaço</h3>
+            <p className="mt-1 text-sm text-[#8a5c3f]">Preencha somente o que deseja definir. Na configuração por data, os campos vazios usam as condições padrão. A disponibilidade definida aqui tem prioridade sobre a liberação geral por categoria. Os valores são definidos na seção de preços.</p>
         </div>
-        {Object.entries(SPACE_SLUG_PREFIX).map(([id, label]) => {
+        {spaces.map(({ id, label }) => {
             const rule = value[id] ?? {}
             return <details key={id} className="rounded-xl border border-[#e0d5c7] p-4">
                 <summary className="cursor-pointer font-medium text-[#2a2a2a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8a5c3f]">{label}</summary>
                 <div className="mt-4 space-y-4">
+                    <label className="block text-sm font-medium text-[#2a2a2a]">Disponibilidade para reservas
+                        <select aria-label={`Disponibilidade de ${label}`} className="mt-1 block min-h-11 w-full rounded-lg border border-[#e0d5c7] bg-white p-3 focus-visible:outline-2 focus-visible:outline-[#8a5c3f]"
+                            value={rule.reservationsEnabled === undefined ? '' : rule.reservationsEnabled ? 'yes' : 'no'}
+                            onChange={event => patch(id, { reservationsEnabled: event.target.value === '' ? undefined : event.target.value === 'yes' })}>
+                            <option value="">Usar categoria / padrão</option>
+                            <option value="yes">Oferecer para reserva</option>
+                            <option value="no">Não oferecer para reserva</option>
+                        </select>
+                    </label>
                     <Textarea label="Regras e observações exibidas ao cliente" value={rule.text ?? ''} onChange={event => patch(id, { text: event.target.value })} rows={3} maxLength={5000} placeholder="Benefícios, restrições e condições desta categoria." />
                     {id === 'day-use-praia' && <div className="space-y-2">
                         <Textarea label="Texto de acomodação do Day Use" value={rule.accommodationText ?? (isDefault ? DEFAULT_DAY_USE_ACCOMMODATION : '')}

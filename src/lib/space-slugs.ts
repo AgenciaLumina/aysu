@@ -25,19 +25,19 @@ export function isSpaceSlug(value: string): value is SpaceSlug {
     return SPACE_SLUGS.includes(value as SpaceSlug)
 }
 
-/** Category rules remain shared; a numbered slug identifies one physical bungalow. */
+/** Named entries have their own identity; known categories can supply shared rules. */
 export function getSpaceCategoryKey(key: string): string {
-    return SPACE_SLUGS.find(slug => slug.startsWith('bangalo-') && new RegExp(`^${slug}-[1-9]\\d*$`).test(key)) || key
+    return SPACE_SLUGS.find(slug => key.startsWith(`${slug}-`)) || key
 }
 
 export function isIndividualCabinSlug(key: string): boolean {
-    return getSpaceCategoryKey(key) !== key
+    return getSpaceCategoryKey(key) !== key && /-[1-9]\d*$/.test(key)
 }
 
 export function inferCabinIdentity(name: string): string | null {
-    const category = resolveCabinSlugFromName(name)
-    const number = normalize(name).match(/(?:\s|-)([1-9]\d*)$/)?.[1]
-    return category?.startsWith('bangalo-') && number ? `${category}-${number}` : category
+    const slug = normalize(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    // Preserve the established Sunbed category while allowing any name/suffix.
+    return slug.replace(/^sun-?bed(?:-casal)?(?=-|$)/, 'sunbed-casal') || null
 }
 
 export function cabinMatchesSpace(input: { id: string; name: string; slug?: string | null }, key: string): boolean {
@@ -52,14 +52,15 @@ export function getSpacePrefix(slug: SpaceSlug): string {
 export function resolveCabinSlugFromName(cabinName: string): SpaceSlug | null {
     const normalized = normalize(cabinName)
 
+    if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
+    if (normalized.includes('day use') && normalized.includes('praia')) return 'day-use-praia'
+    if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
+    if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
+
     if (normalized.includes('lateral')) return 'bangalo-lateral'
     if (normalized.includes('piscina')) return 'bangalo-piscina'
     if (normalized.includes('frente') && normalized.includes('mar')) return 'bangalo-frente-mar'
     if (normalized.includes('central')) return 'bangalo-central'
-    if (normalized.includes('sunbed') || normalized.includes('sun bed')) return 'sunbed-casal'
-    if (normalized.includes('mesa') && normalized.includes('restaurante')) return 'mesa-restaurante'
-    if (normalized.includes('mesa') && normalized.includes('praia')) return 'mesa-praia'
-    if (normalized.includes('day use') && normalized.includes('praia')) return 'day-use-praia'
 
     return null
 }
@@ -88,7 +89,7 @@ export function getCabinSpaceKey(input: { id: string; name: string; slug?: strin
 
 export function getCabinSpaceLabel(input: { name: string; slug?: string | null }): string {
     const slug = typeof input.slug === 'string' ? input.slug.trim() : ''
-    if (isIndividualCabinSlug(slug)) return input.name
+    if (slug && !isSpaceSlug(slug)) return input.name
     if (slug && isSpaceSlug(slug)) {
         return getSpacePrefix(slug)
     }
@@ -99,4 +100,10 @@ export function getCabinSpaceLabel(input: { name: string; slug?: string | null }
     }
 
     return input.name
+}
+
+/** A named category is a real offering, even when retired. Old links with no such record aggregate children. */
+export function getInventoryMembers<T extends { id: string; name: string; slug?: string | null; isActive: boolean; deletedAt?: unknown }>(cabins: T[], spaceKey: string): T[] {
+    const hasOwnOffering = cabins.some(cabin => !cabin.deletedAt && getCabinSpaceKey(cabin) === spaceKey)
+    return cabins.filter(cabin => !cabin.deletedAt && (hasOwnOffering ? getCabinSpaceKey(cabin) === spaceKey : cabinMatchesSpace(cabin, spaceKey)))
 }
