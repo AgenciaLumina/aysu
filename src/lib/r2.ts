@@ -7,7 +7,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 type MediaBucket = {
     put(key: string, bytes: Uint8Array, options: { httpMetadata: { contentType: string; cacheControl: string } }): Promise<unknown>
     delete(key: string): Promise<void>
-    list(options: { prefix: string; limit: number }): Promise<{ objects: Array<{ key: string; size: number; uploaded: Date }>; truncated: boolean }>
+    list(options: { prefix: string; limit: number; cursor?: string }): Promise<{ objects: Array<{ key: string; size: number; uploaded: Date }>; truncated: boolean; cursor?: string }>
 }
 
 function nativeMediaBucket(): MediaBucket | null {
@@ -119,13 +119,13 @@ export function getKeyFromUrl(url: string): string | null {
     return url.replace(`${R2_CONFIG.publicUrl}/`, '')
 }
 
-export async function listR2Files(prefix: string, limit: number) {
+export async function listR2Files(prefix: string, limit: number, cursor?: string) {
     const bucket = nativeMediaBucket()
     if (bucket) {
-        const result = await bucket.list({ prefix, limit })
-        return { files: result.objects.map(item => ({ key: item.key, size: item.size, lastModified: item.uploaded, url: `${R2_CONFIG.publicUrl}/${item.key}` })), hasMore: result.truncated }
+        const result = await bucket.list({ prefix, limit, ...(cursor ? { cursor } : {}) })
+        return { files: result.objects.map(item => ({ key: item.key, size: item.size, lastModified: item.uploaded, url: `${R2_CONFIG.publicUrl}/${item.key}` })), hasMore: result.truncated, nextCursor: result.truncated ? result.cursor : null }
     }
     assertR2Config()
-    const result = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_CONFIG.bucket, Prefix: prefix, MaxKeys: limit }))
-    return { files: (result.Contents || []).map(item => ({ key: item.Key!, size: item.Size!, lastModified: item.LastModified!, url: `${R2_CONFIG.publicUrl}/${item.Key}` })), hasMore: result.IsTruncated || false }
+    const result = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_CONFIG.bucket, Prefix: prefix, MaxKeys: limit, ContinuationToken: cursor }))
+    return { files: (result.Contents || []).map(item => ({ key: item.Key!, size: item.Size!, lastModified: item.LastModified!, url: `${R2_CONFIG.publicUrl}/${item.Key}` })), hasMore: result.IsTruncated || false, nextCursor: result.IsTruncated ? result.NextContinuationToken : null }
 }

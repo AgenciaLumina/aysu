@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
@@ -18,12 +18,7 @@ import {
     validateImageUpload,
 } from '@/lib/upload-client'
 
-interface MediaFile {
-    key: string
-    size: number
-    lastModified: Date
-    url: string
-}
+import { fetchMediaFiles, type MediaFile } from '@/lib/media-client'
 
 const FOLDERS = [
     { value: '', label: 'Todos' },
@@ -42,31 +37,34 @@ export default function AdminMediaPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
 
-    useEffect(() => {
-        fetchFiles()
+    const mediaRequest = useRef<AbortController | null>(null)
+
+    const fetchFiles = useCallback(async () => {
+        mediaRequest.current?.abort()
+        const controller = new AbortController()
+        mediaRequest.current = controller
+        try {
+            const result = await fetchMediaFiles(selectedFolder, controller.signal)
+            if (!controller.signal.aborted) setFiles(result)
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                toast.error(error instanceof Error ? error.message : 'Erro ao carregar arquivos')
+            }
+        } finally {
+            if (!controller.signal.aborted) setLoading(false)
+        }
     }, [selectedFolder])
 
-    const fetchFiles = async () => {
-        setLoading(true)
-        try {
-            const res = await fetch(`/api/admin/media?folder=${selectedFolder}`)
-            const data = await res.json()
-
-            if (data.success) {
-                setFiles(data.data.files)
-            }
-        } catch (error) {
-            console.error('Error fetching files:', error)
-            toast.error('Erro ao carregar arquivos')
-        } finally {
-            setLoading(false)
-        }
-    }
+    useEffect(() => {
+        void fetchFiles()
+        return () => mediaRequest.current?.abort()
+    }, [fetchFiles])
 
     const handleUpload = async (fileList: FileList | null) => {
         if (!fileList || fileList.length === 0) return
 
         setUploading(true)
+        let uploadedCount = 0
 
         for (const file of Array.from(fileList)) {
             try {
@@ -98,7 +96,8 @@ export default function AdminMediaPage() {
 
                 const data = await readUploadApiResponse(res)
 
-                if (res.ok && data.success) {
+                if (res.ok && data.success && data.data?.key && data.data?.url) {
+                    uploadedCount += 1
                     toast.success(`${file.name} convertido e enviado!`)
                 } else {
                     toast.error(`Erro (${file.name}): ${data.error || 'falha desconhecida'}`)
@@ -109,8 +108,13 @@ export default function AdminMediaPage() {
             }
         }
 
+        if (uploadedCount > 0) {
+            setSearchTerm('')
+            setLoading(true)
+            setFiles([])
+            await fetchFiles()
+        }
         setUploading(false)
-        fetchFiles()
     }
 
     const handleDelete = async (key: string) => {
@@ -189,7 +193,10 @@ export default function AdminMediaPage() {
                         multiple
                         className="hidden"
                         id="media-upload"
-                        onChange={(e) => handleUpload(e.target.files)}
+                        onChange={(event) => {
+                            const input = event.currentTarget
+                            void handleUpload(input.files).finally(() => { input.value = '' })
+                        }}
                         disabled={uploading}
                     />
                     <label htmlFor="media-upload">
@@ -220,7 +227,12 @@ export default function AdminMediaPage() {
                 </div>
                 <select
                     value={selectedFolder}
-                    onChange={(e) => setSelectedFolder(e.target.value)}
+                    disabled={uploading}
+                    onChange={(e) => {
+                        setLoading(true)
+                        setFiles([])
+                        setSelectedFolder(e.target.value)
+                    }}
                     className="px-4 py-2 rounded-lg border border-[#e0d5c7] bg-white focus:ring-2 focus:ring-[#d4a574]"
                 >
                     {FOLDERS.map(folder => (

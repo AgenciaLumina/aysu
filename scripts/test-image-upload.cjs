@@ -16,7 +16,8 @@ const sharp = require('sharp')
             export { GET } from './src/app/api/admin/media/route';
             export { DELETE } from './src/app/api/admin/media/delete/route';
             export { generateToken } from './src/lib/auth';
-            export { inspectAvif } from './src/lib/image-upload';`, context)
+            export { inspectAvif } from './src/lib/image-upload';
+            export { fetchMediaFiles } from './src/lib/media-client';`, context)
         const token = api.generateToken({ id: 'synthetic', email: 'synthetic@example.invalid', role: 'ADMIN' })
         const { NextRequest } = require('next/server')
         const request = (body, auth = true) => new NextRequest('http://localhost/api/upload', { method: 'POST', headers: auth ? { Authorization: `Bearer ${token}` } : {}, body })
@@ -43,6 +44,44 @@ const sharp = require('sharp')
         const listed = await (await api.GET(listRequest)).json(); assert.equal(listed.data.count, 1); assert.equal(listed.data.files[0].key, body.data.key)
         const deletion = new NextRequest('http://localhost/api/admin/media/delete', { method: 'DELETE', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ key: body.data.key }) })
         assert.equal((await api.DELETE(deletion)).status, 200); assert.equal((await bucket.list()).objects.length, 0)
+        // Reproduce the real incident: a new image sorts beyond the first 200 keys.
+        await Promise.all(Array.from({ length: 203 }, (_, i) => bucket.put(`visibility/old-${String(i).padStart(3, '0')}.avif`, avif)))
+        const latestKey = 'visibility/zzzz-new-upload.avif'
+        await bucket.put(latestKey, avif)
+        await bucket.put('unrelated/keep.avif', avif)
+        const authHeaders = { Authorization: `Bearer ${token}` }
+        const firstPage = await api.GET(new NextRequest('http://localhost/api/admin/media?folder=visibility/', { headers: authHeaders }))
+        assert.match(firstPage.headers.get('cache-control'), /no-store/)
+        const firstData = (await firstPage.json()).data
+        assert.equal(firstData.files.length, 200); assert.equal(firstData.hasMore, true); assert.ok(firstData.nextCursor)
+        assert(!firstData.files.some(file => file.key === latestKey), 'Fixture must reproduce the old hidden upload')
+        const actualFetch = global.fetch
+        const pageRequests = []
+        try {
+            global.fetch = async (url, options) => {
+                if (typeof url === 'string' && url.startsWith('/api/admin/media?')) {
+                    pageRequests.push(url)
+                    assert.equal(options.cache, 'no-store')
+                    return api.GET(new NextRequest('http://localhost' + url, { headers: authHeaders, signal: options.signal }))
+                }
+                return actualFetch(url, options)
+            }
+            const all = await api.fetchMediaFiles('visibility/')
+            assert.equal(all.length, 204); assert.equal(new Set(all.map(file => file.key)).size, 204)
+            assert.equal(all[0].key, latestKey, 'Newest upload must be first, even from a later R2 page')
+            assert.equal(pageRequests.length, 2); assert(new URL(pageRequests[1], 'http://localhost').searchParams.get('cursor'))
+            assert(all.every(file => file.key.startsWith('visibility/')), 'Folder isolation must hold on every page')
+            const filtered = await api.fetchMediaFiles('visibility/zzzz')
+            assert.equal(filtered.length, 1); assert.equal(filtered[0].key, latestKey)
+            global.fetch = async () => Response.json({ success: true, data: { files: [], hasMore: true } })
+            await assert.rejects(() => api.fetchMediaFiles(''), /por completo/)
+            global.fetch = async () => Response.json({ success: true, data: { files: [], hasMore: true, nextCursor: 'repeated' } })
+            await assert.rejects(() => api.fetchMediaFiles(''), /por completo/)
+            global.fetch = async () => Response.json({ success: false, error: 'Acesso negado' }, { status: 403 })
+            await assert.rejects(() => api.fetchMediaFiles(''), /Acesso negado/)
+        } finally { global.fetch = actualFetch }
+        assert.equal((await api.GET(new NextRequest('http://localhost/api/admin/media'))).status, 403)
+        console.log('PASS media visibility: 204 objects over two native R2 pages, newest-first ordering, folder filtering, no duplicates/cache, incomplete-page and auth errors.')
         context.env.MEDIA_BUCKET = undefined
         assert.equal((await api.POST(request(form(avif)))).status, 500)
         console.log('PASS isolated upload: auth, genuine AVIF, mislabeled/corrupt/oversize rejection, no invalid writes, native R2 bytes/metadata, list/delete and missing binding. No production resources used.')

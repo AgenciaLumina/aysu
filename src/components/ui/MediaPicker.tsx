@@ -1,7 +1,7 @@
 // Media Picker Component - Escolher entre Upload ou Selecionar do R2
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { Upload, FolderOpen, Check, Loader2, ImageIcon } from 'lucide-react'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from './Modal'
@@ -15,12 +15,7 @@ import {
     validateImageUpload,
 } from '@/lib/upload-client'
 
-interface MediaFile {
-    key: string
-    url: string
-    size: number
-    lastModified: string
-}
+import { fetchMediaFiles as loadMediaFiles, type MediaFile } from '@/lib/media-client'
 
 interface MediaPickerProps {
     open: boolean
@@ -73,6 +68,7 @@ export function MediaPicker({
     const [uploading, setUploading] = useState(false)
     const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
     const [currentFolder, setCurrentFolder] = useState(defaultFolder)
+    const mediaRequest = useRef<AbortController | null>(null)
 
     useEffect(() => {
         if (!open) return
@@ -82,31 +78,28 @@ export function MediaPicker({
     }, [open, defaultFolder, initialMode])
 
     const fetchMediaFiles = useCallback(async () => {
+        mediaRequest.current?.abort()
+        const controller = new AbortController()
+        mediaRequest.current = controller
         setLoading(true)
+        setFiles([])
         try {
-            const res = await fetch(`/api/admin/media?folder=${currentFolder}&limit=200`)
-            const data = await res.json()
-            if (data.success) {
-                // Filtrar apenas imagens
-                const imageFiles = data.data.files.filter((f: MediaFile) =>
-                    f.key.match(/\.(jpg|jpeg|png|webp|avif)$/i)
-                )
-                setFiles(imageFiles)
-            } else {
-                toast.error('Erro ao carregar: ' + (data.error || 'desconhecido'))
+            const result = await loadMediaFiles(currentFolder, controller.signal)
+            if (!controller.signal.aborted) {
+                setFiles(result.filter(file => /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(file.key)))
             }
         } catch (error) {
-            console.error('Fetch error:', error)
-            toast.error('Erro ao carregar arquivos')
+            if (!controller.signal.aborted) {
+                toast.error(error instanceof Error ? error.message : 'Erro ao carregar arquivos')
+            }
         } finally {
-            setLoading(false)
+            if (!controller.signal.aborted) setLoading(false)
         }
     }, [currentFolder])
 
     useEffect(() => {
-        if (open && mode === 'browse') {
-            fetchMediaFiles()
-        }
+        if (open && mode === 'browse') void fetchMediaFiles()
+        return () => mediaRequest.current?.abort()
     }, [open, mode, fetchMediaFiles])
 
     useEffect(() => {
